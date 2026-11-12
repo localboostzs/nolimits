@@ -106,3 +106,14 @@
 .btn-line-dark{border-color:var(--ink);color:var(--ink)}
 .btn-line-dark::before{background:var(--ink)}
 .btn-line-dark:hover{color:var(--paper)}
+
+/* Optische, nur auf Anfrage sichtbare Ferien-Demo (?ferien-demo=1). */
+.nld-modal-open{overflow:hidden}
+.nld-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:rgba(10,10,9,.77);animation:nld-fade .3s ease both}
+.nld-panel{width:min(100%,570px);padding:clamp(28px,5vw,54px);background:var(--paper);color:var(--text);border:1px solid var(--gold);box-shadow:0 28px 90px rgba(0,0,0,.38)}
+.nld-eyebrow{display:block;margin-bottom:20px;color:var(--gold-deep);font-size:.75rem;letter-spacing:.16em;font-weight:700;text-transform:uppercase}
+.nld-panel h2{margin-bottom:18px;font-family:var(--font-head);font-size:clamp(2rem,5vw,3rem);line-height:1.12}
+.nld-panel p{margin:0 0 22px;color:var(--text-soft);font-size:1rem;line-height:1.6}
+.nld-panel .nld-disclaimer{margin-top:18px;margin-bottom:0;font-size:.8rem;color:var(--text-soft)}
+@keyframes nld-fade{from{opacity:0}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.nld-backdrop{animation:none}}
