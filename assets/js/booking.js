@@ -175,6 +175,7 @@
     ok = fieldError('f-name', f.name.value.trim().length < 2 ? 'Bitte Namen angeben.' : '') && ok;
     ok = fieldError('f-email', !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]{2,}$/.test(f.email.value.trim()) ? 'Bitte gültige E-Mail-Adresse angeben.' : '') && ok;
     ok = fieldError('f-phone', !/^\+?[0-9 ()\/.-]{7,25}$/.test(f.phone.value.trim()) ? 'Bitte gültige Telefonnummer angeben.' : '') && ok;
+    ok = fieldError('f-address', f.address.value.trim().length < 5 ? 'Bitte vollständige Adresse angeben.' : '') && ok;
     var t = $('#f-terms'); var te = $('#f-terms-err'); if (!t.checked) { t.setAttribute('aria-invalid', 'true'); te.textContent = 'Bitte bestätigen, um fortzufahren.'; ok = false; } else { t.removeAttribute('aria-invalid'); te.textContent = ''; }
     return ok;
   }
@@ -184,7 +185,7 @@
     if (!validate()) { var bad = $('#bk-form [aria-invalid="true"]'); if (bad) bad.focus(); return; }
     var f = ev.target; var btn = $('#bk-submit'); state.busy = true; btn.disabled = true; var old = btn.textContent; btn.textContent = 'Wird gebucht …';
     try {
-      var r = await api('/api/book', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ service: state.service.key, start: state.slot, name: f.name.value, email: f.email.value, phone: f.phone.value, notes: f.notes.value, accepted: $('#f-terms').checked, website: f.website.value, elapsedMs: Date.now() - state.formShown }) });
+      var r = await api('/api/book', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ service: state.service.key, start: state.slot, name: f.name.value, email: f.email.value, phone: f.phone.value, notes: ('Adresse: ' + f.address.value.trim() + (f.notes.value.trim() ? '\nNotiz: ' + f.notes.value.trim() : '')).slice(0, 500), accepted: $('#f-terms').checked, website: f.website.value, elapsedMs: Date.now() - state.formShown }) });
       showSuccess(r.booking);
     } catch (e) {
       if (e.code === 'slot_unavailable') {
@@ -217,7 +218,7 @@
     $('#f-terms-label').textContent = TERMS;
     $('#cal-prev').addEventListener('click', function () { state.month.m--; if (state.month.m < 0) { state.month.m = 11; state.month.y--; } state.date = null; $('#slots-wrap').hidden = true; loadMonth(); });
     $('#cal-next').addEventListener('click', function () { state.month.m++; if (state.month.m > 11) { state.month.m = 0; state.month.y++; } state.date = null; $('#slots-wrap').hidden = true; loadMonth(); });
-    ['f-name', 'f-email', 'f-phone'].forEach(function (id) { $('#' + id).addEventListener('input', function () { fieldError(id, ''); }); });
+    ['f-name', 'f-email', 'f-phone', 'f-address'].forEach(function (id) { $('#' + id).addEventListener('input', function () { fieldError(id, ''); }); });
     $('#f-terms').addEventListener('change', function () { this.removeAttribute('aria-invalid'); $('#f-terms-err').textContent = ''; });
     $('#bk-form').addEventListener('submit', submit);
     $('#bk-back-date').addEventListener('click', function () { goto(1); });
