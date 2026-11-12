@@ -85,11 +85,11 @@ a{color:inherit}
 .menu-open .menu-btn span:nth-child(2){top:23px;transform:rotate(-45deg)}
 @media (max-width:899.98px){
   .js .nav{display:flex;position:fixed;inset:0;z-index:-1;flex-direction:column;justify-content:center;gap:6px;padding:calc(var(--header-h) + 24px) var(--pad) 40px;background:var(--ink);visibility:hidden;opacity:0;transform:translateY(-12px);transition:opacity .45s var(--ease),transform .45s var(--ease),visibility 0s .45s}
-  .js .menu-open .nav{visibility:visible;opacity:1;transform:none;transition-delay:0s}
+  .js.menu-open .nav{visibility:visible;opacity:1;transform:none;transition-delay:0s}
   .js .nav a{font-family:var(--font-head);font-size:clamp(2rem,9vw,3rem);font-weight:700;letter-spacing:0;text-transform:none;min-height:64px;border-bottom:1px solid var(--line-dark);width:100%;opacity:0;transform:translateY(14px);transition:opacity .5s var(--ease),transform .5s var(--ease)}
-  .js .menu-open .nav a{opacity:1;transform:none}
-  .js .menu-open .nav a:nth-child(2){transition-delay:.06s}
-  .js .menu-open .nav a:nth-child(3){transition-delay:.12s}
+  .js.menu-open .nav a{opacity:1;transform:none}
+  .js.menu-open .nav a:nth-child(2){transition-delay:.06s}
+  .js.menu-open .nav a:nth-child(3){transition-delay:.12s}
   .js .nav a::after{display:none}
   .nav{display:flex;flex-wrap:wrap;gap:0 18px;order:3;width:100%}
   .header-in{flex-wrap:wrap}
