@@ -180,7 +180,7 @@ export default {
     if (origin && !origins(env).includes(origin)) return fail('forbidden_origin', 'Origin nicht erlaubt.', 403, req, env);
     try {
       if (req.method === 'GET' && url.pathname === '/api/services') {
-        const list = Object.entries(SERVICES).map(([key, s]) => ({ key, name: s.name, minutes: s.minutes }));
+        const list = Object.entries(SERVICES).map(([key, s]) => ({ key, name: s.name, minutes: s.minutes, price: s.price ?? null }));
         return json({ ok: true, timeZone: TIME_ZONE, services: list }, 200, req, env);
       }
       if (req.method === 'GET' && url.pathname === '/api/slots') return await getSlots(url, req, env);

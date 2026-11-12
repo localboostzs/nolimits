@@ -85,6 +85,7 @@
     function row(k, v, muted) { var w = el('div'); w.appendChild(el('dt', null, k)); w.appendChild(el('dd', muted ? 'muted' : null, v)); dl.appendChild(w); }
     row('Leistung', state.service ? state.service.name : 'Noch nicht gewählt', !state.service);
     if (state.service) row('Dauer', state.service.minutes + ' Minuten');
+    if (state.service && Number.isFinite(state.service.price)) row('Preis (Zahlung vor Ort)', 'CHF ' + state.service.price);
     row('Datum', state.date ? fmtLong.format(new Date(state.date + 'T12:00:00Z')) : 'Noch nicht gewählt', !state.date);
     row('Uhrzeit', state.slot ? state.slot.slice(11, 16) + ' Uhr' : 'Noch nicht gewählt', !state.slot);
     sumEl.appendChild(dl);
@@ -98,7 +99,7 @@
     state.services.forEach(function (s) {
       var b = el('button', 'bk-service'); b.type = 'button'; b.setAttribute('aria-pressed', state.service && state.service.key === s.key ? 'true' : 'false');
       b.appendChild(el('span', 'n', s.name));
-      b.appendChild(el('span', 'd', s.minutes + ' Minuten'));
+      b.appendChild(el('span', 'd', s.minutes + ' Minuten' + (Number.isFinite(s.price) ? ' · CHF ' + s.price : '')));
       var go = el('span', 'go'); go.setAttribute('aria-hidden', 'true'); go.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'; b.appendChild(go);
       b.addEventListener('click', function () { state.service = s; state.cache = {}; state.date = null; state.slot = null; var n = new Date(); state.month = { y: Number(fmtYM(n).y), m: Number(fmtYM(n).m) - 1 }; showPanel(1); loadMonth(); var h = $('#p-date .bk-h'); h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); scrollTop(); });
       box.appendChild(b);
