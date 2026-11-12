@@ -94,12 +94,38 @@
   }
 
   /* ---------- Schritt 1: Leistungen ---------- */
+  var serviceThumbs = {
+    "haarschnitt-bartschnitt-rasieren": "thumb-haarschnitt-bartschnitt-rasieren-360.webp",
+    "haarschnitt-bartschnitt-augenbrauen": "thumb-haarschnitt-bartschnitt-augenbrauen-360.webp",
+    "haarschnitt-waschen": "thumb-haarschnitt-waschen-360.webp",
+    "haarschnitt-bartschnitt": "thumb-haarschnitt-bartschnitt-360.webp",
+    "classic-scissor-cut": "thumb-classic-hair-scissor-cut-360.webp",
+    "haarschnitt": "thumb-haarschnitt-360.webp",
+    "jugendliche-10-14": "thumb-jugendliche-360.webp",
+    "bartschnitt": "thumb-bartschnitt-360.webp",
+    "augenbrauen-zupfen": "thumb-augenbrauen-zupfen-360.webp",
+  };
   function renderServices() {
     var box = $('#services'); box.innerHTML = '';
     state.services.forEach(function (s) {
       var b = el('button', 'bk-service'); b.type = 'button'; b.setAttribute('aria-pressed', state.service && state.service.key === s.key ? 'true' : 'false');
-      b.appendChild(el('span', 'n', s.name));
-      b.appendChild(el('span', 'd', s.minutes + ' Minuten' + (Number.isFinite(s.price) ? ' · CHF ' + s.price : '')));
+      var thumb = el('span', 'bk-service-thumb');
+      var filename = serviceThumbs[s.key];
+      if (filename) {
+        var image = document.createElement('img');
+        image.src = '../assets/img/' + filename;
+        image.alt = '';
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        image.width = 82;
+        image.height = 82;
+        thumb.appendChild(image);
+      }
+      b.appendChild(thumb);
+      var detail = el('span', 'bk-service-detail');
+      detail.appendChild(el('span', 'n', s.name));
+      detail.appendChild(el('span', 'd', s.minutes + ' Minuten' + (Number.isFinite(s.price) ? ' · CHF ' + s.price : '')));
+      b.appendChild(detail);
       var go = el('span', 'go'); go.setAttribute('aria-hidden', 'true'); go.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'; b.appendChild(go);
       b.addEventListener('click', function () { state.service = s; state.cache = {}; state.date = null; state.slot = null; var n = new Date(); state.month = { y: Number(fmtYM(n).y), m: Number(fmtYM(n).m) - 1 }; showPanel(1); loadMonth(); var h = $('#p-date .bk-h'); h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); scrollTop(); });
       box.appendChild(b);

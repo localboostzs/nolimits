@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Termin buchen (Test) | NoLimits Barbershop</title>
-<meta name="description" content="Testseite für die Online-Terminbuchung des NoLimits Barbershop in Ibach SZ.">
+<title>Termin buchen | NoLimits Barbershop</title>
+<meta name="description" content="Online-Terminbuchung des NoLimits Barbershop in Ibach SZ.">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#0f0f0e">
 <link rel="icon" type="image/jpeg" href="../assets/img/logo-nolimits.jpg">
@@ -16,7 +16,6 @@
 <script src="../assets/js/main.js"></script>
 <script src="../assets/js/booking-config.js"></script>
 <script src="../assets/js/booking.js" defer></script>
-<script src="../assets/js/holiday-demo.js" defer></script>
 </head>
 <body id="top">
 <a class="skip" href="#main">Weiter zum Hauptinhalt</a>
@@ -28,14 +27,14 @@
 <a href="../kontakt/">Kontakt</a>
 <a href="../ueber-mich/">Über mich</a>
 </nav>
-<a class="btn btn-gold btn-sm header-cta" href="https://www.nolimits-barber.ch/book-online" data-booking>Termin buchen</a>
+<a class="btn btn-gold btn-sm header-cta" href="https://localboostzs.github.io/nolimits/booking-test/" data-booking>Termin buchen</a>
 <button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav" aria-label="Menü öffnen"><span></span><span></span></button>
 </div>
 </header>
 <main id="main">
 <section class="page-hero bk-hero">
 <div class="wrap page-hero-in">
-<span class="bk-badge reveal">Testbuchung</span>
+<span class="bk-badge reveal">Online buchen</span>
 <h1 class="display reveal" style="--d:.08s">Termin buchen</h1>
 <p class="lead reveal" style="--d:.16s">Wähle deine Leistung, deinen Tag und deine Uhrzeit.</p>
 </div>
@@ -70,11 +69,11 @@
 <h2 class="bk-h">Deine Angaben</h2>
 <p class="bk-sub">Wir brauchen nur wenige Angaben.</p>
 <form id="bk-form" class="bk-form" novalidate>
-<div class="bk-field"><label for="f-name">Name</label><input id="f-name" name="name" type="text" autocomplete="name" maxlength="80" required><div id="f-name-err" class="bk-err"></div></div>
-<div class="bk-field"><label for="f-email">E-Mail</label><input id="f-email" name="email" type="email" autocomplete="email" inputmode="email" maxlength="120" required><div id="f-email-err" class="bk-err"></div></div>
-<div class="bk-field"><label for="f-phone">Telefon</label><input id="f-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="30" required><div id="f-phone-err" class="bk-err"></div></div>
+<div class="bk-field"><label for="f-name">Name</label><input id="f-name" name="name" type="text" autocomplete="name" maxlength="80" required placeholder="Max Mustermann"><div id="f-name-err" class="bk-err"></div></div>
+<div class="bk-field"><label for="f-email">E-Mail</label><input id="f-email" name="email" type="email" autocomplete="email" inputmode="email" maxlength="120" required placeholder="max.mustermann@gmail.com"><div id="f-email-err" class="bk-err"></div></div>
+<div class="bk-field"><label for="f-phone">Telefon</label><input id="f-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="30" required placeholder="+41"><div id="f-phone-err" class="bk-err"></div></div>
 <div class="bk-field"><label for="f-address">Adresse</label><input id="f-address" name="address" type="text" autocomplete="street-address" placeholder="Strasse und Hausnummer, PLZ Ort" maxlength="160" required><div id="f-address-err" class="bk-err"></div></div>
-<div class="bk-field"><label for="f-notes">Nachricht (optional)</label><textarea id="f-notes" name="notes" maxlength="500"></textarea></div>
+<div class="bk-field"><label for="f-notes">Nachricht (optional)</label><textarea id="f-notes" name="notes" maxlength="500" placeholder="Besondere Wünsche (optional)"></textarea></div>
 <div class="bk-hp" aria-hidden="true"><label for="f-web">Website</label><input id="f-web" name="website" type="text" tabindex="-1" autocomplete="off"></div>
 <div><div class="bk-check"><input id="f-terms" name="terms" type="checkbox" required><label id="f-terms-label" for="f-terms"></label></div><div id="f-terms-err" class="bk-err"></div></div>
 <div id="bk-formmsg" class="bk-msg" role="alert" tabindex="-1" hidden></div>

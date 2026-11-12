@@ -22,7 +22,6 @@ const SERVICES = {
   'jugendliche-10-14': { eventTypeId: 7888957, name: "Jugendliche (von 10 bis 14 Jahre alt)", minutes: 30, price: 25 },
   'bartschnitt': { eventTypeId: 7888955, name: "Bartschnitt", minutes: 15, price: 15 },
   'augenbrauen-zupfen': { eventTypeId: 7888946, name: "Augenbrauen zupfen", minutes: 15, price: 15 },
-  'test-haarschnitt': { eventTypeId: 7887269, name: 'NoLimits TEST – Haarschnitt', minutes: 30 },
 };
 
 
