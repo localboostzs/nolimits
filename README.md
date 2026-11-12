@@ -32,6 +32,6 @@ Dann `http://127.0.0.1:8080/` öffnen.
 
 ## Hinweise
 
-- Keine Cookies, keine Tracker, keine externen Skripte. Schriften liegen lokal in `assets/fonts/`.
+- Keine Cookies, keine Tracker, keine externen Skripte. Schriften (Playfair Display und Inter, beide SIL Open Font License) liegen lokal in `assets/fonts/`.
 - Einzig die Google-Maps-Karte (Kontakt und Home) lädt Inhalte von Google (iframe).
-- Alle Masse sind in `u` (1 % der Seitenbreite, maximal 1920 px) angegeben, damit das Layout wie das Original skaliert.
+- Design-Tokens (Farben, Schriften, Abstände) stehen oben in `assets/css/style.css`. Layout: mobile-first, Breakpoints 640 / 900 / 1200 px, Animationen respektieren `prefers-reduced-motion`.
