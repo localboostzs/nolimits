@@ -1,0 +1,22 @@
+name = "nolimits-booking"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGINS = "https://localboostzs.github.io"
+
+# Secret (nicht hier eintragen!):  wrangler secret put CAL_API_KEY
+
+# Rate-Limiting (Cloudflare-Binding, kostenlos): 5 Buchungsversuche bzw. 60 Abfragen pro 60 s und IP
+[[unsafe.bindings]]
+name = "RL_BOOK"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 5, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_SLOTS"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 60, period = 60 }
