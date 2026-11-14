@@ -253,11 +253,55 @@
     $('#bk-again').addEventListener('click', function () { location.reload(); });
     if (!API) { renderSteps(); renderSummary(); setup('Die Verbindung zum Buchungssystem ist noch nicht eingerichtet. Sobald der Buchungsdienst aktiv ist, können Termine hier gebucht werden.'); return; }
     renderSteps(); renderSummary();
-    $('#services').innerHTML = ''; var l = el('div', 'bk-loading'); l.appendChild(el('span', 'bk-spin')); $('#services').appendChild(l);
     panels[0].classList.add('is-active');
-    try {
-      var d = await api('/api/services'); state.services = d.services; renderServices();
-    } catch (e) { $('#services').innerHTML = ''; var m = el('div', 'bk-msg', 'Die Leistungen konnten nicht geladen werden. Bitte später erneut versuchen.'); $('#services').appendChild(m); }
+    await loadServices();
   }
+
+  /* Kurzzeitige Mobilfunk-/Worker-Ausfälle auffangen, ohne eine Buchung zu erzeugen. */
+  var servicesLoading = false;
+  async function loadServices() {
+    if (servicesLoading) return;
+    servicesLoading = true;
+    var box = $('#services');
+    box.innerHTML = '';
+    var loading = el('div', 'bk-loading');
+    loading.setAttribute('role', 'status');
+    loading.appendChild(el('span', 'bk-spin'));
+    loading.appendChild(el('span', 'sr-only', 'Leistungen werden geladen'));
+    box.appendChild(loading);
+    try {
+      var result;
+      for (var attempt = 0; attempt < 3; attempt++) {
+        try {
+          result = await api('/api/services', { cache: 'no-store' });
+          if (!Array.isArray(result.services) || !result.services.length) throw new Error('Keine Leistungen erhalten');
+          state.services = result.services;
+          renderServices();
+          return;
+        } catch (e) {
+          if (attempt === 2) throw e;
+          await new Promise(function (resolve) { setTimeout(resolve, 700 * (attempt + 1)); });
+        }
+      }
+    } catch (e) {
+      box.innerHTML = '';
+      var msg = el('div', 'bk-msg');
+      msg.setAttribute('role', 'alert');
+      msg.appendChild(el('p', null, navigator.onLine === false
+        ? 'Keine Internetverbindung. Bitte Verbindung prüfen.'
+        : 'Die Verbindung zum Buchungssystem ist gerade nicht erreichbar.'));
+      var retry = el('button', 'bk-back', 'Erneut versuchen');
+      retry.type = 'button';
+      retry.addEventListener('click', loadServices);
+      msg.appendChild(retry);
+      box.appendChild(msg);
+    } finally {
+      servicesLoading = false;
+    }
+  }
+
+  window.addEventListener('online', function () {
+    if (!state.services.length) loadServices();
+  });
   init();
 })();
