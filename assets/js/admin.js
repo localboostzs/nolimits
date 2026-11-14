@@ -80,6 +80,74 @@
       if(selected){var found=contacts.find(function(c){return c.email===selected.email;});displayContact(found||null);}
     }catch(e){msg(e.message,true);}
   }
+  // CSV-Verarbeitung erfolgt vollständig im Browser, der Import nur nach Freigabe.
+  function csvParse(input, delim) {
+    var rows=[],r=[],cell='',quoted=false;
+    for(var i=0;i<input.length;i++){
+      var c=input[i];
+      if(c==='"'){
+        if(quoted && input[i+1]==='"'){cell+='"';i++;}
+        else quoted=!quoted;
+      } else if(c===delim && !quoted){r.push(cell);cell='';}
+      else if((c==='\n'||c==='\r') && !quoted){
+        r.push(cell);if(r.some(function(x){return x.trim();}))rows.push(r);
+        r=[];cell='';if(c==='\r'&&input[i+1]==='\n')i++;
+      } else cell+=c;
+    }
+    r.push(cell);if(r.some(function(x){return x.trim();}))rows.push(r);
+    return rows;
+  }
+  function norm(h){
+    return String(h||'').replace(/^\uFEFF/,'').toLowerCase()
+      .replace(/ä/g,'a').replace(/ö/g,'o').replace(/ü/g,'u').replace(/ß/g,'ss')
+      .replace(/[^a-z0-9]/g,'');
+  }
+  document.getElementById('nl-wix-import').addEventListener('click',async function(){
+    var file=document.getElementById('nl-wix-file').files[0],
+      consent=document.getElementById('nl-wix-consent').checked,
+      button=document.getElementById('nl-wix-import');
+    if(!consent){msg('Bitte zuerst die ausdrückliche Einwilligung von Isen bestätigen.',true);return;}
+    if(!file){msg('Bitte eine Wix-CSV-Datei auswählen.',true);return;}
+    if(file.size>5*1024*1024){msg('Die Datei ist zu gross (max. 5 MB).',true);return;}
+    button.disabled=true;
+    try {
+      if(!await A.staff())throw new Error('Keine Verwaltungsberechtigung.');
+      var data=await file.text();
+      var lines=data.split(/\r?\n/,1)[0];
+      var delim=(lines.match(/;/g)||[]).length>(lines.match(/,/g)||[]).length?';':',';
+      var rows=csvParse(data,delim);
+      if(rows.length<2)throw new Error('Keine Kontaktdaten gefunden.');
+      var head=rows.shift().map(norm);
+      function get(row, aliases){
+        for(var k of aliases){var idx=head.indexOf(k);if(idx>=0&&row[idx])return row[idx].trim();}
+        return '';
+      }
+      var valid=[],seen=new Set();
+      for(var row of rows.slice(0,2000)){
+        var email=get(row,['email','emailaddress','primaryemail','emails','emailadresse','email1']).toLowerCase().slice(0,120);
+        var phone=get(row,['phone','phonenumber','telefon','telephone','mobile','handynummer','primaryphone']).slice(0,30);
+        var id=get(row,['contactid','wixcontactid','id','contactsid']);
+        var first=get(row,['firstname','vorname','givenname']);
+        var last=get(row,['lastname','nachname','surname','familyname']);
+        var name=get(row,['name','displayname','fullname','contactname'])||[first,last].filter(Boolean).join(' ');
+        var external=(id?'wix:':email?'email:':'phone:')+(id||email||phone);
+        if(!id&&!email&&!phone||seen.has(external))continue;
+        seen.add(external);
+        valid.push({source:'wix',external_id:external.slice(0,180),name:(name||email||phone).slice(0,100),email,phone});
+      }
+      if(!valid.length)throw new Error('Keine geeigneten Kontaktspalten erkannt. Bitte Wix-CSV prüfen.');
+      for(var i=0;i<valid.length;i+=50){
+        var batch=valid.slice(i,i+50);
+        var result=await A.client.from('nl_legacy_contacts').upsert(batch,{onConflict:'external_id'});
+        if(result.error)throw result.error;
+      }
+      msg(valid.length+' Kontakte importiert. Bitte eventuelle Dubletten und die nächste Terminliste prüfen.');
+      document.getElementById('nl-wix-file').value='';
+      document.getElementById('nl-wix-consent').checked=false;
+      await loadData();
+    }catch(e){msg('Import fehlgeschlagen: '+(e.message||''),true);}
+    finally{button.disabled=false;}
+  });
   form.addEventListener('submit',async function(ev){
     ev.preventDefault();msg('');
     if(!confirm('Termin für diesen Kunden jetzt verbindlich eintragen?'))return;

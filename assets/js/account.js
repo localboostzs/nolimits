@@ -47,10 +47,12 @@
   profileForm.addEventListener('submit',async function(e){
     e.preventDefault();var b=profileForm.querySelector('[type=submit]');b.disabled=true;message('');
     try{
+      var before=await A.profile();
       await A.saveProfile({
         full_name:profileForm.elements.full_name.value,
         phone:profileForm.elements.phone.value,
-        address:profileForm.elements.address.value
+        address:profileForm.elements.address.value,
+        last_service_key:before&&before.last_service_key||''
       });
       message('Deine Angaben wurden gespeichert.');
     }catch(e){message(e.message||'Speichern fehlgeschlagen.',true);}

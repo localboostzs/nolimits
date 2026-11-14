@@ -50,3 +50,45 @@ create policy "nl_staff_own_select" on public.nl_staff
 -- INSERT INTO public.nl_staff(user_id, role, active)
 -- VALUES ('<ISEN_AUTH_USER_UUID>', 'owner', true);
 -- Never assign administrator rights based on a client-supplied email or metadata.
+
+
+-- Existing Wix contacts remain separate from Supabase-authenticated customer profiles.
+-- They are imported ONLY after the shop owner explicitly approves data transfer.
+create table if not exists public.nl_legacy_contacts (
+  id uuid primary key default gen_random_uuid(),
+  source text not null default 'wix',
+  external_id text not null unique check(char_length(external_id)<=180),
+  name text not null default '' check(char_length(name)<=100),
+  email text not null default '' check(char_length(email)<=120),
+  phone text not null default '' check(char_length(phone)<=30),
+  imported_at timestamptz not null default now()
+);
+alter table public.nl_legacy_contacts enable row level security;
+revoke all on public.nl_legacy_contacts from anon, authenticated;
+grant select, insert, update on public.nl_legacy_contacts to authenticated;
+
+drop policy if exists "nl_staff_read_legacy_contacts" on public.nl_legacy_contacts;
+create policy "nl_staff_read_legacy_contacts" on public.nl_legacy_contacts
+  for select to authenticated
+  using (
+    exists (select 1 from public.nl_staff s
+      where s.user_id=(select auth.uid()) and s.active=true)
+  );
+drop policy if exists "nl_staff_insert_legacy_contacts" on public.nl_legacy_contacts;
+create policy "nl_staff_insert_legacy_contacts" on public.nl_legacy_contacts
+  for insert to authenticated
+  with check (
+    exists (select 1 from public.nl_staff s
+      where s.user_id=(select auth.uid()) and s.active=true)
+  );
+drop policy if exists "nl_staff_update_legacy_contacts" on public.nl_legacy_contacts;
+create policy "nl_staff_update_legacy_contacts" on public.nl_legacy_contacts
+  for update to authenticated
+  using (
+    exists (select 1 from public.nl_staff s
+      where s.user_id=(select auth.uid()) and s.active=true)
+  )
+  with check (
+    exists (select 1 from public.nl_staff s
+      where s.user_id=(select auth.uid()) and s.active=true)
+  );

@@ -98,13 +98,47 @@ async function getContacts(req, env) {
         });
       }
     }
+    // Importierte Wix-Kontakte ergänzen; normale Kunden haben aufgrund der
+    // RLS-Policy keinen Zugriff auf diese Tabelle.
+    let legacyWarning = false;
+    try {
+      const legacyResponse = await fetch(env.NL_SUPABASE_URL +
+        '/rest/v1/nl_legacy_contacts?select=external_id,name,email,phone&limit=2000', {
+        headers: {
+          apikey: env.NL_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: req.headers.get('Authorization') || '',
+          Accept: 'application/json'
+        }, redirect: 'error'
+      });
+      if (!legacyResponse.ok) throw new Error('legacy_contacts_unavailable');
+      const legacy = await legacyResponse.json();
+      if (!Array.isArray(legacy)) throw new Error('invalid_legacy_contacts');
+      for (const item of legacy) {
+        const email=String(item.email||'').trim().toLowerCase();
+        const key=email || 'wix:' + String(item.external_id||'');
+        if (!key || key==='wix:') continue;
+        let c=grouped.get(key);
+        if (!c) {
+          c={name:String(item.name||'').slice(0,100),
+             email, phone:String(item.phone||'').slice(0,30),
+             upcoming:[],past:[],legacy:true};
+          grouped.set(key,c);
+        } else {
+          if (!c.phone) c.phone=String(item.phone||'').slice(0,30);
+          if (!c.name) c.name=String(item.name||'').slice(0,100);
+          c.legacy=true;
+        }
+      }
+    } catch {
+      legacyWarning = true;
+    }
     const contacts = Array.from(grouped.values());
     contacts.forEach(c => {
       c.upcoming.sort((a,b) => Date.parse(a.start)-Date.parse(b.start));
       c.past.sort((a,b) => Date.parse(b.start)-Date.parse(a.start));
     });
     contacts.sort((a,b) => (a.name||a.email).localeCompare(b.name||b.email, 'de'));
-    return json({ ok: true, contacts }, 200, req, env, { 'Cache-Control': 'no-store' });
+    return json({ ok: true, contacts, legacyWarning }, 200, req, env, { 'Cache-Control': 'no-store' });
   } catch {
     return fail('contacts_unavailable', 'Kunden und Termine konnten nicht geladen werden.', 502, req, env);
   }

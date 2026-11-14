@@ -64,3 +64,6 @@ Wenn kein dediziertes NoLimits-Auth-Projekt vorhanden ist, liefern sie 503.
 - Beim Wechsel zu Isens Cal.com-Konto müssen alle Event-Typ-IDs,
   inklusive interner ID 7912905, aktualisiert werden.
 - Keine Passwörter, Schlüssel oder Zugangstoken in GitHub speichern.
+
+## Wix-Kontakte vorbereiten
+Nach Isens ausdrücklicher Freigabe können vorhandene Kontakte mit CSV aus Wix in der Staff-Ansicht importiert werden. Alte Buchungen und künftige Wix-Termine sind eine getrennte Übernahme; ein Kontaktimport blockiert noch keine Zeiten.
