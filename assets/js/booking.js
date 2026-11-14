@@ -98,10 +98,14 @@
     var A = window.NOLIMITS_ACCOUNT;
     if (!A || !A.enabled) return;
     var link = document.getElementById('bk-account-link');
-    if (link) link.hidden = false;
+    if (link) link.hidden = true;
     try {
       var u = await A.user();
-      if (!u) return;
+      if (!u) {
+        if (link) link.hidden = !(window.NOLIMITS_ACCOUNT_CONFIG || {}).publicSignupReady;
+        return;
+      }
+      if (link) link.hidden = false;
       var p = await A.profile();
       if (!p) p = {};
       var form = $('#bk-form');

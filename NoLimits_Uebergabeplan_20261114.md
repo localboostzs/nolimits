@@ -13,7 +13,30 @@ Stand: 14.11.2026
 - SQL-Migration mit RLS für Profile und Staff-Rechte.
 - Öffentliche Website und die vorhandenen neun Dienste bleiben verfügbar.
 
-## Noch NICHT einsatzbereit bis eigenes NoLimits-Supabase-Projekt erstellt ist
+## Technischer Status – 15.11.2026
+
+- Eigenständiges Supabase-Projekt «NoLimits Barbershop» eingerichtet.
+- Project ref jcctdjjunxmxaphjkrsz, Region eu-west-1.
+- RLS-Migration auf neuem Projekt erfolgreich angewendet: Kundenprofile,
+  Mitarbeitendenrechte, importierte Wix-Kontakte (alle ohne Datensätze).
+- Supabase Auth Site/Redirect URL auf die GitHub-Testseite gesetzt.
+- Nur öffentlicher Publishable Key in GitHub, nie ein Service Key.
+- Cloudflare Worker hat NL_SUPABASE_URL und NL_SUPABASE_PUBLISHABLE_KEY
+  als Bindings, Rate-Limit-Bindings blieben erhalten.
+- Tests: öffentliche Services 9; Admin API ohne Auth 401; öffentliche
+  SQL-Tabellen ohne Berechtigung 401; Admin APIs bleiben vor Isens
+  Konto- und Rolleneinrichtung geschützt.
+- Kundenlogin bewusst NICHT öffentlich beworben (publicSignupReady:false):
+  Supabase-Standard-SMTP sendet nur an Teamadressen und ist auf 2 E-Mails
+  pro Stunde begrenzt. Vor dem Produktivstart SMTP mit eigener
+  Absenderdomain und SPF/DKIM/DMARC konfigurieren.
+- CAL_API_KEY im Worker aktuell nicht nachgewiesen: bevor die interne
+  Kundenübersicht benutzt werden kann, Authentifizierung für die
+  Cal.com-Buchungsliste einrichten, idealerweise mit Isens eigenem Konto.
+- Isen muss sich anmelden und den Mitarbeiterzugriff per Admin SQL
+  aktivieren lassen. Keine automatische Rechtevergabe per E-Mail.
+
+## Historischer Einrichtungsplan (Schritte zur Erstellung bereits erledigt)
 Das Projekt LocalBoost System bleibt bewusst unverändert; es hat
 Benutzerregistrierungen deaktiviert. Das NICHT umstellen.
 
