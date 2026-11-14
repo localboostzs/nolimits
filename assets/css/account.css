@@ -1,0 +1,39 @@
+/* NoLimits account and staff views. Mobile first, reuse site tokens. */
+.nl-account-wrap{max-width:950px;margin-inline:auto}
+.nl-account-card{background:var(--paper);border:1px solid var(--line-light);padding:clamp(22px,4vw,44px)}
+.nl-account-card h2{font-family:var(--font-head);font-size:clamp(1.75rem,3vw,2.45rem);margin:0 0 12px}
+.nl-account-card p{color:var(--text-soft);line-height:1.7}
+.nl-account-card a{color:var(--gold-deep)}
+.nl-account-card .btn{margin-top:12px}
+.nl-form-grid{display:grid;gap:16px}
+.nl-field{display:flex;flex-direction:column;gap:7px}
+.nl-field label{font-weight:650;color:var(--ink)}
+.nl-field input,.nl-field select,.nl-field textarea{font:inherit;width:100%;padding:13px 14px;border:1px solid var(--line-light);border-radius:0;background:#fff;color:#1b1a17;min-height:46px}
+.nl-field textarea{min-height:94px;resize:vertical}
+.nl-field input:focus,.nl-field select:focus,.nl-field textarea:focus{outline:2px solid var(--gold);outline-offset:1px}
+.nl-account-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-top:16px}
+.nl-notice{border-left:4px solid var(--gold-deep);padding:12px 16px;background:#f2e6d0;color:#2d2517;line-height:1.6;margin-bottom:22px}
+.nl-notice.error{background:#f9e9e4;border-color:#a53d24;color:#7c2718}
+.nl-small{font-size:.88rem;color:var(--text-soft)}
+.nl-quick{margin:20px 0;padding:22px;border:1px solid var(--line-light);background:var(--surface)}
+.nl-quick strong{font-family:var(--font-head);font-size:1.4rem}
+.nl-cols{display:grid;grid-template-columns:minmax(0,1fr);gap:24px}
+.nl-tag{font-size:.7rem;letter-spacing:.13em;text-transform:uppercase;color:var(--gold-deep);font-weight:700}
+.nl-contact{display:block;width:100%;padding:14px;border:1px solid var(--line-light);background:#fff;text-align:left;font:inherit;cursor:pointer}
+.nl-contact[aria-pressed="true"]{border-color:var(--gold-deep);background:#fbf5e8}
+.nl-contact strong,.nl-contact span{display:block}
+.nl-contact span{font-size:.87rem;color:var(--text-soft);margin-top:4px;word-wrap:break-word}
+.nl-contact-list{display:grid;gap:7px;max-height:520px;overflow:auto}
+.nl-admin-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:22px}
+.nl-admin-panel{padding:20px;background:var(--paper);border:1px solid var(--line-light)}
+.nl-admin-panel h2{font-family:var(--font-head);font-size:1.65rem;margin:0 0 14px}
+.nl-appt{border-bottom:1px solid var(--line-light);padding:12px 0;line-height:1.5}
+.nl-appt:last-child{border:0}
+.nl-appt small{display:block;color:var(--text-soft)}
+.nl-plain-button{border:1px solid var(--line-light);padding:10px 14px;background:transparent;color:var(--ink);font:inherit;cursor:pointer}
+.nl-scroll{max-height:420px;overflow:auto}
+[hidden]{display:none!important}
+@media(min-width:850px){.nl-admin-grid{grid-template-columns:minmax(260px,.8fr) minmax(0,1.2fr)}.nl-cols{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.nl-account-actions .btn{width:100%;justify-content:center}.nl-admin-panel{padding:14px}}
+
+.nl-account-prompt{margin:0 0 20px}.nl-account-prompt a{color:var(--gold-deep);font-weight:650}

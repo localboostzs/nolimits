@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mein Konto | NoLimits Barbershop</title><meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0f0f0e">
+<link rel="icon" type="image/jpeg" href="../assets/img/logo-nolimits.jpg">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/booking.css">
+<link rel="stylesheet" href="../assets/css/account.css">
+<script src="../assets/js/config.js"></script>
+<script src="../assets/js/main.js"></script>
+<script defer src="../assets/js/vendor/supabase-2.76.1.js"></script>
+<script defer src="../assets/js/account-config.js"></script>
+<script defer src="../assets/js/auth-client.js"></script>
+<script defer src="../assets/js/account.js?v=20261114-1"></script>
+</head>
+<body id="top">
+<a class="skip" href="#main">Zum Inhalt springen</a>
+<header class="site-header"><div class="wrap header-in">
+<a class="brand" href="../" aria-label="NoLimits – Startseite"><img src="../assets/img/logo-nolimits.jpg" width="240" height="240" alt="NoLimits Barbershop"></a>
+<nav class="nav" id="nav" aria-label="Hauptnavigation"><a href="../leistungen/">Leistungen</a><a href="../kontakt/">Kontakt</a><a href="../ueber-mich/">Über mich</a></nav>
+<a class="btn btn-gold btn-sm header-cta" href="../booking-test/">Termin buchen</a>
+<button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav" aria-label="Menü öffnen"><span></span><span></span></button>
+</div></header>
+<main id="main"><section class="page-hero"><div class="wrap page-hero-in">
+<span class="bk-badge">Kundenbereich</span><h1 class="display">Mein Konto</h1>
+<p class="lead">Einmal anmelden. Beim nächsten Besuch einfacher buchen.</p>
+</div></section>
+<section class="section on-paper"><div class="wrap nl-account-wrap">
+<div id="nl-status" class="nl-notice" role="status" aria-live="polite" hidden></div>
+<div id="nl-setup" class="nl-account-card" hidden>
+<h2>Dieser Bereich wird vorbereitet</h2>
+<p>Die Kundenanmeldung wird freigeschaltet, sobald NoLimits sein eigenes Buchungs- und Kundenkonto erhält. Bis dahin können Termine ohne Anmeldung gebucht werden.</p>
+<a class="btn btn-gold" href="../booking-test/">Ohne Konto Termin buchen</a>
+</div>
+<div id="nl-login" class="nl-account-card" hidden>
+<h2>Mit E-Mail anmelden</h2>
+<p>Du brauchst kein Passwort. Wir senden dir einen sicheren, einmaligen Anmeldelink.</p>
+<form id="nl-email-form" class="nl-form-grid">
+<div class="nl-field"><label for="nl-login-email">E-Mail-Adresse</label><input id="nl-login-email" name="email" type="email" autocomplete="email" placeholder="max.mustermann@gmail.com" maxlength="120" required></div>
+<div class="nl-account-actions"><button class="btn btn-gold" type="submit">Anmeldelink senden</button><a href="../booking-test/">Ohne Konto buchen</a></div>
+</form>
+<p class="nl-small">Mit dem Anmelden wird ein NoLimits-Kundenkonto angelegt. Deine Daten werden nur für Terminbuchungen und die Kundenverwaltung verwendet. <a href="../impressum/">Datenschutz</a></p>
+</div>
+<div id="nl-details" class="nl-account-card" hidden>
+<span class="nl-tag">Dein Kundenkonto</span><h2>Willkommen zurück</h2>
+<p>Angemeldet als <strong id="nl-email"></strong>.</p>
+<div id="nl-last" class="nl-quick" hidden></div>
+<form id="nl-profile-form" class="nl-form-grid">
+<div class="nl-field"><label for="nl-name">Vollständiger Name</label><input id="nl-name" name="full_name" maxlength="80" autocomplete="name" required></div>
+<div class="nl-field"><label for="nl-phone">Telefonnummer</label><input id="nl-phone" name="phone" maxlength="30" type="tel" autocomplete="tel" placeholder="+41"></div>
+<div class="nl-field"><label for="nl-address">Adresse</label><input id="nl-address" name="address" maxlength="160" autocomplete="street-address" placeholder="Strasse und Hausnummer, PLZ Ort"></div>
+<div class="nl-account-actions"><button class="btn btn-gold" type="submit">Angaben speichern</button><a href="../booking-test/">Termin buchen</a><button type="button" class="nl-plain-button" id="nl-signout">Abmelden</button></div>
+</form>
+</div>
+</div></section></main>
+<footer class="site-footer on-dark"><div class="wrap"><div class="footer-bottom"><p class="small">© 2026 NoLimits Barbershop · Schmiedgasse 94, 6438 Ibach</p><a class="small" href="../impressum/">Impressum &amp; Datenschutz</a></div></div></footer>
+</body></html>

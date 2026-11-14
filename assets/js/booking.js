@@ -93,6 +93,38 @@
     sumEl.appendChild(a);
   }
 
+  /* Kundenprofil nur nach erfolgreicher passwortloser Anmeldung einfügen. */
+  async function prefillAccount() {
+    var A = window.NOLIMITS_ACCOUNT;
+    if (!A || !A.enabled) return;
+    var link = document.getElementById('bk-account-link');
+    if (link) link.hidden = false;
+    try {
+      var u = await A.user();
+      if (!u) return;
+      var p = await A.profile();
+      if (!p) p = {};
+      var form = $('#bk-form');
+      if (!form.email.value) form.email.value = u.email || '';
+      if (!form.name.value) form.name.value = p.full_name || '';
+      if (!form.phone.value) form.phone.value = p.phone || '';
+      if (!form.address.value) form.address.value = p.address || '';
+      if (link) link.textContent = 'Angemeldet · Mein Konto';
+    } catch(e) { /* Terminbuchung bleibt auch ohne Profildaten möglich */ }
+  }
+  async function recordRepeatBooking() {
+    var A=window.NOLIMITS_ACCOUNT;
+    if (!A || !A.enabled || !state.service) return;
+    try {
+      var u=await A.user(),f=$('#bk-form');
+      if (!u || (u.email||'').toLowerCase() !== f.email.value.trim().toLowerCase()) return;
+      await A.saveProfile({
+        full_name:f.name.value,phone:f.phone.value,address:f.address.value,
+        last_service_key:state.service.key
+      });
+    } catch(e) { /* Buchung ist bereits bei Cal.com bestätigt; Profilfehler nicht als Buchungsfehler zeigen */ }
+  }
+
   /* ---------- Schritt 1: Leistungen ---------- */
   var serviceThumbs = {
     "haarschnitt-bartschnitt-rasieren": "thumb-haarschnitt-bartschnitt-rasieren-360.webp",
@@ -129,6 +161,10 @@
       var go = el('span', 'go'); go.setAttribute('aria-hidden', 'true'); go.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'; b.appendChild(go);
       b.addEventListener('click', function () { state.service = s; state.cache = {}; state.date = null; state.slot = null; var n = new Date(); state.month = { y: Number(fmtYM(n).y), m: Number(fmtYM(n).m) - 1 }; showPanel(1); loadMonth(); var h = $('#p-date .bk-h'); h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); scrollTop(); });
       box.appendChild(b);
+      var wanted = new URLSearchParams(location.search).get('service');
+      if (wanted && wanted === s.key && !state.service) {
+        setTimeout(function(){ if (!state.service) b.click(); }, 0);
+      }
     });
   }
   function fmtYM(d) { var p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Zurich', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d).split('-'); return { y: p[0], m: p[1], d: p[2] }; }
@@ -238,6 +274,7 @@
     okEl.classList.add('is-active'); okEl.hidden = false;
     var h = okEl.querySelector('h2'); h.setAttribute('tabindex', '-1'); h.focus();
     okEl.scrollIntoView({ block: 'start' });
+    recordRepeatBooking();
   }
 
   /* ---------- Start ---------- */
@@ -254,7 +291,7 @@
     if (!API) { renderSteps(); renderSummary(); setup('Die Verbindung zum Buchungssystem ist noch nicht eingerichtet. Sobald der Buchungsdienst aktiv ist, können Termine hier gebucht werden.'); return; }
     renderSteps(); renderSummary();
     panels[0].classList.add('is-active');
-    await loadServices();
+    await Promise.all([loadServices(), prefillAccount()]);
   }
 
   /* Kurzzeitige Mobilfunk-/Worker-Ausfälle auffangen, ohne eine Buchung zu erzeugen. */

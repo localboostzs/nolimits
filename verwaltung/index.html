@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interne Verwaltung | NoLimits Barbershop</title><meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0f0f0e">
+<link rel="icon" type="image/jpeg" href="../assets/img/logo-nolimits.jpg">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/booking.css">
+<link rel="stylesheet" href="../assets/css/account.css">
+<script src="../assets/js/config.js"></script><script src="../assets/js/main.js"></script>
+<script src="../assets/js/booking-config.js"></script>
+<script defer src="../assets/js/vendor/supabase-2.76.1.js"></script>
+<script defer src="../assets/js/account-config.js"></script>
+<script defer src="../assets/js/auth-client.js"></script>
+<script defer src="../assets/js/admin.js?v=20261114-1"></script>
+</head>
+<body id="top"><a class="skip" href="#main">Zum Inhalt springen</a>
+<header class="site-header"><div class="wrap header-in">
+<a class="brand" href="../" aria-label="NoLimits – Startseite"><img src="../assets/img/logo-nolimits.jpg" width="240" height="240" alt="NoLimits Barbershop"></a>
+<nav class="nav" id="nav" aria-label="Hauptnavigation"><a href="../leistungen/">Leistungen</a><a href="../kontakt/">Kontakt</a><a href="../ueber-mich/">Über mich</a></nav>
+<a class="btn btn-gold btn-sm header-cta" href="../booking-test/">Termin buchen</a>
+<button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav" aria-label="Menü öffnen"><span></span><span></span></button></div></header>
+<main id="main"><section class="page-hero"><div class="wrap page-hero-in">
+<span class="bk-badge">Nur für Mitarbeitende</span><h1 class="display">Kundenverwaltung</h1>
+<p class="lead">Kunden, Termine und interne Buchungen an einem Ort.</p>
+</div></section>
+<section class="section on-paper"><div class="wrap">
+<div id="nl-admin-notice" role="status" class="nl-notice" hidden></div>
+<div id="nl-gate" class="nl-account-card">Zugriff wird geprüft … <a href="../konto/">Zum Login</a></div>
+<div id="nl-desk" hidden>
+<div class="nl-account-actions" style="margin:0 0 22px">
+<span class="nl-small">Angemeldet: <span id="nl-loggedin"></span></span>
+<button id="nl-refresh" type="button" class="nl-plain-button">Aktualisieren</button>
+<a href="../konto/">Mein Konto</a>
+</div>
+<div class="nl-admin-grid">
+<section class="nl-admin-panel" aria-labelledby="nl-list-heading">
+<h2 id="nl-list-heading">Kontakte</h2>
+<p class="nl-small" id="nl-contact-count"></p>
+<div class="nl-field"><label for="nl-search">Kunden suchen</label><input id="nl-search" type="search" autocomplete="off" placeholder="Name, E-Mail oder Telefon"></div>
+<div id="nl-contacts" class="nl-contact-list" style="margin-top:14px"></div>
+</section>
+<div>
+<section class="nl-admin-panel" id="nl-info" aria-label="Kundendetails"><p>Wähle links einen Kunden aus.</p></section>
+<section class="nl-admin-panel" style="margin-top:18px">
+<h2>Termin für Kunden buchen</h2>
+<p class="nl-small">Auch die interne Gentleman-Rasur steht nur hier zur Auswahl. Buchungen erfolgen direkt in Cal.com.</p>
+<form id="nl-admin-book-form" class="nl-form-grid">
+<div class="nl-field"><label for="nl-service">Leistung</label><select id="nl-admin-service" name="service" required><option value="">Leistung auswählen</option></select></div>
+<div class="nl-field"><label for="nl-date">Datum</label><input id="nl-admin-date" name="date" type="date" required></div>
+<div class="nl-field"><label for="nl-slot">Freie Uhrzeit</label><select id="nl-admin-slot" name="slot" required><option value="">Zuerst Datum wählen</option></select></div>
+<div class="nl-field"><label for="nl-cname">Kundenname</label><input id="nl-cname" name="name" maxlength="80" required></div>
+<div class="nl-field"><label for="nl-cemail">Kunden-E-Mail</label><input id="nl-cemail" name="email" type="email" maxlength="120" required></div>
+<div class="nl-field"><label for="nl-cphone">Kunden-Telefon</label><input id="nl-cphone" name="phone" type="tel" maxlength="30" required></div>
+<div class="nl-field"><label for="nl-cnotes">Notiz (optional)</label><textarea id="nl-cnotes" name="notes" maxlength="500"></textarea></div>
+<label><input type="checkbox" name="accepted" required> Der Kunde wurde über den Termin und die Stornierungsbedingungen informiert.</label>
+<div class="nl-account-actions"><button class="btn btn-gold" type="submit">Termin verbindlich buchen</button></div>
+</form>
+</section></div>
+</div></div></div></section></main>
+<footer class="site-footer on-dark"><div class="wrap"><div class="footer-bottom"><p class="small">© 2026 NoLimits Barbershop</p><a class="small" href="../impressum/">Impressum &amp; Datenschutz</a></div></div></footer>
+</body></html>

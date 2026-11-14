@@ -12,10 +12,14 @@
 <link rel="preload" href="../assets/fonts/inter-normal-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../assets/css/style.css">
 <link rel="stylesheet" href="../assets/css/booking.css?v=20261112-images2">
+<link rel="stylesheet" href="../assets/css/account.css">
 <script src="../assets/js/config.js"></script>
 <script src="../assets/js/main.js"></script>
 <script src="../assets/js/booking-config.js?v=20261114-retry1"></script>
-<script src="../assets/js/booking.js?v=20261114-retry1" defer></script>
+<script src="../assets/js/vendor/supabase-2.76.1.js" defer></script>
+<script src="../assets/js/account-config.js" defer></script>
+<script src="../assets/js/auth-client.js" defer></script>
+<script src="../assets/js/booking.js?v=20261114-accounts1" defer></script>
 </head>
 <body id="top">
 <a class="skip" href="#main">Weiter zum Hauptinhalt</a>
@@ -47,6 +51,7 @@
 <div id="p-service" class="bk-panel">
 <h2 class="bk-h">Leistung wählen</h2>
 <p class="bk-sub">Welchen Termin möchtest du buchen?</p>
+<p class="nl-account-prompt" id="bk-account-link-holder"><a id="bk-account-link" href="../konto/" hidden>Mein Konto – schneller wieder buchen</a></p>
 <div id="services" class="bk-services"></div>
 </div>
 <div id="p-date" class="bk-panel">
