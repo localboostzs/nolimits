@@ -106,7 +106,9 @@ async function getContacts(req, env) {
         }
         if (!c.phone && attendee.phoneNumber) c.phone = String(attendee.phoneNumber).slice(0,30);
         const eventTypeId = b.eventTypeId || b.eventType?.id;
-        const service = names.get(Number(eventTypeId)) || String(b.title || 'Termin').split(' zwischen ')[0];
+        // Nur NoLimits-Termine anzeigen, nie fremde persönliche Cal.com-Buchungen.
+        if (!names.has(Number(eventTypeId))) continue;
+        const service = names.get(Number(eventTypeId));
         c[kind].push({
           uid: b.uid, start: b.start || b.startTime,
           end: b.end || b.endTime, status: b.status, service
