@@ -3,11 +3,20 @@
 (function () {
   'use strict';
   var cfg = window.NOLIMITS_ACCOUNT_CONFIG || {};
+  var privacy = window.NOLIMITS_PRIVACY;
+  // Absichtlich OHNE localStorage-Standard: Sitzungen bleiben nur mit Einwilligung
+  // über den aktuellen Browser-Tab hinaus gespeichert.
+  var authStorage = privacy ? privacy.authStorage : {
+    getItem: function () { return null; },
+    setItem: function () {},
+    removeItem: function () {}
+  };
   var enabled = /^https:\/\/[a-z0-9.-]+\.supabase\.co$/.test(cfg.url || '') &&
     /^sb_publishable_[A-Za-z0-9_-]+$/.test(cfg.publishableKey || '') &&
     window.supabase && typeof window.supabase.createClient === 'function';
   var client = enabled ? window.supabase.createClient(cfg.url, cfg.publishableKey, {
-    auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true }
+    auth: { autoRefreshToken: true, persistSession: true,
+      storage: authStorage, detectSessionInUrl: true }
   }) : null;
   async function user() {
     if (!client) return null;
