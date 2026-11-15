@@ -35,14 +35,68 @@
       } else {last.hidden=true;}
     } catch(e){message('Kontodaten konnten nicht geladen werden. '+(e.message||''),true);}
   }
+  /* Die Supabase-Schutzlimits lassen sich auf der Website nicht umgehen.
+     Statt englischer Serverfehler: verständliche Meldungen und lokale
+     10-Sekunden-Sperre, um unnötige zusätzliche Anfragen zu vermeiden. */
+  var loginCooldownTimer = null, loginCooldownUntil = 0;
+  function loginErrorText(err) {
+    var raw = String((err && err.message) || '').toLowerCase();
+    var code = String((err && err.code) || '').toLowerCase();
+    if (code === 'over_email_send_rate_limit' || raw.includes('email rate limit exceeded')) {
+      return 'Zu viele Anmelde-E-Mails versendet. Im aktuellen Testbetrieb sind höchstens 2 E-Mails pro Stunde für das gesamte NoLimits-Projekt möglich. Bitte später erneut versuchen. Falls du bereits eine Anmeldemail erhalten hast, verwende diesen Link.';
+    }
+    if (raw.includes('for security purposes') || raw.includes('only request this after') ||
+        code === 'over_request_rate_limit') {
+      var match = raw.match(/after\s+(\d+)\s+second/);
+      return 'Bitte warte ' + (match ? match[1] : 'einige') +
+        ' Sekunden, bevor du erneut einen Anmeldelink anforderst. Bereits erhaltene E-Mails kannst du weiterhin öffnen.';
+    }
+    if (code === 'email_address_not_authorized' || raw.includes('email address not authorized')) {
+      return 'Der Kundenlogin befindet sich noch im Testbetrieb. Anmeldemails können aktuell nur an freigegebene Testadressen gesendet werden.';
+    }
+    if (raw.includes('network') || raw.includes('failed to fetch')) {
+      return 'Die Verbindung ist gerade nicht erreichbar. Bitte prüfe deine Internetverbindung und versuche es später erneut.';
+    }
+    return 'Der Anmeldelink konnte nicht versendet werden. Bitte versuche es später erneut.';
+  }
+  function loginCooldown(seconds) {
+    var btn = emailForm.querySelector('[type=submit]');
+    if (loginCooldownTimer) clearInterval(loginCooldownTimer);
+    loginCooldownUntil = Date.now() + Math.max(1,seconds) * 1000;
+    function update() {
+      var remain = Math.max(0, Math.ceil((loginCooldownUntil - Date.now()) / 1000));
+      btn.disabled = remain > 0;
+      btn.textContent = remain ? 'Erneut senden in ' + remain + ' s' : 'Anmeldelink senden';
+      if (!remain && loginCooldownTimer) {
+        clearInterval(loginCooldownTimer);
+        loginCooldownTimer = null;
+      }
+    }
+    update();
+    loginCooldownTimer = setInterval(update,1000);
+  }
   emailForm.addEventListener('submit',async function(e){
-    e.preventDefault();var email=emailForm.elements.email.value.trim();
-    var btn=emailForm.querySelector('[type=submit]');btn.disabled=true;message('');
-    try{
+    e.preventDefault();
+    if (Date.now() < loginCooldownUntil) return;
+    var email=emailForm.elements.email.value.trim();
+    var btn=emailForm.querySelector('[type=submit]');
+    btn.disabled=true;message('');
+    var delay=0;
+    try {
       await A.emailSignIn(email,location.origin+location.pathname);
-      message('E-Mail versendet. Öffne den Anmeldelink auf deinem Gerät. Die Anmeldung ist kostenlos.');
-    }catch(e){message(e.message||'Anmeldung fehlgeschlagen.',true);}
-    finally{btn.disabled=false;}
+      message('Anmeldelink angefordert. Falls dein Postfach zugelassen ist, erhältst du die E-Mail. Bitte prüfe auch den Spam-Ordner.');
+      delay=10;
+    } catch (err) {
+      message(loginErrorText(err),true);
+      var raw=String((err && err.message) || '').toLowerCase();
+      if (raw.includes('only request this after') || raw.includes('for security purposes')) {
+        var match=raw.match(/after\s+(\d+)\s+second/);
+        delay=match ? Math.min(120,Math.max(1,Number(match[1]))) : 10;
+      }
+    } finally {
+      if (delay) loginCooldown(delay);
+      else btn.disabled=false;
+    }
   });
   profileForm.addEventListener('submit',async function(e){
     e.preventDefault();var b=profileForm.querySelector('[type=submit]');b.disabled=true;message('');

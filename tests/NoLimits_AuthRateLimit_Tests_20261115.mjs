@@ -1,0 +1,16 @@
+import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+const source=readFileSync(new URL('../assets/js/account.js',import.meta.url),'utf8');
+const start=source.indexOf('  function loginErrorText(err) {');
+const end=source.indexOf('  function loginCooldown(seconds) {',start);
+assert.ok(start>=0&&end>start,'Login-error mapping found');
+const fn=new Function(source.slice(start,end)+'\nreturn loginErrorText;')();
+const error=(message,code)=>({message,code});
+assert.match(fn(error('For security purposes, you can only request this after 10 seconds.')),/10 Sekunden/);
+assert.match(fn(error('For security purposes, you can only request this after 29 seconds.')),/29 Sekunden/);
+assert.match(fn(error('email rate limit exceeded','over_email_send_rate_limit')),/2 E-Mails pro Stunde/);
+assert.match(fn(error('Email address not authorized','email_address_not_authorized')),/freigegebene Testadressen/);
+assert.match(fn(error('Network request failed')),/Internetverbindung/);
+assert.match(fn(error('Supabase server secret')),/Bitte versuche es später erneut/);
+assert.ok(!fn(error('Supabase server secret')).includes('secret'),'Keine ungefilterten Serverfehler');
+console.log('PASS 7 deutsche Login-Fehlermeldungen und keine interne Fehlerweitergabe');
