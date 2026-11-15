@@ -1,3 +1,35 @@
+# Status – 15.11.2026: Resend-Versand getestet, Supabase-Integration noch offen
+
+- Domain nolimits-barber.ch in Resend: partially_verified.
+- DKIM, SPF, MX sind verifiziert. CNAME rsend noch pending.
+- Die aktuelle DNS-Abfrage von rsend.nolimits-barber.ch ergab NXDOMAIN.
+  Wix CNAME prüfen: Host rsend, Wert send.forge.rmta.net.
+- Resend hat eine NoLimits-Testmail an info@localboost-zs.ch ausgeliefert
+  (Resend-Ereignis delivered).
+- Supabase SMTP ist noch nicht aktiv (aktuell Standardmail).
+- Technischer Blocker: Composio-Supabase-Aktion sendet SMTP-Port als Zahl,
+  während Supabase Management API einen String erwartet.
+- Ein für diesen Test neu erstellter unbenutzter Resend-Schlüssel wurde
+  gelöscht; vorhandener Schlüssel NoLimits Website bleibt erhalten.
+
+## Nächster Schritt – native Integration
+1. https://supabase.com/partners/catalog/resend öffnen.
+2. Add integration anklicken.
+3. Projekt NoLimits Barbershop und bestehendes Resend-Konto auswählen.
+4. Versanddomain nolimits-barber.ch zuordnen und Einrichtung bestätigen.
+5. Im NoLimits-Projekt unter Authentication / SMTP Settings prüfen:
+   Host smtp.resend.com, Port 465, Benutzer resend,
+   Sender NoLimits Barbershop, Adresse login@nolimits-barber.ch.
+6. Anschliessend Auth Email Templates Confirm signup + Magic Link
+   im Supabase-Dashboard mit den HTML-Vorlagen aus dem Repo befüllen.
+7. Eine E-Mail-Anmeldung auf der NoLimits-Testwebsite prüfen.
+
+Bis dahin bleibt der bisherige Supabase-Testmailer unverändert. Wegen
+zweier E-Mails pro Stunde keine unnötigen wiederholten Tests auslösen.
+Die Registrierung wird erst nach echtem SMTP-/Design-/Link-Test beworben.
+
+---
+
 # NoLimits – Wix DNS & Resend SMTP
 Stand: 15.11.2026
 
