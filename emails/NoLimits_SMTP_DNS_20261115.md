@@ -1,3 +1,25 @@
+# SMTP erfolgreich aktiviert – 15.11.2026
+
+- Die offizielle Resend-Supabase-Integration hat SMTP in NoLimits Barbershop aktiviert.
+- Supabase-Konfiguration geprüft: Host smtp.resend.com, Port 465, User resend,
+  Sender NoLimits Barbershop <login@nolimits-barber.ch>.
+- Neues E-Mail-Versandlimit 25 E-Mails/Stunde (alter Standard: 2/Stunde).
+- Login-Magic-Link-Anforderung über /auth/v1/otp: HTTP 200.
+- E-Mail im verbundenen Gmail-Postfach eingetroffen, noch Standardbetreff
+  "Your sign-in link" – Vorlagen in Supabase noch nicht angepasst.
+- HTML-Vorlagen unter emails/NoLimits_Email_Registrierung_20261115.html
+  und emails/NoLimits_Email_Anmeldung_20261115.html bereit.
+- Resend-Domain teilweise verifiziert: DKIM/SPF/MX bestätigt;
+  optionaler Forge-CNAME rsend noch pending, aber SMTP sendet bereits.
+- Offene Aufgabe: In Supabase Authentication > Emails jeweils
+  Confirm signup und Magic Link auf die beiden Vorlagen umstellen.
+- Alte Supabase-Standardversand-Einschränkung ist behoben;
+  Sicherheits-Wartezeiten zwischen OTP-Anfragen bleiben.
+- Kundenlogin bis zur vollständigen Prüfung weiterhin Testbetrieb.
+- Der Mitarbeiter-API-Fehler (Issue #1) ist unabhängig davon noch offen.
+
+---
+
 # Status – 15.11.2026: Resend-Versand getestet, Supabase-Integration noch offen
 
 - Domain nolimits-barber.ch in Resend: partially_verified.
