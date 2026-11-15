@@ -1,3 +1,9 @@
+# Statusupdate 15.11.2026
+
+Resend ist verbunden und die Domain angelegt. Exakte DNS-Einträge und Wix-Schritte sind in NoLimits_SMTP_DNS_20261115.md dokumentiert.
+
+---
+
 # NoLimits – Auth-E-Mail und SMTP (Stand 15.11.2026)
 
 ## Status
@@ -5,7 +11,7 @@
 - Die schwarz-goldenen NoLimits-Vorlagen sind vorbereitet und in GitHub gespeichert.
 - Supabase Auth versendet derzeit noch mit Standard-Absender. Das ist für
   echte Kunden NICHT produktionsbereit.
-- Resend ist in Composio derzeit NICHT verbunden. Ein eigener SMTP-Dienst
+- Resend ist nun in Composio verbunden; DNS-Verifizierung steht noch aus. Ein eigener SMTP-Dienst
   und die Verifizierung der NoLimits-Absenderdomain fehlen.
 - Die verfügbaren Supabase-Connector-Aktionen können SMTP-Felder ändern,
   aber nicht die HTML-Template-Felder. Vorlagen müssen vorerst einmalig im
