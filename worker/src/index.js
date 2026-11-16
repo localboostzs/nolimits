@@ -484,11 +484,22 @@ async function onCalWebhook(req, env) {
   const event = JSON.parse(raw);
   const typ = String(event?.triggerEvent||'');
   if (!['BOOKING_CREATED','BOOKING_CONFIRMED','BOOKING_CANCELLED','BOOKING_RESCHEDULED'].includes(typ)) return json({ok:true,ignored:true},200,req,env);
-  const p = event.payload||event, match=serviceForWebhook(p);
+  const p = event.payload||event;
   const uid = String(p.uid||'');
-  if (!match || !VALID_UID.test(uid) || !Number.isFinite(Date.parse(p.startTime))) return json({ok:true,ignored:true},200,req,env);
-  if (typ==='BOOKING_CANCELLED' && p.rescheduledToUid) return json({ok:true,ignored:true},200,req,env);
+  if (!VALID_UID.test(uid) || !Number.isFinite(Date.parse(p.startTime))) return json({ok:true,ignored:true},200,req,env);
+  // Cal.com can emit a cancellation for the old booking when rescheduling.
+  if (typ==='BOOKING_CANCELLED' && (p.rescheduledToUid || p.rescheduleUid)) return json({ok:true,ignored:true},200,req,env);
   if (env.NL_EMAIL_ENABLED !== 'true' || !env.RESEND_API_KEY || !env.CAL_API_KEY || !env.NL_MANAGE_SECRET) return json({ok:true,skipped:'mail_not_enabled'},200,req,env);
+  let match = serviceForWebhook(p);
+  // Some BOOKING_CANCELLED webhooks omit eventTypeId/type. Resolve the UID
+  // with the server-side Cal.com token; never trust arbitrary webhook titles.
+  if (!match) {
+    try {
+      const lookup = await readCalBooking(uid, env);
+      if (lookup.booking) match = serviceForCal(lookup.booking.eventTypeId || lookup.booking.eventType?.id);
+    } catch { /* Cal.com unavailable; do not send an unverified email. */ }
+  }
+  if (!match) return json({ok:true,ignored:true},200,req,env);
   const customer = (p.attendees || []).find(a=>isEmail(String(a.email||'')));
   if (!customer) return json({ok:true,ignored:true},200,req,env);
   const tok = typ==='BOOKING_CANCELLED'?null:await managementToken(uid,p.startTime,env);
