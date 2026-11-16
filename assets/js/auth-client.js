@@ -57,9 +57,49 @@
     if (r.error) throw r.error;
     return r.data.session && r.data.session.access_token;
   }
+  // OAuth starts only after a direct user click. Provider configuration stays
+  // on the Supabase server; client secrets are never present in this repository.
+  async function socialProviderStatus() {
+    if (!client) return { google: false, apple: false };
+    try {
+      var response = await fetch(cfg.url + '/auth/v1/settings', {
+        headers: { apikey: cfg.publishableKey },
+        cache: 'no-store',
+        redirect: 'follow'
+      });
+      if (!response.ok) throw new Error('Anbieterstatus konnte nicht geprüft werden.');
+      var settings = await response.json();
+      return {
+        google: settings.external && settings.external.google === true,
+        apple: settings.external && settings.external.apple === true
+      };
+    } catch (_) {
+      return { google: false, apple: false };
+    }
+  }
+  async function socialSignIn(provider, redirectUrl) {
+    if (!client) throw new Error('Kundenlogin noch nicht eingerichtet.');
+    if (provider !== 'google' && provider !== 'apple') throw new Error('Unbekannter Anmeldeanbieter.');
+    var available = await socialProviderStatus();
+    if (!available[provider]) {
+      var err = new Error(provider === 'google'
+        ? 'Die Google-Anmeldung wird noch eingerichtet. Bitte vorerst den Anmeldelink per E-Mail verwenden.'
+        : 'Die Apple-Anmeldung wird noch eingerichtet. Bitte vorerst den Anmeldelink per E-Mail verwenden.');
+      err.code = 'provider_not_enabled';
+      throw err;
+    }
+    var result = await client.auth.signInWithOAuth({
+      provider: provider,
+      options: { redirectTo: redirectUrl }
+    });
+    if (result.error) throw result.error;
+    // Supabase JS normally redirects automatically for web OAuth.
+    return result.data;
+  }
   window.NOLIMITS_ACCOUNT = {
     enabled: !!enabled, client: client, user: user, profile: profile,
     saveProfile: saveProfile, staff: staff, bearer: bearer,
+    socialProviderStatus: socialProviderStatus, socialSignIn: socialSignIn,
     async emailSignIn(email, redirectUrl) {
       if (!client) throw new Error('Kundenlogin noch nicht eingerichtet.');
       var r = await client.auth.signInWithOtp({

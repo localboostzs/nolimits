@@ -37,3 +37,17 @@
 @media(max-width:560px){.nl-account-actions .btn{width:100%;justify-content:center}.nl-admin-panel{padding:14px}}
 
 .nl-account-prompt{margin:0 0 20px}.nl-account-prompt a{color:var(--gold-deep);font-weight:650}
+
+/* Social login: no third-party scripts or requests until explicit user action. */
+.nl-social-login{display:grid;gap:10px;margin-top:22px}
+.nl-social-button{appearance:none;display:flex;align-items:center;justify-content:center;position:relative;gap:12px;width:100%;min-height:48px;padding:11px 18px;border:1px solid #d2d2d2;border-radius:5px;background:#fff;color:#222;font-family:inherit;font-size:15px;font-weight:600;line-height:1.35;cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s}
+.nl-social-button:hover{background:#f5f5f5;border-color:#9f9f9f}
+.nl-social-button:focus-visible{outline:3px solid var(--gold-deep);outline-offset:3px}
+.nl-social-button:disabled{cursor:wait;opacity:.65}
+.nl-social-apple{background:#111;color:#fff;border-color:#111}
+.nl-social-apple:hover{background:#303030;border-color:#303030}
+.nl-social-icon{flex:none;display:block}
+.nl-social-note{margin:10px 0 0;font-size:.86rem}
+.nl-auth-separator{display:flex;align-items:center;gap:13px;margin:22px 0 14px;color:var(--text-soft);font-size:.9rem}
+.nl-auth-separator:before,.nl-auth-separator:after{content:"";height:1px;flex:1;background:var(--line-light)}
+@media (max-width:560px){.nl-social-button{min-height:50px}}

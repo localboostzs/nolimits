@@ -43,7 +43,7 @@
     var raw = String((err && err.message) || '').toLowerCase();
     var code = String((err && err.code) || '').toLowerCase();
     if (code === 'over_email_send_rate_limit' || raw.includes('email rate limit exceeded')) {
-      return 'Zu viele Anmelde-E-Mails versendet. Im aktuellen Testbetrieb sind höchstens 2 E-Mails pro Stunde für das gesamte NoLimits-Projekt möglich. Bitte später erneut versuchen. Falls du bereits eine Anmeldemail erhalten hast, verwende diesen Link.';
+      return 'Zu viele Anmelde-E-Mails versendet. Das Versandlimit wurde erreicht. Bitte später erneut versuchen. Falls du bereits eine Anmeldemail erhalten hast, verwende diesen Link.';
     }
     if (raw.includes('for security purposes') || raw.includes('only request this after') ||
         code === 'over_request_rate_limit') {
@@ -98,6 +98,59 @@
       else btn.disabled=false;
     }
   });
+  var socialNote = document.getElementById('nl-social-note');
+  var socialButtons = [
+    { provider: 'google', element: document.getElementById('nl-google-login') },
+    { provider: 'apple', element: document.getElementById('nl-apple-login') }
+  ];
+  function setSocialNote(text) {
+    if (!socialNote) return;
+    socialNote.textContent = text;
+    socialNote.hidden = !text;
+  }
+  if (A && A.enabled && A.socialProviderStatus) {
+    A.socialProviderStatus().then(function(providers) {
+      if (providers.google && providers.apple) setSocialNote('');
+      else if (providers.google) setSocialNote('Apple-Anmeldung wird noch eingerichtet. Die Google-Anmeldung und E-Mail funktionieren.');
+      else if (providers.apple) setSocialNote('Google-Anmeldung wird noch eingerichtet. Die Apple-Anmeldung und E-Mail funktionieren.');
+      else setSocialNote('Google- und Apple-Anmeldung werden noch eingerichtet. Verwende vorerst den Anmeldelink per E-Mail.');
+    }).catch(function() {
+      setSocialNote('Die Anmeldeanbieter können momentan nicht geprüft werden. Der E-Mail-Login funktioniert weiterhin.');
+    });
+  }
+  socialButtons.forEach(function(item) {
+    if (!item.element) return;
+    item.element.addEventListener('click',async function() {
+      if (!A || !A.enabled || !A.socialSignIn) {
+        message('Kundenlogin noch nicht eingerichtet.',true);
+        return;
+      }
+      item.element.disabled=true;
+      message('');
+      try {
+        await A.socialSignIn(item.provider,location.origin+location.pathname);
+        message('Weiterleitung zur Anmeldung gestartet.');
+      } catch (err) {
+        if (err && err.code === 'provider_not_enabled') message(err.message,true);
+        else message('Die Anmeldung über ' + (item.provider==='google'?'Google':'Apple') +
+          ' konnte nicht gestartet werden. Bitte versuche es erneut oder verwende die E-Mail-Anmeldung.',true);
+      } finally {
+        item.element.disabled=false;
+      }
+    });
+  });
+  // Avoid displaying raw OAuth error codes or user-supplied callback text.
+  try {
+    var callbackParams = new URLSearchParams(location.search);
+    if (callbackParams.has('error')) {
+      message('Die Anmeldung wurde abgebrochen oder konnte nicht abgeschlossen werden. Du kannst es erneut versuchen.',true);
+      callbackParams.delete('error');
+      callbackParams.delete('error_code');
+      callbackParams.delete('error_description');
+      var cleaned = location.pathname + (callbackParams.toString() ? '?' + callbackParams : '') + location.hash;
+      history.replaceState(history.state,'',cleaned);
+    }
+  } catch (_) { /* History may be unavailable in embedded browsers. */ }
   profileForm.addEventListener('submit',async function(e){
     e.preventDefault();var b=profileForm.querySelector('[type=submit]');b.disabled=true;message('');
     try{
