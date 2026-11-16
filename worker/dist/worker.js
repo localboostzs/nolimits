@@ -46,7 +46,7 @@ async function requireStaff(req, env) {
   const heads = { 'apikey': key, 'Authorization': 'Bearer ' + token };
   let userResponse;
   try {
-    userResponse = await fetch(url + '/auth/v1/user', { headers: heads, redirect: 'error' });
+    userResponse = await fetch(url + '/auth/v1/user', { headers: heads, redirect: 'manual' });
   } catch {
     return { ok: false, status: 503, code: 'auth_unavailable', message: 'Anmeldung momentan nicht überprüfbar.' };
   }
@@ -57,7 +57,7 @@ async function requireStaff(req, env) {
   let staffResponse;
   try {
     staffResponse = await fetch(url + '/rest/v1/nl_staff?user_id=eq.' + encodeURIComponent(user.id) + '&select=role,active&limit=1',
-      { headers: heads, redirect: 'error' });
+      { headers: heads, redirect: 'manual' });
   } catch {
     return { ok: false, status: 503, code: 'auth_unavailable', message: 'Berechtigung momentan nicht überprüfbar.' };
   }
@@ -125,7 +125,7 @@ async function getContacts(req, env) {
           apikey: env.NL_SUPABASE_PUBLISHABLE_KEY,
           Authorization: req.headers.get('Authorization') || '',
           Accept: 'application/json'
-        }, redirect: 'error'
+        }, redirect: 'manual'
       });
       if (!legacyResponse.ok) throw new Error('legacy_contacts_unavailable');
       const legacy = await legacyResponse.json();
