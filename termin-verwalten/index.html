@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="de-CH"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow">
+<title>Termin verwalten | NoLimits Barbershop</title>
+<meta name="theme-color" content="#141312">
+<link rel="icon" href="../assets/img/logo-nolimits.jpg" type="image/jpeg">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/privacy.css?v=20261115-privacy1">
+<link rel="stylesheet" href="../assets/css/manage.css?v=20261116-manage1">
+<script src="../assets/js/config.js"></script>
+<script src="../assets/js/booking-config.js"></script>
+<script defer src="../assets/js/privacy.js?v=20261115-privacy1"></script>
+<script defer src="../assets/js/manage.js?v=20261116-manage1"></script>
+</head><body id="top">
+<a class="skip" href="#main">Zum Inhalt springen</a>
+<header class="site-header"><div class="wrap header-in">
+<a class="brand" href="../" aria-label="NoLimits – Startseite"><img src="../assets/img/logo-nolimits.jpg" width="240" height="240" alt="NoLimits Barbershop"></a>
+<nav class="nav" aria-label="Navigation"><a href="../leistungen/">Leistungen</a><a href="../kontakt/">Kontakt</a><a href="../konto/">Mein Konto</a></nav>
+<a class="btn btn-gold btn-sm" href="../booking-test/">Termin buchen</a>
+</div></header>
+<main id="main"><section class="page-hero"><div class="wrap page-hero-in">
+<span class="bk-badge">Dein Termin</span><h1 class="display">Termin verwalten</h1>
+<p class="lead">Termin ansehen, verschieben oder stornieren – direkt bei NoLimits.</p>
+</div></section>
+<section class="section on-paper"><div class="wrap nl-manage-wrap">
+<div id="nl-manage-msg" role="status" aria-live="polite" class="nl-manage-msg" hidden></div>
+<div id="nl-manage-loading" class="nl-manage-card"><h2>Termin wird geprüft …</h2><p>Dein persönlicher Link wird sicher verifiziert.</p></div>
+<div id="nl-manage-unavailable" class="nl-manage-card" hidden><h2>Terminverwaltung gerade nicht verfügbar</h2><p>Deine Buchung bleibt bestehen. Falls du einen Termin absagen oder verschieben möchtest, verwende vorläufig den Link aus der Cal.com-Bestätigung oder kontaktiere NoLimits.</p><a class="btn btn-gold" href="../kontakt/">NoLimits kontaktieren</a></div>
+<div id="nl-manage-missing" class="nl-manage-card" hidden><h2>Dein persönlicher Buchungslink fehlt</h2><p>Öffne bitte «Termin verwalten» in deiner Bestätigungs-E-Mail. Nur mit diesem Link können wir deine Buchung sicher zuordnen.</p><a class="btn btn-gold" href="../kontakt/">NoLimits kontaktieren</a></div>
+<div id="nl-manage-details" class="nl-manage-card" hidden>
+  <span class="nl-manage-tag" id="nl-manage-status">Termin</span>
+  <h2 id="nl-manage-service"></h2>
+  <dl class="nl-manage-facts"><div><dt>Datum &amp; Uhrzeit</dt><dd id="nl-manage-time"></dd></div><div><dt>Dauer</dt><dd id="nl-manage-duration"></dd></div><div><dt>Preis</dt><dd id="nl-manage-price"></dd></div><div><dt>Ort</dt><dd>Schmiedgasse 94, 6438 Ibach</dd></div></dl>
+  <p class="nl-manage-hint">Hinweis: Bei einer Stornierung oder Umbuchung weniger als 24 Stunden vor dem Termin können gemäss den aktuell angezeigten Buchungsbedingungen Kosten entstehen. Bei Fragen kontaktiere NoLimits.</p>
+  <div id="nl-manage-actions" class="nl-manage-actions">
+    <button type="button" id="nl-manage-show-reschedule" class="btn btn-gold">Termin verschieben</button>
+    <button type="button" id="nl-manage-show-cancel" class="nl-manage-outline">Termin stornieren</button>
+  </div>
+  <form id="nl-manage-cancel" hidden><h3>Termin wirklich stornieren?</h3>
+    <label for="nl-manage-reason">Grund (optional)</label><textarea id="nl-manage-reason" rows="3" maxlength="200" placeholder="Zum Beispiel: Ich bin verhindert"></textarea>
+    <label class="nl-manage-check"><input id="nl-manage-confirm-cancel" type="checkbox" required> Ich möchte diesen Termin verbindlich absagen und habe den Hinweis zu möglichen Kosten gelesen.</label>
+    <div class="nl-manage-actions"><button type="submit" class="btn btn-gold">Ja, Termin stornieren</button><button type="button" class="nl-manage-outline" data-dismiss>Zurück</button></div>
+  </form>
+  <form id="nl-manage-reschedule" hidden><h3>Neuen Termin wählen</h3>
+    <label for="nl-manage-date">Neues Datum</label><input id="nl-manage-date" type="date" required>
+    <div id="nl-manage-slots" aria-live="polite"></div><input id="nl-manage-selected-start" type="hidden">
+    <label class="nl-manage-check"><input id="nl-manage-confirm-reschedule" type="checkbox" required> Ich bestätige die Umbuchung und habe den Hinweis zu möglichen Kosten gelesen.</label>
+    <div class="nl-manage-actions"><button type="submit" class="btn btn-gold" id="nl-manage-reschedule-submit">Neuen Termin bestätigen</button><button type="button" class="nl-manage-outline" data-dismiss>Zurück</button></div>
+  </form>
+  <div id="nl-manage-result" hidden><h2 id="nl-manage-result-title"></h2><p id="nl-manage-result-message"></p><a class="btn btn-gold" href="../booking-test/">Weitere Buchung</a></div>
+</div>
+</div></section></main>
+<footer class="site-footer on-dark"><div class="wrap"><div class="footer-bottom"><p class="small">© 2026 NoLimits Barbershop · Schmiedgasse 94, 6438 Ibach</p><a class="small" href="../impressum/">Impressum &amp; Datenschutz</a></div></div></footer>
+</body></html>

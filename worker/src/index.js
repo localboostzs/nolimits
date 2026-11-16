@@ -334,7 +334,174 @@ async function book(req, env, adminMode = false) {
   const d = out?.data;
   // Nur bestätigte Buchungen als Erfolg melden.
   if (!d || d.status !== 'accepted') return fail('not_confirmed', 'Die Buchung wurde nicht bestätigt. Bitte erneut versuchen.', 502, req, env);
-  return json({ ok: true, booking: { uid: d.uid, status: d.status, start: d.start, end: d.end, service: service.name } }, 201, req, env);
+  const token = env.CAL_API_KEY ? await managementToken(d.uid, d.start, env) : null;
+  const manageUrl = token ? FRONTEND_BASE + MANAGE_PATH + '?uid=' + encodeURIComponent(d.uid) + '&token=' + encodeURIComponent(token) : null;
+  return json({ ok: true, booking: { uid: d.uid, status: d.status, start: d.start, end: d.end, service: service.name, manageUrl } }, 201, req, env);
+}
+
+
+/* Customer booking management: stateless signed links, no PII or secret in public repo. */
+const MANAGE_PATH = '/nolimits/termin-verwalten/';
+const FRONTEND_BASE = 'https://localboostzs.github.io';
+const VALID_UID = /^[A-Za-z0-9_-]{12,120}$/;
+function serviceForCal(eventTypeId) {
+  return Object.entries({ ...SERVICES, ...ADMIN_SERVICES })
+    .find(([, value]) => Number(value.eventTypeId) === Number(eventTypeId)) || null;
+}
+function serviceForWebhook(p) {
+  const match = serviceForCal(p?.eventTypeId || p?.eventType?.id);
+  if (match) return match;
+  const slug = String(p?.type || p?.eventType?.slug || '');
+  return Object.entries({ ...SERVICES, ...ADMIN_SERVICES }).find(([key]) =>
+    slug === 'nolimits-' + key || (key === 'gentleman-rasur' && slug === 'nolimits-intern-gentleman-rasur')) || null;
+}
+const asB64 = (buffer) => btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+function hexBytes(s) {
+  if (!/^[0-9a-f]{64}$/i.test(s)) return null;
+  return new Uint8Array(s.match(/../g).map((h) => parseInt(h, 16)));
+}
+async function hmacKey(secret) {
+  return crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign','verify']);
+}
+async function managementToken(uid, start, env) {
+  if (!VALID_UID.test(uid) || !env.NL_MANAGE_SECRET) return null;
+  const expiry = Math.floor(Date.parse(start) / 1000) + 7 * 86400;
+  if (!Number.isFinite(expiry) || expiry < Math.floor(Date.now() / 1000)) return null;
+  const signed = await crypto.subtle.sign('HMAC', await hmacKey(env.NL_MANAGE_SECRET), new TextEncoder().encode(uid + ':' + expiry));
+  return expiry + '.' + asB64(signed);
+}
+async function validManagementToken(uid, token, env) {
+  if (!env.NL_MANAGE_SECRET || !VALID_UID.test(uid) || !/^\d{10}\.[A-Za-z0-9_-]{43}$/.test(token || '')) return false;
+  const [expiration, tag] = token.split('.');
+  const exp = Number(expiration);
+  if (exp < Math.floor(Date.now() / 1000) || exp > Math.floor(Date.now() / 1000) + 400 * 86400) return false;
+  try {
+    const bytes = Uint8Array.from(atob(tag.replace(/-/g, '+').replace(/_/g, '/') + '='), (c) => c.charCodeAt(0));
+    return await crypto.subtle.verify('HMAC', await hmacKey(env.NL_MANAGE_SECRET), bytes, new TextEncoder().encode(uid + ':' + expiration));
+  } catch { return false; }
+}
+async function readCalBooking(uid, env) {
+  const res = await calFetch(CAL_BASE + '/v2/bookings/' + encodeURIComponent(uid), { headers: calHeaders(env, '2024-08-13') });
+  if (!res.ok) return { response: res, booking: null };
+  const data = await res.json().catch(() => null);
+  const b = data?.data || data?.booking || null;
+  if (!b || b.uid !== uid || !serviceForCal(b.eventTypeId || b.eventType?.id)) return { response: null, booking: null };
+  return { response: res, booking: b };
+}
+async function accessManage(req, env, uid, token) {
+  if (!env.CAL_API_KEY) return { error: fail('not_configured', 'Die Terminverwaltung wird gerade eingerichtet. Bis dahin bitte den Stornolink aus der Cal.com-E-Mail verwenden.', 503, req, env) };
+  if (!(await validManagementToken(uid, token, env))) return { error: fail('invalid_link', 'Dieser Buchungslink ist ungültig oder abgelaufen.', 403, req, env) };
+  try {
+    const found = await readCalBooking(uid, env);
+    if (!found.booking) return { error: fail('not_found', 'Termin nicht gefunden.', 404, req, env) };
+    return { booking: found.booking, matched: serviceForCal(found.booking.eventTypeId || found.booking.eventType?.id) };
+  } catch { return { error: fail('unavailable', 'Die Terminverwaltung ist derzeit nicht erreichbar.', 502, req, env) }; }
+}
+async function routeManage(req, env, url) {
+  if (await limited(env, 'RL_SLOTS', 'manage:' + clientIp(req), 40, 60000)) return fail('rate_limited', 'Bitte später erneut versuchen.', 429, req, env);
+  const post = req.method === 'POST';
+  if (post && Number(req.headers.get('Content-Length') || 0) > 2048) return fail('too_large', 'Anfrage zu gross.', 413, req, env);
+  const data = post ? await req.json().catch(() => null) : url.searchParams;
+  const uid = clean(post ? data?.uid : data?.get('uid'), 120);
+  const token = clean(post ? data?.token : data?.get('token'), 120);
+  const a = await accessManage(req, env, uid, token);
+  if (a.error) return a.error;
+  const b = a.booking, matched = a.matched;
+  const startMs = Date.parse(b.start);
+  if (!post && url.pathname === '/api/manage') {
+    return json({ ok:true, booking: {
+      service: matched[1].name, serviceKey: matched[0], eventTypeId: matched[1].eventTypeId,
+      minutes: matched[1].minutes, price: matched[1].price,
+      start: b.start, end: b.end, status:b.status,
+      canManage:b.status === 'accepted' && startMs > Date.now()
+    } }, 200, req, env);
+  }
+  if (b.status !== 'accepted' || startMs <= Date.now()) return fail('not_active', 'Dieser Termin kann nicht mehr geändert werden.', 409, req, env);
+  if (!post && url.pathname === '/api/manage/slots') {
+    if (url.searchParams.get('service') !== matched[0]) return fail('invalid_service','Diese Dienstleistung darf nicht geändert werden.',400,req,env);
+    return await getSlots(url, req, env, matched[1]);
+  }
+  if (post && url.pathname === '/api/manage/cancel') {
+    if (data.confirm !== true) return fail('confirmation_required', 'Bitte zuerst die Stornierung bestätigen.',400,req,env);
+    const reason = clean(data.reason, 200) || 'Vom Kunden über die NoLimits-Website storniert';
+    try {
+      const r = await calFetch(CAL_BASE + '/v2/bookings/' + encodeURIComponent(uid) + '/cancel', {
+        method:'POST', headers:calHeaders(env,'2026-02-25'), body:JSON.stringify({cancellationReason:reason})
+      });
+      if (!r.ok) return fail('upstream_error','Die Stornierung wurde nicht bestätigt. Bitte versuche es erneut.',502,req,env);
+      return json({ok:true,status:'cancelled'},200,req,env);
+    } catch { return fail('unavailable', 'Stornierung momentan nicht erreichbar.',502,req,env); }
+  }
+  if (post && url.pathname === '/api/manage/reschedule') {
+    if (data.confirm !== true) return fail('confirmation_required','Bitte die Umbuchung bestätigen.',400,req,env);
+    const nextMs = Date.parse(data.start);
+    if (!Number.isFinite(nextMs) || nextMs < Date.now() || nextMs > Date.now() + 366 * 86400000) return fail('invalid_start','Ungültiger neuer Termin.',400,req,env);
+    const chosen = new Date(nextMs).toISOString();
+    const parts = new Intl.DateTimeFormat('en-GB', {timeZone:TIME_ZONE,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(nextMs));
+    const value = (part) => parts.find(p => p.type === part)?.value || '';
+    const dateKey = value('year')+'-'+value('month')+'-'+value('day');
+    try {
+      const q = new URLSearchParams({eventTypeId:String(matched[1].eventTypeId),start:dateKey,end:dateKey,timeZone:TIME_ZONE});
+      const slots = await calFetch(CAL_BASE+'/v2/slots?'+q,{headers:calHeaders(env,'2024-09-04')});
+      if (!slots.ok) return fail('unavailable','Verfügbarkeit konnte nicht geprüft werden.',502,req,env);
+      const available = await slots.json().catch(()=>null);
+      const all = Object.values(available?.data||{}).flatMap(v=>Array.isArray(v)?v:[]);
+      if (!all.some(x=>Date.parse(x.start) === nextMs)) return fail('slot_unavailable','Dieser Zeitpunkt ist nicht mehr verfügbar.',409,req,env);
+      const r = await calFetch(CAL_BASE+'/v2/bookings/'+encodeURIComponent(uid)+'/reschedule',{
+        method:'POST',headers:calHeaders(env,'2026-02-25'),
+        body:JSON.stringify({start:chosen,reschedulingReason:'Durch Kunden auf der NoLimits-Website umgebucht'})
+      });
+      if (!r.ok) return fail('upstream_error','Umbuchung nicht bestätigt. Bitte erneut versuchen.',502,req,env);
+      const out = await r.json().catch(()=>null), newer = out?.data;
+      return json({ok:true,booking:{start:newer?.start||chosen,end:newer?.end||null,status:newer?.status||'accepted',
+        manageUrl: newer?.uid && newer?.start ? FRONTEND_BASE+MANAGE_PATH+'?uid='+encodeURIComponent(newer.uid)+'&token='+encodeURIComponent(await managementToken(newer.uid,newer.start,env)) : null
+      }},200,req,env);
+    } catch { return fail('unavailable','Umbuchung momentan nicht erreichbar.',502,req,env); }
+  }
+  return fail('not_found','Nicht gefunden.',404,req,env);
+}
+function mailEscape(value) {
+  return String(value ?? '').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function mailHtml(event, p, match, manageUrl) {
+  const cancelled = event === 'BOOKING_CANCELLED';
+  const when = new Intl.DateTimeFormat('de-CH',{timeZone:TIME_ZONE,dateStyle:'full',timeStyle:'short'}).format(new Date(p.startTime));
+  const price = match[1].price == null ? '' : '<div style="margin-top:8px">Preis: <strong>CHF '+mailEscape(match[1].price)+'</strong> · Bezahlung vor Ort</div>';
+  const title = cancelled ? 'Dein Termin wurde storniert' : (event==='BOOKING_RESCHEDULED'?'Dein Termin wurde verschoben':'Dein Termin ist bestätigt');
+  const safeLink = manageUrl ? '<a href="'+mailEscape(manageUrl)+'" style="display:inline-block;background:#d5b477;color:#141312;text-decoration:none;padding:14px 24px;border-radius:5px;font-weight:700;margin-top:22px">Termin verwalten</a>':'';
+  return '<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="margin:0;background:#f3f1ed;color:#1c1c1a;font:16px/1.55 Arial,sans-serif"><table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="padding:35px 14px"><tr><td align="center"><table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:560px;background:#fff;border-radius:10px;overflow:hidden"><tr><td style="background:#141312;color:#d5b477;text-align:center;padding:26px"><div style="font-weight:800;letter-spacing:3px;font-size:27px">NOLIMITS</div><div style="font-size:11px;letter-spacing:4px">BARBERSHOP</div></td></tr><tr><td style="padding:32px 30px"><h1 style="font-size:25px;line-height:1.2;margin:0 0 10px">'+title+'</h1><p style="margin:0 0 22px">'+(cancelled?'Deine Buchung wurde erfolgreich aufgehoben.':'Wir freuen uns auf deinen Besuch bei NoLimits.')+'</p><div style="background:#f5f3ef;border-left:4px solid #d5b477;padding:18px"><strong>'+mailEscape(match[1].name)+'</strong><div style="margin-top:8px">'+mailEscape(when)+' Uhr</div><div style="margin-top:8px">Dauer: '+mailEscape(match[1].minutes)+' Minuten</div>'+price+'<div style="margin-top:8px">Schmiedgasse 94, 6438 Ibach</div></div>'+safeLink+'<p style="color:#666;font-size:13px;margin-top:24px">Falls du die Buchung nicht vorgenommen hast, melde dich bitte direkt beim Barbershop. Gib diesen persönlichen Verwaltungslink nicht an andere weiter.</p></td></tr><tr><td style="padding:18px 30px;text-align:center;background:#f5f3ef;color:#777;font-size:12px">NoLimits Barbershop · Schmiedgasse 94 · 6438 Ibach · Schweiz</td></tr></table></td></tr></table></body></html>';
+}
+async function onCalWebhook(req, env) {
+  if (!env.CAL_WEBHOOK_SECRET) return json({ok:false},503,req,env);
+  if (Number(req.headers.get('Content-Length') || 0) > 40000) return fail('too_large','Zu grosse Nachricht.',413,req,env);
+  const raw = await req.text();
+  if (raw.length > 40000) return fail('too_large','Zu grosse Nachricht.',413,req,env);
+  const sig = (req.headers.get('X-Cal-Signature-256') || '').replace(/^sha256=/i,'');
+  const bytes = hexBytes(sig);
+  if (!bytes || !(await crypto.subtle.verify('HMAC',await hmacKey(env.CAL_WEBHOOK_SECRET),bytes,new TextEncoder().encode(raw)))) {
+    return fail('invalid_signature','Ungültige Signatur.',401,req,env);
+  }
+  const event = JSON.parse(raw);
+  const typ = String(event?.triggerEvent||'');
+  if (!['BOOKING_CREATED','BOOKING_CONFIRMED','BOOKING_CANCELLED','BOOKING_RESCHEDULED'].includes(typ)) return json({ok:true,ignored:true},200,req,env);
+  const p = event.payload||event, match=serviceForWebhook(p);
+  const uid = String(p.uid||'');
+  if (!match || !VALID_UID.test(uid) || !Number.isFinite(Date.parse(p.startTime))) return json({ok:true,ignored:true},200,req,env);
+  if (typ==='BOOKING_CANCELLED' && p.rescheduledToUid) return json({ok:true,ignored:true},200,req,env);
+  if (env.NL_EMAIL_ENABLED !== 'true' || !env.RESEND_API_KEY || !env.CAL_API_KEY || !env.NL_MANAGE_SECRET) return json({ok:true,skipped:'mail_not_enabled'},200,req,env);
+  const customer = (p.attendees || []).find(a=>isEmail(String(a.email||'')));
+  if (!customer) return json({ok:true,ignored:true},200,req,env);
+  const tok = typ==='BOOKING_CANCELLED'?null:await managementToken(uid,p.startTime,env);
+  const link = tok ? FRONTEND_BASE+MANAGE_PATH+'?uid='+encodeURIComponent(uid)+'&token='+encodeURIComponent(tok) : null;
+  const subject = typ==='BOOKING_CANCELLED'?'Dein Termin wurde storniert – NoLimits Barbershop':typ==='BOOKING_RESCHEDULED'?'Dein neuer Termin – NoLimits Barbershop':'Dein Termin ist bestätigt – NoLimits Barbershop';
+  const mail = {from:'NoLimits Barbershop <login@nolimits-barber.ch>',to:[customer.email],subject,html:mailHtml(typ,p,match,link)};
+  const key = 'nolimits/'+typ+'/'+uid;
+  const resp=await fetch('https://api.resend.com/emails',{
+    method:'POST',headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json','Idempotency-Key':key},
+    body:JSON.stringify(mail),redirect:'manual'
+  });
+  if (!resp.ok) return fail('delivery_failed','E-Mail nicht zugestellt.',502,req,env);
+  return json({ok:true,sent:true},200,req,env);
 }
 
 export default {
@@ -344,6 +511,8 @@ export default {
     const origin = req.headers.get('Origin');
     if (origin && !origins(env).includes(origin)) return fail('forbidden_origin', 'Origin nicht erlaubt.', 403, req, env);
     try {
+      if (req.method === 'POST' && url.pathname === '/api/webhooks/cal') return await onCalWebhook(req, env);
+      if ((req.method === 'GET' || req.method === 'POST') && (url.pathname === '/api/manage' || url.pathname.startsWith('/api/manage/'))) return await routeManage(req, env, url);
       if (url.pathname.startsWith('/api/admin/')) {
         const access = await requireStaff(req, env);
         if (!access.ok) return fail(access.code, access.message, access.status, req, env);

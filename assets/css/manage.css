@@ -1,0 +1,24 @@
+/* NoLimits appointment management — compact, mobile-first */
+.nl-manage-wrap{max-width:820px;margin-inline:auto}
+.nl-manage-card{background:var(--paper);border:1px solid var(--line-light);padding:clamp(22px,4vw,42px)}
+.nl-manage-card h2{font-family:var(--font-head);font-size:clamp(26px,4vw,37px);margin:12px 0}
+.nl-manage-card h3{font-size:22px;margin:24px 0 12px}
+.nl-manage-card p{line-height:1.6;color:var(--text-soft)}
+.nl-manage-tag{color:var(--gold-deep);font-weight:700;letter-spacing:.04em}
+.nl-manage-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:20px;margin:22px 0;background:rgba(184,150,87,.07)}
+.nl-manage-facts dt{font-size:13px;color:var(--text-soft);margin-bottom:4px}
+.nl-manage-facts dd{font-weight:650;margin:0}
+.nl-manage-hint{font-size:14px;padding:12px 14px;background:#f2ede3;border-left:3px solid var(--gold-deep)}
+.nl-manage-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:22px}
+.nl-manage-outline{border:1px solid #74634a;padding:12px 20px;border-radius:3px;color:var(--ink);font:inherit;cursor:pointer;background:transparent}
+.nl-manage-msg{padding:16px;margin-bottom:20px;border:1px solid #c4a26a;background:#fff7e7}
+.nl-manage-msg.error{color:#8a231b;border-color:#bf6255;background:#fff0ed}
+.nl-manage-card label:not(.nl-manage-check){display:block;font-weight:650;margin:14px 0 7px}
+.nl-manage-card input[type=date],.nl-manage-card textarea{font:inherit;width:100%;padding:11px;border:1px solid #a7a19a;background:#fff}
+.nl-manage-check{display:flex;gap:11px;align-items:flex-start;margin-top:18px;line-height:1.4}
+.nl-manage-check input{width:18px;height:18px;flex:none;margin-top:2px}
+.nl-manage-slots-grid{display:flex;gap:9px;flex-wrap:wrap;margin:15px 0}
+.nl-manage-slot{background:#fff;border:1px solid #a7a19a;padding:10px 14px;min-height:44px;cursor:pointer;color:var(--ink)}
+.nl-manage-slot[aria-pressed=true]{background:#221c16;color:#fff;border-color:#221c16}
+.nl-manage-slot:focus-visible,.nl-manage-outline:focus-visible{outline:3px solid var(--gold-deep);outline-offset:3px}
+@media(max-width:540px){.nl-manage-facts{grid-template-columns:1fr}.nl-manage-actions{flex-direction:column;align-items:stretch}.nl-manage-actions>*{width:100%;text-align:center}}
