@@ -481,11 +481,66 @@ function mailEscape(value) {
 }
 function mailHtml(event, p, match, manageUrl) {
   const cancelled = event === 'BOOKING_CANCELLED';
+  const title = cancelled ? 'Dein Termin wurde storniert' : event === 'BOOKING_RESCHEDULED' ? 'Dein Termin wurde verschoben' : 'Dein Termin ist bestätigt';
+  const intro = cancelled ? 'Dein Termin wurde erfolgreich storniert. Hier findest du die Angaben zur abgesagten Buchung.' : event === 'BOOKING_RESCHEDULED' ? 'Dein Termin wurde erfolgreich verschoben. Hier sind deine neuen Termindetails.' : 'Vielen Dank für deine Buchung. Wir freuen uns auf deinen Besuch bei NoLimits.';
+  const securityHint = cancelled ? 'Du hast diese Stornierung nicht veranlasst? Kontaktiere bitte direkt den Barbershop.' : 'Falls du die Buchung nicht vorgenommen hast, kontaktiere bitte direkt den Barbershop. Deinen persönlichen Terminlink solltest du nicht weitergeben.';
   const when = new Intl.DateTimeFormat('de-CH',{timeZone:TIME_ZONE,dateStyle:'full',timeStyle:'short'}).format(new Date(p.startTime));
-  const price = match[1].price == null ? '' : '<div style="margin-top:8px">Preis: <strong>CHF '+mailEscape(match[1].price)+'</strong> · Bezahlung vor Ort</div>';
-  const title = cancelled ? 'Dein Termin wurde storniert' : (event==='BOOKING_RESCHEDULED'?'Dein Termin wurde verschoben':'Dein Termin ist bestätigt');
-  const safeLink = manageUrl ? '<a href="'+mailEscape(manageUrl)+'" style="display:inline-block;background:#d5b477;color:#141312;text-decoration:none;padding:14px 24px;border-radius:5px;font-weight:700;margin-top:22px">Termin verwalten</a>':'';
-  return '<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="margin:0;background:#f3f1ed;color:#1c1c1a;font:16px/1.55 Arial,sans-serif"><table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="padding:35px 14px"><tr><td align="center"><table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:560px;background:#fff;border-radius:10px;overflow:hidden"><tr><td style="background:#141312;color:#d5b477;text-align:center;padding:26px"><div style="font-weight:800;letter-spacing:3px;font-size:27px">NOLIMITS</div><div style="font-size:11px;letter-spacing:4px">BARBERSHOP</div></td></tr><tr><td style="padding:32px 30px"><h1 style="font-size:25px;line-height:1.2;margin:0 0 10px">'+title+'</h1><p style="margin:0 0 22px">'+(cancelled?'Deine Buchung wurde erfolgreich aufgehoben.':'Wir freuen uns auf deinen Besuch bei NoLimits.')+'</p><div style="background:#f5f3ef;border-left:4px solid #d5b477;padding:18px"><strong>'+mailEscape(match[1].name)+'</strong><div style="margin-top:8px">'+mailEscape(when)+' Uhr</div><div style="margin-top:8px">Dauer: '+mailEscape(match[1].minutes)+' Minuten</div>'+price+'<div style="margin-top:8px">Schmiedgasse 94, 6438 Ibach</div></div>'+safeLink+'<p style="color:#666;font-size:13px;margin-top:24px">Falls du die Buchung nicht vorgenommen hast, melde dich bitte direkt beim Barbershop. Gib diesen persönlichen Verwaltungslink nicht an andere weiter.</p></td></tr><tr><td style="padding:18px 30px;text-align:center;background:#f5f3ef;color:#777;font-size:12px">NoLimits Barbershop · Schmiedgasse 94 · 6438 Ibach · Schweiz</td></tr></table></td></tr></table></body></html>';
+  const price = match[1].price == null ? '' : '<div style="font-size:14px;line-height:1.8;color:#59534a;"><strong style="color:#171715;">Preis:</strong> CHF '+mailEscape(match[1].price)+' · Bezahlung vor Ort</div>';
+  const safeLink = manageUrl ? '<table role="presentation" border="0" cellspacing="0" cellpadding="0" style="border-collapse:separate;margin-top:27px;"><tr><td style="background:#c0974f;border-radius:3px;"><a class="email-button" href="'+mailEscape(manageUrl)+'" style="display:inline-block;padding:16px 29px;color:#0f0f0e;background:#c0974f;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;font-weight:700;text-decoration:none;letter-spacing:.2px;">Termin verwalten</a></td></tr></table>' : '';
+  return `<!DOCTYPE html>
+<html lang="de-CH" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>${title} | NoLimits Barbershop</title>
+<style>
+  @media only screen and (max-width: 600px) {
+    .email-shell { width: 100% !important; }
+    .email-padding { padding-left: 24px !important; padding-right: 24px !important; }
+    .email-title { font-size: 30px !important; line-height: 1.2 !important; }
+    .email-button { display: block !important; text-align: center !important; }
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background-color:#ebe4d8;-webkit-text-size-adjust:100%;font-family:Arial,Helvetica,sans-serif;color:#1b1a17;">
+<div style="display:none;font-size:1px;line-height:1px;opacity:0;max-height:0;overflow:hidden;color:#ebe4d8;">${title} – deine Buchungsinformationen von NoLimits Barbershop.</div>
+<table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background-color:#ebe4d8;">
+<tr><td align="center" style="padding:32px 12px 40px;">
+<table role="presentation" class="email-shell" width="560" border="0" cellspacing="0" cellpadding="0" style="width:560px;max-width:100%;border-collapse:collapse;background-color:#f4efe7;">
+<tr><td align="center" style="background:#0f0f0e;padding:35px 24px 28px;border-top:5px solid #c0974f;">
+<img src="https://localboostzs.github.io/nolimits/assets/img/logo-nolimits.jpg" alt="NoLimits Barbershop" width="78" height="78" style="width:78px;height:78px;object-fit:cover;border:0;display:block;margin:0 auto 17px;">
+<div style="font-size:11px;font-weight:700;letter-spacing:3px;line-height:17px;color:#d9b672;text-transform:uppercase;">NOLIMITS BARBERSHOP</div>
+<div style="height:1px;width:72px;background:#c0974f;margin-top:16px;"></div>
+</td></tr>
+<tr><td class="email-padding" style="padding:46px 45px 36px;">
+<div style="font-size:10px;line-height:16px;font-weight:700;color:#8d6a2c;letter-spacing:2.5px;text-transform:uppercase;margin-bottom:15px;">DEIN TERMIN BEI NOLIMITS</div>
+<h1 class="email-title" style="font-family:Georgia,'Times New Roman',serif;font-size:37px;line-height:1.16;font-weight:400;letter-spacing:-.6px;margin:0 0 20px;color:#171715;">${title}</h1>
+<p style="font-size:15px;line-height:1.8;color:#59534a;margin:0 0 27px;">${intro}</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background-color:#ebe4d8;border-left:4px solid #c0974f;">
+<tr><td style="padding:22px 23px;">
+<div style="font-family:Georgia,'Times New Roman',serif;font-size:22px;line-height:1.25;color:#171715;margin-bottom:16px;">${mailEscape(match[1].name)}</div>
+<div style="font-size:14px;line-height:1.8;color:#59534a;"><strong style="color:#171715;">Wann:</strong> ${mailEscape(when)} Uhr</div>
+<div style="font-size:14px;line-height:1.8;color:#59534a;"><strong style="color:#171715;">Dauer:</strong> ${mailEscape(match[1].minutes)} Minuten</div>
+${price}
+<div style="font-size:14px;line-height:1.8;color:#59534a;"><strong style="color:#171715;">Ort:</strong> Schmiedgasse 94, 6438 Ibach</div>
+</td></tr></table>
+${safeLink}
+<p style="font-size:13px;line-height:1.8;color:#59534a;margin:28px 0 0;">${securityHint}</p>
+<table role="presentation" border="0" cellspacing="0" cellpadding="0" width="100%" style="margin-top:33px;border-collapse:collapse;"><tr><td style="height:1px;background:#ddd4c4;"></td></tr></table>
+<p style="margin:24px 0 0;font-size:12px;line-height:1.7;color:#59534a;">NoLimits Barbershop · Schmiedgasse 94, 6438 Ibach · Bezahlung vor Ort.</p>
+</td></tr>
+<tr><td class="email-padding" style="background:#171715;padding:27px 45px 29px;">
+<div style="font-size:12px;color:#d9b672;font-weight:bold;letter-spacing:.7px;">NoLimits Barbershop</div>
+<div style="font-size:11px;color:#a8a093;margin-top:8px;line-height:1.8;">Schmiedgasse 94, 6438 Ibach, Schweiz</div>
+<div style="font-size:11px;margin-top:10px;"><a href="https://nolimits-barber.ch" style="color:#d9b672;text-decoration:underline;">Website</a> &nbsp;&nbsp; <a href="https://localboostzs.github.io/nolimits/impressum/" style="color:#d9b672;text-decoration:underline;">Impressum &amp; Datenschutz</a></div>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>
+`;
 }
 async function onCalWebhook(req, env) {
   if (!env.CAL_WEBHOOK_SECRET) return json({ok:false},503,req,env);
