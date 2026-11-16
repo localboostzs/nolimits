@@ -276,7 +276,7 @@
     row('Uhrzeit', new Intl.DateTimeFormat('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' }).format(start) + ' Uhr');
     row('Ort', 'NoLimits Barbershop, Schmiedgasse 94, 6438 Ibach');
     var link = $('#bk-manage-link');
-    if (link) { link.hidden = !b.manageUrl; if (b.manageUrl) link.href = b.manageUrl; }
+    if (link) { link.hidden = !b.manageUrl; link.style.display = b.manageUrl ? 'inline-flex' : 'none'; if (b.manageUrl) link.href = b.manageUrl; }
 
     okEl.classList.add('is-active'); okEl.hidden = false;
     var h = okEl.querySelector('h2'); h.setAttribute('tabindex', '-1'); h.focus();
