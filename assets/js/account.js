@@ -100,8 +100,7 @@
   });
   var socialNote = document.getElementById('nl-social-note');
   var socialButtons = [
-    { provider: 'google', element: document.getElementById('nl-google-login') },
-    { provider: 'apple', element: document.getElementById('nl-apple-login') }
+    { provider: 'google', element: document.getElementById('nl-google-login') }
   ];
   function setSocialNote(text) {
     if (!socialNote) return;
@@ -110,10 +109,8 @@
   }
   if (A && A.enabled && A.socialProviderStatus) {
     A.socialProviderStatus().then(function(providers) {
-      if (providers.google && providers.apple) setSocialNote('');
-      else if (providers.google) setSocialNote('Apple-Anmeldung wird noch eingerichtet. Die Google-Anmeldung und E-Mail funktionieren.');
-      else if (providers.apple) setSocialNote('Google-Anmeldung wird noch eingerichtet. Die Apple-Anmeldung und E-Mail funktionieren.');
-      else setSocialNote('Google- und Apple-Anmeldung werden noch eingerichtet. Verwende vorerst den Anmeldelink per E-Mail.');
+      if (providers.google) setSocialNote('');
+      else setSocialNote('Die Google-Anmeldung ist derzeit nicht verfügbar. Verwende den Anmeldelink per E-Mail.');
     }).catch(function() {
       setSocialNote('Die Anmeldeanbieter können momentan nicht geprüft werden. Der E-Mail-Login funktioniert weiterhin.');
     });
@@ -132,8 +129,7 @@
         message('Weiterleitung zur Anmeldung gestartet.');
       } catch (err) {
         if (err && err.code === 'provider_not_enabled') message(err.message,true);
-        else message('Die Anmeldung über ' + (item.provider==='google'?'Google':'Apple') +
-          ' konnte nicht gestartet werden. Bitte versuche es erneut oder verwende die E-Mail-Anmeldung.',true);
+        else message('Die Google-Anmeldung konnte nicht gestartet werden. Bitte versuche es erneut oder verwende die E-Mail-Anmeldung.',true);
       } finally {
         item.element.disabled=false;
       }

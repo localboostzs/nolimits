@@ -60,7 +60,7 @@
   // OAuth starts only after a direct user click. Provider configuration stays
   // on the Supabase server; client secrets are never present in this repository.
   async function socialProviderStatus() {
-    if (!client) return { google: false, apple: false };
+    if (!client) return { google: false };
     try {
       var response = await fetch(cfg.url + '/auth/v1/settings', {
         headers: { apikey: cfg.publishableKey },
@@ -69,22 +69,17 @@
       });
       if (!response.ok) throw new Error('Anbieterstatus konnte nicht geprüft werden.');
       var settings = await response.json();
-      return {
-        google: settings.external && settings.external.google === true,
-        apple: settings.external && settings.external.apple === true
-      };
+      return { google: settings.external && settings.external.google === true };
     } catch (_) {
-      return { google: false, apple: false };
+      return { google: false };
     }
   }
   async function socialSignIn(provider, redirectUrl) {
     if (!client) throw new Error('Kundenlogin noch nicht eingerichtet.');
-    if (provider !== 'google' && provider !== 'apple') throw new Error('Unbekannter Anmeldeanbieter.');
+    if (provider !== 'google') throw new Error('Unbekannter Anmeldeanbieter.');
     var available = await socialProviderStatus();
     if (!available[provider]) {
-      var err = new Error(provider === 'google'
-        ? 'Die Google-Anmeldung wird noch eingerichtet. Bitte vorerst den Anmeldelink per E-Mail verwenden.'
-        : 'Die Apple-Anmeldung wird noch eingerichtet. Bitte vorerst den Anmeldelink per E-Mail verwenden.');
+      var err = new Error('Die Google-Anmeldung ist noch nicht aktiviert. Bitte vorerst den Anmeldelink per E-Mail verwenden.');
       err.code = 'provider_not_enabled';
       throw err;
     }
