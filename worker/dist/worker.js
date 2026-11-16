@@ -86,79 +86,108 @@ async function listCalBookings(env, status) {
   return all;
 }
 async function getContacts(req, env) {
+  const grouped = new Map();
+  const names = new Map(Object.entries(SERVICES).concat(Object.entries(ADMIN_SERVICES))
+    .map(([,s]) => [s.eventTypeId, s.name]));
+  const headings = {
+    bookingsWarning: false,
+    legacyWarning: false,
+    profilesWarning: false,
+  };
+  const staffHeaders = {
+    apikey: env.NL_SUPABASE_PUBLISHABLE_KEY,
+    Authorization: req.headers.get('Authorization') || '',
+    Accept: 'application/json'
+  };
+  async function getStaffRows(table, fields, limit) {
+    const endpoint = env.NL_SUPABASE_URL + '/rest/v1/' + table +
+      '?select=' + encodeURIComponent(fields) + '&limit=' + limit;
+    const response = await fetch(endpoint, {headers:staffHeaders,redirect:'manual'});
+    if(!response.ok) throw new Error('Staff directory unavailable: ' + table);
+    const data = await response.json();
+    if(!Array.isArray(data)) throw new Error('Unexpected directory response: ' + table);
+    return data;
+  }
+  function record(email,name,phone,externalId) {
+    const cleanEmail = String(email||'').trim().toLowerCase().slice(0,120);
+    const contactKey = cleanEmail && isEmail(cleanEmail) ? cleanEmail
+      : externalId ? 'wix:' + String(externalId).slice(0,160) : '';
+    if (!contactKey) return null;
+    let c=grouped.get(contactKey);
+    if(!c) {
+      c={name:String(name||'').slice(0,100),email:cleanEmail,
+        phone:String(phone||'').slice(0,30),upcoming:[],past:[]};
+      grouped.set(contactKey,c);
+    }
+    if (!c.name && name) c.name=String(name).slice(0,100);
+    if (!c.phone && phone) c.phone=String(phone).slice(0,30);
+    return c;
+  }
+  // Echte NoLimits-Kundenkonten auch vor der Cal.com-Anbindung anzeigen.
+  // Supabase RLS erlaubt nur aktivierten Mitarbeitern diese Listenabfrage.
   try {
-    const [upcoming, past] = await Promise.all([
-      listCalBookings(env, 'upcoming'), listCalBookings(env, 'past')
-    ]);
-    const grouped = new Map();
-    const names = new Map(Object.entries(SERVICES).concat(Object.entries(ADMIN_SERVICES))
-      .map(([,s]) => [s.eventTypeId, s.name]));
-    for (const [kind, list] of [['upcoming',upcoming], ['past',past]]) {
-      for (const b of list) {
-        const attendee = b.attendees?.[0] || {};
-        const email = String(attendee.email || '').trim().toLowerCase();
-        if (!email || email.length > 120) continue;
-        let c = grouped.get(email);
-        if (!c) {
-          c = { name: String(attendee.name || '').slice(0,80), email,
-            phone: String(attendee.phoneNumber || '').slice(0,30), upcoming:[], past:[] };
-          grouped.set(email, c);
-        }
-        if (!c.phone && attendee.phoneNumber) c.phone = String(attendee.phoneNumber).slice(0,30);
-        const eventTypeId = b.eventTypeId || b.eventType?.id;
-        // Nur NoLimits-Termine anzeigen, nie fremde persönliche Cal.com-Buchungen.
-        if (!names.has(Number(eventTypeId))) continue;
-        const service = names.get(Number(eventTypeId));
-        c[kind].push({
-          uid: b.uid, start: b.start || b.startTime,
-          end: b.end || b.endTime, status: b.status, service
-        });
+    const profiles = await getStaffRows('nl_customer_profiles',
+      'email,full_name,phone,last_service_key', 2000);
+    for (const p of profiles) {
+      const c=record(p.email,p.full_name,p.phone);
+      if (c) {
+        c.registered=true;
+        if (p.last_service_key && SERVICES[p.last_service_key])
+          c.recentService=SERVICES[p.last_service_key].name;
       }
     }
-    // Importierte Wix-Kontakte ergänzen; normale Kunden haben aufgrund der
-    // RLS-Policy keinen Zugriff auf diese Tabelle.
-    let legacyWarning = false;
+  } catch {
+    return fail('profiles_unavailable',
+      'Kundenkonten konnten nicht geladen werden. Bitte Administrator kontaktieren.',502,req,env);
+  }
+
+  // Wix-Kontakte importieren wir ausschliesslich nach Isens Freigabe.
+  try {
+    const legacy = await getStaffRows('nl_legacy_contacts','external_id,name,email,phone',2000);
+    for (const p of legacy) {
+      const c=record(p.email,p.name,p.phone,p.external_id);
+      if(c) c.legacy=true;
+    }
+  } catch {
+    headings.legacyWarning=true;
+  }
+
+  // Kein Cal.com-API-Key in Testumgebung: Kundenliste bleibt verwendbar,
+  // keine erfundenen kommenden/alten Termine anzeigen.
+  if (!env.CAL_API_KEY) {
+    headings.bookingsWarning=true;
+  } else {
     try {
-      const legacyResponse = await fetch(env.NL_SUPABASE_URL +
-        '/rest/v1/nl_legacy_contacts?select=external_id,name,email,phone&limit=2000', {
-        headers: {
-          apikey: env.NL_SUPABASE_PUBLISHABLE_KEY,
-          Authorization: req.headers.get('Authorization') || '',
-          Accept: 'application/json'
-        }, redirect: 'manual'
-      });
-      if (!legacyResponse.ok) throw new Error('legacy_contacts_unavailable');
-      const legacy = await legacyResponse.json();
-      if (!Array.isArray(legacy)) throw new Error('invalid_legacy_contacts');
-      for (const item of legacy) {
-        const email=String(item.email||'').trim().toLowerCase();
-        const key=email || 'wix:' + String(item.external_id||'');
-        if (!key || key==='wix:') continue;
-        let c=grouped.get(key);
-        if (!c) {
-          c={name:String(item.name||'').slice(0,100),
-             email, phone:String(item.phone||'').slice(0,30),
-             upcoming:[],past:[],legacy:true};
-          grouped.set(key,c);
-        } else {
-          if (!c.phone) c.phone=String(item.phone||'').slice(0,30);
-          if (!c.name) c.name=String(item.name||'').slice(0,100);
-          c.legacy=true;
+      const [upcoming,past] = await Promise.all([
+        listCalBookings(env,'upcoming'),listCalBookings(env,'past')]);
+      for (const [kind,list] of [['upcoming',upcoming],['past',past]]) {
+        for (const b of list) {
+          const eventTypeId=Number(b.eventTypeId || b.eventType?.id);
+          // Filter VOR Aufnahme des Kontakts: keine privaten/unabhängigen
+          // Cal.com-Termine oder deren Teilnehmer in NoLimits anzeigen.
+          if (!names.has(eventTypeId)) continue;
+          const attendee=b.attendees?.[0]||{};
+          const c=record(attendee.email,attendee.name,attendee.phoneNumber);
+          if(!c) continue;
+          c[kind].push({
+            uid:b.uid,start:b.start||b.startTime,end:b.end||b.endTime,
+            status:b.status,service:names.get(eventTypeId)
+          });
         }
       }
     } catch {
-      legacyWarning = true;
+      headings.bookingsWarning=true;
     }
-    const contacts = Array.from(grouped.values());
-    contacts.forEach(c => {
-      c.upcoming.sort((a,b) => Date.parse(a.start)-Date.parse(b.start));
-      c.past.sort((a,b) => Date.parse(b.start)-Date.parse(a.start));
-    });
-    contacts.sort((a,b) => (a.name||a.email).localeCompare(b.name||b.email, 'de'));
-    return json({ ok: true, contacts, legacyWarning }, 200, req, env, { 'Cache-Control': 'no-store' });
-  } catch {
-    return fail('contacts_unavailable', 'Kunden und Termine konnten nicht geladen werden.', 502, req, env);
   }
+
+  const contacts=Array.from(grouped.values());
+  contacts.forEach(c=>{
+    c.upcoming.sort((a,b)=>Date.parse(a.start)-Date.parse(b.start));
+    c.past.sort((a,b)=>Date.parse(b.start)-Date.parse(a.start));
+  });
+  contacts.sort((a,b)=>(a.name||a.email).localeCompare(b.name||b.email,'de'));
+  return json({ok:true,contacts,...headings},200,req,env,
+    {'Cache-Control':'no-store'});
 }
 
 const DEFAULT_ORIGINS = ['https://localboostzs.github.io'];

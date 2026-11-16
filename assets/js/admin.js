@@ -30,7 +30,11 @@
   function displayContact(c){
     selected=c;info.replaceChildren();
     if(!c){info.appendChild(el('p',null,'Wähle links einen Kunden aus.'));return;}
-    info.append(el('h2',null,c.name||c.email),el('p',null,c.email+(c.phone?' · '+c.phone:'')));
+    info.append(el('h2',null,c.name||c.email||c.phone),
+      el('p',null,[c.email,c.phone].filter(Boolean).join(' · ')));
+    if(c.registered) info.appendChild(el('p','nl-small','NoLimits-Kundenkonto vorhanden'));
+    if(c.legacy) info.appendChild(el('p','nl-small','Aus Wix importiert'));
+    if(c.recentService) info.appendChild(el('p','nl-small','Zuletzt gebuchte Leistung: '+c.recentService));
     info.appendChild(el('h3',null,'Kommende Termine'));
     if(!c.upcoming.length)info.appendChild(el('p','nl-small','Keine kommenden Termine.'));
     c.upcoming.forEach(function(x){info.appendChild(makeAppt(x));});
@@ -47,8 +51,8 @@
     if(!matches.length){list.appendChild(el('p','nl-small','Keine Kontakte gefunden.'));return;}
     matches.forEach(function(c){
       var b=el('button','nl-contact');b.type='button';
-      b.setAttribute('aria-pressed',selected&&selected.email===c.email?'true':'false');
-      b.append(el('strong',null,c.name||c.email),el('span',null,c.email));
+      b.setAttribute('aria-pressed',selected&&selected.name===c.name&&selected.email===c.email&&selected.phone===c.phone?'true':'false');
+      b.append(el('strong',null,c.name||c.email||c.phone),el('span',null,c.email||c.phone||'Wix-Kontakt'));
       b.addEventListener('click',function(){displayContact(c);});
       list.appendChild(b);
     });
@@ -77,7 +81,14 @@
       services.replaceChildren();services.appendChild(new Option('Leistung auswählen',''));
       loadedServices.forEach(function(s){services.appendChild(new Option(s.name+' · '+s.minutes+' Min · CHF '+s.price,s.key));});
       contacts=r[1].contacts||[];renderContacts();
-      if(selected){var found=contacts.find(function(c){return c.email===selected.email;});displayContact(found||null);}
+      if(selected){var found=contacts.find(function(c){return c.email && selected.email
+        ? c.email===selected.email : c.phone===selected.phone && c.name===selected.name;});
+        displayContact(found||null);}
+      if(r[1].bookingsWarning){
+        msg('Kundenkonten und importierte Wix-Kontakte werden angezeigt. Die Cal.com-Terminübersicht wird erst nach Verbindung des geschäftlichen Cal.com-Kontos synchronisiert.');
+      } else if (r[1].legacyWarning) {
+        msg('Kundenkonten und Termine geladen. Wix-Kontakte konnten nicht gelesen werden.',true);
+      }
     }catch(e){msg(e.message,true);}
   }
   // CSV-Verarbeitung erfolgt vollständig im Browser, der Import nur nach Freigabe.
