@@ -1,0 +1,26 @@
+# Do not commit private NoLimits client/business materials to this PUBLIC repository.
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+*.secret
+*.credentials
+private/
+intern/
+internal/
+kunden/
+kundendaten/
+kundenexporte/
+backups/
+*.csv
+*.xlsx
+*.zip
+NoLimits_*_Status_*.md
+NoLimits_*Testplan*.md
+NoLimits_*Uebergabeplan*.md
+emails/*SMTP*.md
+*API-Key*
+*Meetingnotizen*
+*Besprechung*
