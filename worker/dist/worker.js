@@ -223,7 +223,7 @@ function corsHeaders(req, env) {
   if (origin && origins(env).includes(origin)) {
     h['Access-Control-Allow-Origin'] = origin;
     h['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS';
-    h['Access-Control-Allow-Headers'] = 'Content-Type, Authorization';
+    h['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With';
     h['Access-Control-Max-Age'] = '86400';
   }
   return h;
@@ -586,6 +586,92 @@ async function onCalWebhook(req, env) {
   return json({ok:true,sent:true},200,req,env);
 }
 
+
+// Google Code Model popup: exchange the one-time code on the server.
+// No Google refresh tokens/access tokens or OAuth client secrets are returned to the browser.
+const GOOGLE_WEB_CLIENT_ID = '341617264129-o9h3p41bg2d4tftrnu8vmupf02aht5f2.apps.googleusercontent.com';
+async function exchangeGoogleCode(req, env) {
+  const origin = req.headers.get('Origin');
+  if (!origin || !origins(env).includes(origin)) {
+    return fail('forbidden_origin', 'Origin nicht erlaubt.', 403, req, env);
+  }
+  // A non-simple header forces a browser CORS preflight. Combined with
+  // Origin validation, this implements Google's recommended popup CSRF guard.
+  if (req.headers.get('X-Requested-With') !== 'NoLimitsGoogleOAuth') {
+    return fail('invalid_request', 'Ungültige Anfrage.', 403, req, env);
+  }
+  if (!(req.headers.get('Content-Type') || '').toLowerCase().startsWith('application/json')) {
+    return fail('invalid_content_type', 'JSON erwartet.', 415, req, env);
+  }
+  if (await limited(env, 'RL_BOOK', 'oauth:' + clientIp(req), 10, 60_000)) {
+    return fail('rate_limited', 'Zu viele Anmeldeversuche.', 429, req, env);
+  }
+  if (!env.GOOGLE_OAUTH_CLIENT_SECRET) {
+    return fail('not_configured', 'Google-Anmeldung nicht eingerichtet.', 503, req, env);
+  }
+  let data;
+  try {
+    const raw = await req.text();
+    if (raw.length > 4096) return fail('request_too_large', 'Ungültige Anfrage.', 413, req, env);
+    data = JSON.parse(raw);
+  } catch {
+    return fail('invalid_json', 'Ungültige Anfrage.', 400, req, env);
+  }
+  const code = data && typeof data.code === 'string' ? data.code : '';
+  if (code.length < 8 || code.length > 2048 || /[\x00-\x1f]/.test(code)) {
+    return fail('invalid_code', 'Ungültiger Anmeldecode.', 400, req, env);
+  }
+  // Google's popup Code Model requires the ORIGIN of the initiating page,
+  // not the Worker URL, as redirect_uri for this server-side token exchange.
+  const params = new URLSearchParams({
+    code,
+    client_id: GOOGLE_WEB_CLIENT_ID,
+    client_secret: env.GOOGLE_OAUTH_CLIENT_SECRET,
+    redirect_uri: origin,
+    grant_type: 'authorization_code'
+  });
+  let response;
+  try {
+    response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+      redirect: 'manual',
+      signal: AbortSignal.timeout(12000)
+    });
+  } catch {
+    return fail('google_unavailable', 'Google ist momentan nicht erreichbar.', 502, req, env);
+  }
+  if (!response.ok) {
+    // Do not expose Google's error body, access tokens, refresh tokens, or secrets.
+    return fail('google_exchange_failed', 'Die Google-Anmeldung konnte nicht abgeschlossen werden.', 502, req, env);
+  }
+  let tokens;
+  try { tokens = await response.json(); } catch {
+    return fail('google_invalid_response', 'Ungültige Google-Antwort.', 502, req, env);
+  }
+  const idToken = tokens && typeof tokens.id_token === 'string' ? tokens.id_token : '';
+  if (idToken.length < 100 || idToken.length > 16000 || idToken.split('.').length !== 3) {
+    return fail('google_missing_id_token', 'Google hat kein Anmeldetoken gesendet.', 502, req, env);
+  }
+  // Sanity-check issuer/audience/time before returning the ID token.
+  // Supabase subsequently verifies its cryptographic signature for sign-in.
+  try {
+    const claims = JSON.parse(atob(idToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (claims.aud !== GOOGLE_WEB_CLIENT_ID ||
+        !['accounts.google.com', 'https://accounts.google.com'].includes(claims.iss) ||
+        !Number.isFinite(claims.exp) || claims.exp <= Math.floor(Date.now() / 1000)) {
+      return fail('google_invalid_claims', 'Ungültiges Google-Anmeldetoken.', 502, req, env);
+    }
+  } catch {
+    return fail('google_invalid_claims', 'Ungültiges Google-Anmeldetoken.', 502, req, env);
+  }
+  return json({ ok: true, idToken }, 200, req, env, {
+    'Referrer-Policy': 'no-referrer',
+    'Pragma': 'no-cache'
+  });
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
@@ -593,6 +679,7 @@ export default {
     const origin = req.headers.get('Origin');
     if (origin && !origins(env).includes(origin)) return fail('forbidden_origin', 'Origin nicht erlaubt.', 403, req, env);
     try {
+      if (req.method === 'POST' && url.pathname === '/api/auth/google/exchange') return await exchangeGoogleCode(req, env);
       if (req.method === 'POST' && url.pathname === '/api/webhooks/cal') return await onCalWebhook(req, env);
       if ((req.method === 'GET' || req.method === 'POST') && (url.pathname === '/api/manage' || url.pathname.startsWith('/api/manage/'))) return await routeManage(req, env, url);
       if (url.pathname.startsWith('/api/admin/')) {
