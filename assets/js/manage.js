@@ -128,6 +128,9 @@
         uid=u.searchParams.get('uid');token=u.searchParams.get('token');
         sessionStorage.setItem(key,JSON.stringify({uid:uid,token:token}));
       }
+      // Nach der Umbuchung keine veraltete Uhrzeit mehr anzeigen.
+      $('nl-manage-status').textContent='Termin verschoben';
+      $('nl-manage-time').textContent=fmt(out.booking.start);
       done('Dein Termin wurde verschoben',desc);
     }catch(err){setMessage(err.message,true);}finally{b.disabled=false;}
   });
