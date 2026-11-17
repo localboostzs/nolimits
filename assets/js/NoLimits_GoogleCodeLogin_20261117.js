@@ -84,6 +84,8 @@
             } else {
               button.hidden = true;
               result.hidden = false;
+              // Booking form and standalone test can react to a successful login.
+              document.dispatchEvent(new CustomEvent('nolimits-google-id-success'));
             }
           } catch (_) {
             restore('Die Google-Anmeldung konnte nicht abgeschlossen werden. Fehlercode: ' +

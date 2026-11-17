@@ -93,28 +93,49 @@
     sumEl.appendChild(a);
   }
 
-  /* Kundenprofil nur nach erfolgreicher passwortloser Anmeldung einfügen. */
+  /* Nur nach authentifizierter Anmeldung gespeicherte Angaben übernehmen. */
   async function prefillAccount() {
     var A = window.NOLIMITS_ACCOUNT;
     if (!A || !A.enabled) return;
     var link = document.getElementById('bk-account-link');
-    if (link) link.hidden = true;
+    var box = document.getElementById('bk-account-box');
+    var signin = document.getElementById('bk-account-signin');
+    var ready = document.getElementById('bk-account-ready');
+    var googleResult = document.getElementById('nl-code-result');
+    if (box) box.hidden = false;
     try {
       var u = await A.user();
       if (!u) {
-        if (link) link.hidden = !(window.NOLIMITS_ACCOUNT_CONFIG || {}).publicSignupReady;
+        if (signin) signin.hidden = false;
+        if (ready) ready.hidden = true;
+        if (link) { link.hidden = false; link.textContent = 'Kundenkonto – anmelden oder registrieren'; }
         return;
       }
-      if (link) link.hidden = false;
-      var p = await A.profile();
-      if (!p) p = {};
+      if (signin) signin.hidden = true;
+      if (googleResult) googleResult.hidden = true;
+      if (link) { link.hidden = false; link.textContent = 'Angemeldet · Mein Konto'; }
       var form = $('#bk-form');
       if (!form.email.value) form.email.value = u.email || '';
-      if (!form.name.value) form.name.value = p.full_name || '';
-      if (!form.phone.value) form.phone.value = p.phone || '';
-      if (!form.address.value) form.address.value = p.address || '';
-      if (link) link.textContent = 'Angemeldet · Mein Konto';
-    } catch(e) { /* Terminbuchung bleibt auch ohne Profildaten möglich */ }
+      if (ready) {
+        ready.hidden = false;
+        ready.textContent = 'Angemeldet als ' + (u.email || 'Kunde') + '. Deine gespeicherten Angaben werden übernommen.';
+      }
+      try {
+        var p = await A.profile();
+        if (p) {
+          if (!form.name.value) form.name.value = p.full_name || '';
+          if (!form.phone.value) form.phone.value = p.phone || '';
+          if (!form.address.value) form.address.value = p.address || '';
+        }
+        if (ready) ready.textContent = 'Angemeldet als ' + (u.email || 'Kunde') + '. Deine gespeicherten Angaben wurden übernommen.';
+      } catch (_) {
+        if (ready) ready.textContent = 'Angemeldet als ' + (u.email || 'Kunde') + '. Bitte ergänze bei Bedarf deine Angaben.';
+      }
+    } catch (_) {
+      if (box) box.hidden = false;
+      if (signin) signin.hidden = false;
+      if (ready) ready.hidden = true;
+    }
   }
   async function recordRepeatBooking() {
     var A=window.NOLIMITS_ACCOUNT;
@@ -296,6 +317,11 @@
     okEl.scrollIntoView({ block: 'start' });
     recordRepeatBooking();
   }
+
+  /* Google-Popup meldet die erfolgreiche Anmeldung ohne Seitenwechsel. */
+  document.addEventListener('nolimits-google-id-success', function () {
+    prefillAccount();
+  });
 
   /* ---------- Start ---------- */
   async function init() {

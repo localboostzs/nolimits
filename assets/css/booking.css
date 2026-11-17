@@ -130,3 +130,22 @@
   margin-top:7px;color:var(--text-soft);font-size:.84rem;line-height:1.5;overflow-wrap:anywhere}
 .bk-required-star{color:#765825;font-weight:800;margin-left:2px}
 .bk-required-hint{font-size:.8rem;color:var(--text-soft);margin:0 0 12px}
+
+
+/* Kundenkonto: direkter Google-Login im Buchungsformular (mobile-first). */
+.bk-account-box{padding:18px 20px;border:1px solid var(--line-light);background:var(--paper);margin:18px 0 22px}
+.bk-account-box[hidden],.bk-account-box [hidden]{display:none!important}
+.bk-account-intro{margin:0 0 13px;display:grid;gap:5px;color:var(--text);line-height:1.5}
+.bk-account-intro strong{font-size:.98rem}
+.bk-account-intro span{font-size:.9rem;color:var(--text-soft)}
+.bk-account-google{display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:48px;max-width:100%;padding:11px 20px;background:#fff;color:#1f1f1f;border:1px solid #c9c6c0;border-radius:3px;font:inherit;font-size:.92rem;font-weight:600;cursor:pointer;transition:border-color .2s,box-shadow .2s}
+.bk-account-google:hover{border-color:var(--gold-deep);box-shadow:0 2px 9px rgba(0,0,0,.08)}
+.bk-account-google:focus-visible{outline:2px solid var(--gold-deep);outline-offset:3px}
+.bk-account-google:disabled{opacity:.65;cursor:wait}
+.bk-account-google svg{flex:none}
+.bk-account-alternative{margin:12px 0 0;font-size:.86rem;color:var(--text-soft)}
+.bk-account-alternative a{color:var(--text);text-underline-offset:3px}
+.bk-account-status{margin:12px 0 0;font-size:.9rem;color:var(--text-soft)}
+.bk-account-status.error{color:#8e281e}
+.bk-account-ready{margin:0;color:var(--text);font-size:.92rem;line-height:1.6}
+@media (max-width:560px){.bk-account-box{padding:16px}.bk-account-google{width:100%}}
