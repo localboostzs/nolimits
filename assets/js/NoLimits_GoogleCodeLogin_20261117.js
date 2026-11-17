@@ -64,7 +64,7 @@
             stage = 'WORKER';
             var body = await reply.json();
             if (!reply.ok || !body || !body.ok || !body.idToken) {
-              publicCode = String(reply.status) + '_' + safeCode(body && body.code);
+              publicCode = String(reply.status) + '_' + safeCode(body && (body.error && body.error.code || body.code));
               throw new Error('Secure exchange failed');
             }
             stage = 'SUPABASE';
