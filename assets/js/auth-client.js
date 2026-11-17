@@ -85,7 +85,7 @@
     }
     var result = await client.auth.signInWithOAuth({
       provider: provider,
-      options: { redirectTo: redirectUrl }
+      options: { redirectTo: redirectUrl, queryParams: { prompt: 'select_account' } }
     });
     if (result.error) throw result.error;
     // Supabase JS normally redirects automatically for web OAuth.

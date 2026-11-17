@@ -86,3 +86,6 @@
 .nl-google-gsi-slot{min-height:52px;width:100%;display:flex;align-items:center;justify-content:center}
 .nl-google-gsi-slot>.nl-google-loading{display:flex;align-items:center;justify-content:center;min-height:50px;width:min(400px,100%);border:1px solid #d2d2d2;background:#fff;color:#59534a;font-size:.88rem;text-align:center;padding:8px}
 .nl-google-gsi-slot>div{max-width:100%}
+
+/* Stable, non-personalized Google sign-in button (no Google account details in the UI). */
+.nl-google-clean-button{width:min(400px,100%);margin-inline:auto;min-height:52px;font-weight:500}
