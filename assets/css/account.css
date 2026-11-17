@@ -88,4 +88,6 @@
 .nl-google-gsi-slot>div{max-width:100%}
 
 /* Stable, non-personalized Google sign-in button (no Google account details in the UI). */
-.nl-google-clean-button{width:min(400px,100%);margin-inline:0;min-height:52px;font-weight:500}
+.nl-google-clean-button{width:min(400px,100%);margin-inline:auto;min-height:52px;font-weight:500}
+/* Center only the login heading and its Google button, not form fields. */
+#nl-login>h2{text-align:center}
