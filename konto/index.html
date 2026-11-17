@@ -1,20 +1,22 @@
 <!DOCTYPE html>
 <html lang="de-CH">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mein Konto | NoLimits Barbershop</title><meta name="robots" content="noindex,nofollow">
+<title>Mein Konto | NoLimits Barbershop</title>
+<meta name="description" content="Melde dich sicher mit Google oder einem E-Mail-Link bei NoLimits Barbershop an und verwalte deine Angaben für zukünftige Buchungen.">
+<meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#0f0f0e">
 <link rel="icon" type="image/jpeg" href="../assets/img/logo-nolimits.jpg">
 <link rel="stylesheet" href="../assets/css/style.css">
 <link rel="stylesheet" href="../assets/css/privacy.css?v=20261115-privacy1">
 <script src="../assets/js/privacy.js?v=20261115-privacy1" defer></script>
 <link rel="stylesheet" href="../assets/css/booking.css">
-<link rel="stylesheet" href="../assets/css/account.css?v=20261116-google1">
+<link rel="stylesheet" href="../assets/css/account.css?v=20261117-a11y1">
 <script src="../assets/js/config.js"></script>
 <script src="../assets/js/main.js"></script>
 <script defer src="../assets/js/vendor/supabase-2.76.1.js"></script>
 <script defer src="../assets/js/account-config.js?v=20261115-2"></script>
 <script defer src="../assets/js/auth-client.js?v=20261116-google1"></script>
-<script defer src="../assets/js/account.js?v=20261116-google1"></script>
+<script defer src="../assets/js/account.js?v=20261117-a11y1"></script>
 </head>
 <body id="top">
 <a class="skip" href="#main">Zum Inhalt springen</a>
@@ -30,6 +32,10 @@
 </div></section>
 <section class="section on-paper"><div class="wrap nl-account-wrap">
 <div id="nl-status" class="nl-notice" role="status" aria-live="polite" hidden></div>
+<div id="nl-loading" class="nl-account-card nl-account-loading" role="status">
+<h2>Kundenkonto wird geladen …</h2>
+<p>Wir prüfen deinen Anmeldestatus.</p>
+</div>
 <div id="nl-setup" class="nl-account-card" hidden>
 <h2>Dieser Bereich wird vorbereitet</h2>
 <p>Die Kundenanmeldung wird freigeschaltet, sobald NoLimits sein eigenes Buchungs- und Kundenkonto erhält. Bis dahin können Termine ohne Anmeldung gebucht werden.</p>

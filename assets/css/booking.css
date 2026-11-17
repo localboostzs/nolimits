@@ -119,3 +119,8 @@
   .bk-service .d{font-size:.84rem}
   .bk-service .go{width:34px;height:34px}
 }
+
+/* Stable first paint while /api/services is fetched.
+   Keep the form below the fold on mobile rather than moving the footer into the viewport. */
+.bk-services.is-loading{min-height:440px}
+.bk-services.is-loading .bk-loading{min-height:240px}

@@ -14,7 +14,7 @@
     'bartschnitt':'Bartschnitt','augenbrauen-zupfen':'Augenbrauen zupfen'
   };
   function message(s,error) {status.textContent=s;status.hidden=!s;status.classList.toggle('error',!!error);}
-  function visible(id) {login.hidden=id!=='login';details.hidden=id!=='details';setup.hidden=id!=='setup';}
+  function visible(id) {var loading=document.getElementById('nl-loading');if(loading)loading.hidden=true;login.hidden=id!=='login';details.hidden=id!=='details';setup.hidden=id!=='setup';}
   async function display() {
     if (!A || !A.enabled){visible('setup');return;}
     try {
@@ -33,7 +33,7 @@
         btn.href='../booking-test/?service='+encodeURIComponent(p.last_service_key);btn.textContent='Gleiche Leistung wieder buchen';
         last.append(title,btn);last.hidden=false;
       } else {last.hidden=true;}
-    } catch(e){message('Kontodaten konnten nicht geladen werden. '+(e.message||''),true);}
+    } catch(e){var loading=document.getElementById('nl-loading');if(loading)loading.hidden=true;message('Kontodaten konnten nicht geladen werden. '+(e.message||''),true);}
   }
   /* Die Supabase-Schutzlimits lassen sich auf der Website nicht umgehen.
      Statt englischer Serverfehler: verständliche Meldungen und lokale

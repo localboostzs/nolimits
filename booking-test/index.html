@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="../assets/css/style.css">
 <link rel="stylesheet" href="../assets/css/privacy.css?v=20261115-privacy1">
 <script src="../assets/js/privacy.js?v=20261115-privacy1" defer></script>
-<link rel="stylesheet" href="../assets/css/booking.css?v=20261112-images2">
+<link rel="stylesheet" href="../assets/css/booking.css?v=20261117-cls1">
 <link rel="stylesheet" href="../assets/css/account.css">
 <script src="../assets/js/config.js"></script>
 <script src="../assets/js/main.js"></script>
@@ -21,7 +21,7 @@
 <script src="../assets/js/vendor/supabase-2.76.1.js" defer></script>
 <script src="../assets/js/account-config.js?v=20261115-2" defer></script>
 <script src="../assets/js/auth-client.js?v=20261115-privacy1" defer></script>
-<script src="../assets/js/booking.js?v=20261116-manage1" defer></script>
+<script src="../assets/js/booking.js?v=20261117-cls1" defer></script>
 </head>
 <body id="top">
 <a class="skip" href="#main">Weiter zum Hauptinhalt</a>
@@ -48,13 +48,20 @@
 <section class="section on-paper cut-top">
 <div class="wrap bk-wrap">
 <div id="bk">
-<div class="bk-stepswrap"><ol id="bk-steps" class="bk-steps" aria-label="Fortschritt"></ol></div>
+<div class="bk-stepswrap"><ol id="bk-steps" class="bk-steps" aria-label="Fortschritt">
+<li class="is-current"><button type="button" aria-current="step" disabled>Leistung</button></li>
+<li><button type="button" disabled>Datum</button></li>
+<li><button type="button" disabled>Uhrzeit</button></li>
+<li><button type="button" disabled>Angaben</button></li>
+</ol></div>
 <div id="bk-main" class="bk-card">
-<div id="p-service" class="bk-panel">
+<div id="p-service" class="bk-panel is-active">
 <h2 class="bk-h">Leistung wählen</h2>
 <p class="bk-sub">Welchen Termin möchtest du buchen?</p>
 <p class="nl-account-prompt" id="bk-account-link-holder"><a id="bk-account-link" href="../konto/" hidden>Mein Konto – schneller wieder buchen</a></p>
-<div id="services" class="bk-services"></div>
+<div id="services" class="bk-services is-loading" aria-busy="true">
+<div class="bk-loading" role="status"><span class="bk-spin" aria-hidden="true"></span><span class="sr-only">Leistungen werden geladen</span></div>
+</div>
 </div>
 <div id="p-date" class="bk-panel">
 <h2 class="bk-h">Datum und Uhrzeit wählen</h2>
@@ -96,7 +103,14 @@
 <div class="bk-actions" style="justify-content:center"><a id="bk-manage-link" class="btn btn-gold" href="../termin-verwalten/" style="display:none" hidden>Termin verwalten</a><button id="bk-again" class="btn btn-ink" type="button">Weiteren Termin buchen</button><a class="btn btn-line-dark" href="../">Zur Startseite</a></div>
 </div>
 </div>
-<aside class="bk-aside" aria-label="Deine Auswahl"><div id="bk-summary" class="bk-sum"></div></aside>
+<aside class="bk-aside" aria-label="Deine Auswahl"><div id="bk-summary" class="bk-sum">
+<dl>
+<div><dt>Leistung</dt><dd class="muted">Noch nicht gewählt</dd></div>
+<div><dt>Datum</dt><dd class="muted">Noch nicht gewählt</dd></div>
+<div><dt>Uhrzeit</dt><dd class="muted">Noch nicht gewählt</dd></div>
+</dl>
+<p class="addr">NoLimits Barbershop, Schmiedgasse 94, 6438 Ibach</p>
+</div></aside>
 </div>
 </section>
 </main>

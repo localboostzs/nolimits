@@ -143,6 +143,7 @@
   };
   function renderServices() {
     var box = $('#services'); box.innerHTML = '';
+    box.classList.remove('is-loading'); box.removeAttribute('aria-busy');
     state.services.forEach(function (s) {
       var b = el('button', 'bk-service'); b.type = 'button'; b.setAttribute('aria-pressed', state.service && state.service.key === s.key ? 'true' : 'false');
       var thumb = el('span', 'bk-service-thumb');
@@ -307,6 +308,7 @@
     if (servicesLoading) return;
     servicesLoading = true;
     var box = $('#services');
+    box.classList.add('is-loading'); box.setAttribute('aria-busy', 'true');
     box.innerHTML = '';
     var loading = el('div', 'bk-loading');
     loading.setAttribute('role', 'status');
@@ -328,6 +330,7 @@
         }
       }
     } catch (e) {
+      box.classList.remove('is-loading'); box.removeAttribute('aria-busy');
       box.innerHTML = '';
       var msg = el('div', 'bk-msg');
       msg.setAttribute('role', 'alert');

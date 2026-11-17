@@ -1,9 +1,9 @@
 /* NoLimits account and staff views. Mobile first, reuse site tokens. */
-.nl-account-wrap{max-width:950px;margin-inline:auto}
+.nl-account-wrap{max-width:950px;margin-inline:auto;min-height:560px}
 .nl-account-card{background:var(--paper);border:1px solid var(--line-light);padding:clamp(22px,4vw,44px)}
 .nl-account-card h2{font-family:var(--font-head);font-size:clamp(1.75rem,3vw,2.45rem);margin:0 0 12px}
 .nl-account-card p{color:var(--text-soft);line-height:1.7}
-.nl-account-card a{color:var(--gold-deep)}
+.nl-account-card a:not(.btn){color:#765825}
 .nl-account-card .btn{margin-top:12px}
 .nl-form-grid{display:grid;gap:16px}
 .nl-field{display:flex;flex-direction:column;gap:7px}
@@ -18,7 +18,7 @@
 .nl-quick{margin:20px 0;padding:22px;border:1px solid var(--line-light);background:var(--surface)}
 .nl-quick strong{font-family:var(--font-head);font-size:1.4rem}
 .nl-cols{display:grid;grid-template-columns:minmax(0,1fr);gap:24px}
-.nl-tag{font-size:.7rem;letter-spacing:.13em;text-transform:uppercase;color:var(--gold-deep);font-weight:700}
+.nl-tag{font-size:.7rem;letter-spacing:.13em;text-transform:uppercase;color:#765825;font-weight:700}
 .nl-contact{display:block;width:100%;padding:14px;border:1px solid var(--line-light);background:#fff;text-align:left;font:inherit;cursor:pointer}
 .nl-contact[aria-pressed="true"]{border-color:var(--gold-deep);background:#fbf5e8}
 .nl-contact strong,.nl-contact span{display:block}
@@ -36,7 +36,7 @@
 @media(min-width:850px){.nl-admin-grid{grid-template-columns:minmax(260px,.8fr) minmax(0,1.2fr)}.nl-cols{grid-template-columns:1fr 1fr}}
 @media(max-width:560px){.nl-account-actions .btn{width:100%;justify-content:center}.nl-admin-panel{padding:14px}}
 
-.nl-account-prompt{margin:0 0 20px}.nl-account-prompt a{color:var(--gold-deep);font-weight:650}
+.nl-account-prompt{margin:0 0 20px}.nl-account-prompt a{color:#765825;font-weight:650}
 
 /* Social login: no third-party scripts or requests until explicit user action. */
 .nl-social-login{display:grid;gap:10px;margin-top:22px}
@@ -49,3 +49,6 @@
 .nl-auth-separator{display:flex;align-items:center;gap:13px;margin:22px 0 14px;color:var(--text-soft);font-size:.9rem}
 .nl-auth-separator:before,.nl-auth-separator:after{content:"";height:1px;flex:1;background:var(--line-light)}
 @media (max-width:560px){.nl-social-button{min-height:50px}}
+
+/* Keep account page height stable while OAuth/Supabase restores the session. */
+.nl-account-loading{min-height:420px}
