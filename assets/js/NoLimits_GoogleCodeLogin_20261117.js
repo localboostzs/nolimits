@@ -4,9 +4,12 @@
   var clientId = '341617264129-o9h3p41bg2d4tftrnu8vmupf02aht5f2.apps.googleusercontent.com';
   var endpoint = 'https://nolimits-booking-test.broken-haze-6cad.workers.dev/api/auth/google/exchange';
   var button = document.getElementById('nl-google-login');
-  var status = document.getElementById('nl-code-status');
+  var status = document.getElementById('nl-code-status') || document.getElementById('nl-social-note');
   var result = document.getElementById('nl-code-result');
-  if (!button || !status || !result) return;
+  var isAccountPage = !!document.getElementById('nl-login') && !result;
+  if (!button || !status || (!result && !isAccountPage)) return;
+  // Tell account.js not to attach its former Supabase redirect flow to this button.
+  if (isAccountPage) window.NOLIMITS_GOOGLE_ID_ACTIVE = true;
   var client = null;
   var busy = false;
 
@@ -55,8 +58,13 @@
             if (login.error) throw login.error;
             // Never put authorization codes, Google tokens, or customer data into logs or URLs.
             report('', false);
-            button.hidden = true;
-            result.hidden = false;
+            if (isAccountPage) {
+              // account.js refreshes the signed-in view without a page redirect.
+              document.dispatchEvent(new CustomEvent('nolimits-google-id-success'));
+            } else {
+              button.hidden = true;
+              result.hidden = false;
+            }
           } catch (_) {
             restore('Die Google-Anmeldung konnte nicht abgeschlossen werden. Bitte erneut versuchen.');
           }
@@ -72,16 +80,28 @@
     } catch (_) { restore('Google-Anmeldung konnte nicht eingerichtet werden.'); }
   }
 
-  // The official Google SDK is prepared before the visitor clicks.
-  // requestCode() is invoked *synchronously* inside that one user gesture.
+  // Prepare the Google SDK before a click. Only load it when the account
+  // login is visible, avoiding third-party requests for already signed-in users.
+  // requestCode() is invoked synchronously inside a direct user gesture.
+  var started = false;
+  function prepare() {
+    if (started) return;
+    started = true;
+    button.disabled = true;
+    report('Google-Anmeldung wird geladen …', false);
+    var script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client?hl=de';
+    script.async = true;
+    script.onload = setup;
+    script.onerror = function () { restore('Google-Anmeldung konnte nicht geladen werden.'); };
+    document.head.appendChild(script);
+  }
   button.disabled = true;
-  report('Google-Anmeldung wird geladen …', false);
-  var script = document.createElement('script');
-  script.src = 'https://accounts.google.com/gsi/client?hl=de';
-  script.async = true;
-  script.onload = setup;
-  script.onerror = function () { restore('Google-Anmeldung konnte nicht geladen werden.'); };
-  document.head.appendChild(script);
+  if (isAccountPage) {
+    document.addEventListener('nolimits-google-login-visible', prepare);
+  } else {
+    prepare();
+  }
   button.addEventListener('click', function () {
     if (busy || !client) return;
     busy = true;
