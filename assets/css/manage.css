@@ -22,3 +22,8 @@
 .nl-manage-slot[aria-pressed=true]{background:#221c16;color:#fff;border-color:#221c16}
 .nl-manage-slot:focus-visible,.nl-manage-outline:focus-visible{outline:3px solid var(--gold-deep);outline-offset:3px}
 @media(max-width:540px){.nl-manage-facts{grid-template-columns:1fr}.nl-manage-actions{flex-direction:column;align-items:stretch}.nl-manage-actions>*{width:100%;text-align:center}}
+
+/* Nach Stornierung ausschliesslich den Bestätigungsbereich anzeigen. */
+#nl-manage-details [hidden]{display:none!important}
+#nl-manage-result p{margin:14px 0 0}
+#nl-manage-result .btn{display:inline-flex;margin-top:24px}

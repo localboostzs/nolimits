@@ -26,13 +26,18 @@
   function render(b){
     booking=b;show('nl-manage-details');
     $('nl-manage-service').textContent=b.service;
-    $('nl-manage-status').textContent=b.status==='accepted'?'Termin bestätigt':b.status==='cancelled'?'Termin storniert':'Status: '+b.status;
+    $('nl-manage-status').textContent=b.status==='accepted'?'Termin bestätigt':b.status==='cancelled'?'Termin wurde storniert':'Status: '+b.status;
     $('nl-manage-time').textContent=fmt(b.start);
     $('nl-manage-duration').textContent=b.minutes+' Minuten';
     $('nl-manage-price').textContent=b.price==null?'Vor Ort':('CHF '+b.price+' · vor Ort');
+    $('nl-manage-booking-info').hidden=false;
     $('nl-manage-actions').hidden=!b.canManage;
     $('nl-manage-result').hidden=true;
-    if(!b.canManage)setMessage('Dieser Termin kann nicht mehr online geändert werden. Bei Fragen kontaktiere bitte NoLimits.',false);
+    if(b.status==='cancelled'){
+      done('Dein Termin wurde storniert','Der Termin ist jetzt abgesagt. Du erhältst eine Bestätigung über die eingerichteten Benachrichtigungen.',true);
+    }else if(!b.canManage){
+      setMessage('Dieser Termin kann nicht mehr online geändert werden. Bei Fragen kontaktiere bitte NoLimits.',false);
+    }
   }
   async function load(){
     setMessage('');
@@ -66,11 +71,16 @@
       pickSlots(d);
     }catch(e){list.textContent='Freie Zeiten konnten nicht geladen werden: '+e.message;}
   }
-  function done(title,description){
-    collapse();$('nl-manage-actions').hidden=true;
-    $('nl-manage-result').hidden=false;
+  function done(title,description,cancelled){
+    collapse();
+    $('nl-manage-actions').hidden=true;
     $('nl-manage-result-title').textContent=title;
     $('nl-manage-result-message').textContent=description;
+    if(cancelled){
+      $('nl-manage-status').textContent='Termin wurde storniert';
+      $('nl-manage-booking-info').hidden=true;
+    }
+    $('nl-manage-result').hidden=false;
     $('nl-manage-details').scrollIntoView({block:'start'});
   }
   $('nl-manage-show-cancel').addEventListener('click',function(){
@@ -93,7 +103,7 @@
       await request('/api/manage/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
         uid:uid,token:token,confirm:true,reason:$('nl-manage-reason').value.trim()
       })});
-      done('Dein Termin wurde storniert','Der Termin ist jetzt abgesagt. Du erhältst eine Bestätigung über die eingerichteten Benachrichtigungen.');
+      done('Dein Termin wurde storniert','Der Termin ist jetzt abgesagt. Du erhältst eine Bestätigung über die eingerichteten Benachrichtigungen.',true);
     }catch(err){setMessage(err.message,true);}finally{b.disabled=false;}
   });
   $('nl-manage-reschedule').addEventListener('submit',async function(e){
