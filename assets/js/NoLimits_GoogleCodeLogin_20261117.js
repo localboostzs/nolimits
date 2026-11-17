@@ -39,9 +39,21 @@
             return;
           }
           report('Google-Anmeldung wird geprüft …', false);
+          // These public diagnostic codes contain no personal information,
+          // Google authorization codes, ID tokens, or secret values.
+          var stage = 'CONFIG';
+          var publicCode = 'UNBEKANNT';
+          function safeCode(value) {
+            var valueText = String(value || '').toUpperCase();
+            return /^[A-Z0-9_]{1,40}$/.test(valueText) ? valueText : 'UNBEKANNT';
+          }
           try {
             var auth = window.NOLIMITS_ACCOUNT;
-            if (!auth || !auth.enabled || !auth.client) throw new Error('Kundenkonto nicht bereit.');
+            if (!auth || !auth.enabled || !auth.client) {
+              publicCode = 'CLIENT_NICHT_BEREIT';
+              throw new Error('Client not ready');
+            }
+            stage = 'NETZWERK';
             var reply = await fetch(endpoint, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'NoLimitsGoogleOAuth' },
@@ -49,13 +61,21 @@
               cache: 'no-store',
               body: JSON.stringify({ code: response.code })
             });
+            stage = 'WORKER';
             var body = await reply.json();
-            if (!reply.ok || !body.ok || !body.idToken) throw new Error('Austausch fehlgeschlagen.');
+            if (!reply.ok || !body || !body.ok || !body.idToken) {
+              publicCode = String(reply.status) + '_' + safeCode(body && body.code);
+              throw new Error('Secure exchange failed');
+            }
+            stage = 'SUPABASE';
             var login = await auth.client.auth.signInWithIdToken({
               provider: 'google',
               token: body.idToken
             });
-            if (login.error) throw login.error;
+            if (login.error) {
+              publicCode = safeCode(login.error.code || ('HTTP_' + (login.error.status || '0')));
+              throw new Error('Supabase sign-in failed');
+            }
             // Never put authorization codes, Google tokens, or customer data into logs or URLs.
             report('', false);
             if (isAccountPage) {
@@ -66,7 +86,8 @@
               result.hidden = false;
             }
           } catch (_) {
-            restore('Die Google-Anmeldung konnte nicht abgeschlossen werden. Bitte erneut versuchen.');
+            restore('Die Google-Anmeldung konnte nicht abgeschlossen werden. Fehlercode: ' +
+              stage + '-' + publicCode + '. Bitte teile uns diesen Fehlercode mit oder verwende vorerst die E-Mail-Anmeldung.');
           }
         },
         error_callback: function (e) {
