@@ -23,7 +23,12 @@
 .nl-manage-slot:focus-visible,.nl-manage-outline:focus-visible{outline:3px solid var(--gold-deep);outline-offset:3px}
 @media(max-width:540px){.nl-manage-facts{grid-template-columns:1fr}.nl-manage-actions{flex-direction:column;align-items:stretch}.nl-manage-actions>*{width:100%;text-align:center}}
 
-/* Nach Stornierung ausschliesslich den Bestätigungsbereich anzeigen. */
-#nl-manage-details [hidden]{display:none!important}
-#nl-manage-result p{margin:14px 0 0}
-#nl-manage-result .btn{display:inline-flex;margin-top:24px}
+
+/* Abschlussansicht: Nur Stornierungsstatus, Text und neue Buchung.
+   Auch bei erneuter Öffnung eines bereits stornierten Termins. */
+#nl-manage-details.is-cancelled > :not(#nl-manage-status):not(#nl-manage-result){display:none!important}
+#nl-manage-details.is-cancelled #nl-manage-result{display:block!important}
+#nl-manage-details.is-cancelled #nl-manage-result-title{margin:20px 0 14px}
+#nl-manage-details.is-cancelled #nl-manage-result-message{margin:0 0 28px}
+#nl-manage-details.is-cancelled #nl-manage-result > .btn{display:inline-flex;justify-content:center;align-items:center;min-height:48px}
+@media(max-width:540px){#nl-manage-details.is-cancelled #nl-manage-result > .btn{width:100%}}
