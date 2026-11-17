@@ -1,34 +1,40 @@
 (function () {
   'use strict';
-  // Public Google OAuth client ID (not a secret). OAuth client secrets are never sent to the browser.
+  // Public Google OAuth client ID only. No OAuth client secret or user token in source.
   var googleClientId = '341617264129-o9h3p41bg2d4tftrnu8vmupf02aht5f2.apps.googleusercontent.com';
   var status = document.getElementById('nl-social-note');
-  var loadButton = document.getElementById('nl-google-login');
   var googleSlot = document.getElementById('nl-google-button-slot');
-  var result = null;
-  var started = false;
-  if (!loadButton || !googleSlot || !status) return;
+  var loading = document.getElementById('nl-login');
+  if (!status || !googleSlot || !loading) return;
   window.NOLIMITS_GOOGLE_ID_ACTIVE = true;
+
+  var prepared = false;
+  var preparing = false;
+  var scriptPromise = null;
 
   function report(message, error) {
     status.hidden = !message;
     status.textContent = message || '';
     status.classList.toggle('error', !!error);
   }
+
   function loadGoogleLibrary() {
-    return new Promise(function (resolve, reject) {
-      if (window.google && window.google.accounts && window.google.accounts.id) return resolve();
+    if (window.google && window.google.accounts && window.google.accounts.id) return Promise.resolve();
+    if (scriptPromise) return scriptPromise;
+    scriptPromise = new Promise(function (resolve, reject) {
       var script = document.createElement('script');
       script.src = 'https://accounts.google.com/gsi/client?hl=de';
       script.async = true;
       script.onload = resolve;
-      script.onerror = function () { reject(new Error('Die Google-Anmeldung konnte nicht geladen werden.')); };
+      script.onerror = function () { scriptPromise = null; reject(new Error('Google-Anmeldung konnte nicht geladen werden.')); };
       document.head.appendChild(script);
     });
+    return scriptPromise;
   }
+
   async function createNonce() {
     if (!window.crypto || !window.crypto.getRandomValues || !window.crypto.subtle) {
-      throw new Error('Dieser Browser unterstützt die sichere Anmeldung nicht.');
+      throw new Error('Sichere Google-Anmeldung wird von diesem Browser nicht unterstützt.');
     }
     var bytes = new Uint8Array(32);
     window.crypto.getRandomValues(bytes);
@@ -40,28 +46,19 @@
     return { raw: nonce, hashed: hashed };
   }
 
-  function resetButton() {
-    started = false;
-    loadButton.disabled = false;
-    loadButton.hidden = false;
-    googleSlot.hidden = true;
-    // Remove the old Google button so the next login gets a fresh nonce.
-    while (googleSlot.firstChild) googleSlot.removeChild(googleSlot.firstChild);
-  }
-  document.addEventListener('nolimits-google-id-signout', resetButton);
-  loadButton.addEventListener('click', async function () {
-    if (started) return;
-    started = true;
-    loadButton.disabled = true;
-    report('Google-Anmeldung wird vorbereitet …', false);
+  async function prepareGoogleButton() {
+    if (prepared || preparing || loading.hidden) return;
+    preparing = true;
     try {
       var auth = window.NOLIMITS_ACCOUNT;
-      if (!auth || !auth.enabled || !auth.client) throw new Error('NoLimits-Kundenkonto nicht verfügbar.');
+      if (!auth || !auth.enabled || !auth.client) throw new Error('Kundenkonto noch nicht verfügbar.');
       var nonce = await createNonce();
       await loadGoogleLibrary();
       if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-        throw new Error('Google Identity Services ist nicht verfügbar.');
+        throw new Error('Google-Anmeldung ist derzeit nicht verfügbar.');
       }
+      // Directly show the *official* Google button. A single click on it
+      // opens Google's account picker; no intermediary NoLimits button.
       window.google.accounts.id.initialize({
         client_id: googleClientId,
         nonce: nonce.hashed,
@@ -69,46 +66,51 @@
         auto_select: false,
         callback: async function (response) {
           try {
-            if (!response || !response.credential) throw new Error('Google hat kein Anmeldetoken zurückgegeben.');
+            if (!response || !response.credential) throw new Error('Kein Google-Token erhalten.');
             report('Anmeldung wird geprüft …', false);
-            var signIn = await auth.client.auth.signInWithIdToken({
+            var login = await auth.client.auth.signInWithIdToken({
               provider: 'google',
               token: response.credential,
               nonce: nonce.raw
             });
-            if (signIn.error) throw signIn.error;
-            // No credential is logged or persisted outside Supabase Auth's consent-aware session storage.
-            report('Anmeldung erfolgreich.', false);
-            // Update the existing account UI without a redirect, so sessions work
-            // even when the customer has not approved persistent cookies.
-            resetButton();
+            if (login.error) throw login.error;
+            report('', false);
             document.dispatchEvent(new CustomEvent('nolimits-google-id-success'));
           } catch (_) {
-            resetButton();
-            report('Die Google-Anmeldung konnte nicht abgeschlossen werden. Bitte versuche es erneut oder verwende die E-Mail-Anmeldung.', true);
+            report('Google-Anmeldung fehlgeschlagen. Bitte versuche es erneut oder verwende den E-Mail-Anmeldelink.', true);
           }
         }
       });
-      googleSlot.hidden = false;
+      if (loading.hidden) return;
+      googleSlot.replaceChildren();
       window.google.accounts.id.renderButton(googleSlot, {
-        theme: 'outline',
         type: 'standard',
+        theme: 'outline',
         size: 'large',
         text: 'continue_with',
         locale: 'de',
         shape: 'rectangular',
-        width: Math.min(320, Math.max(210, googleSlot.clientWidth || 300))
+        logo_alignment: 'left',
+        width: Math.min(400, Math.max(180, googleSlot.clientWidth || 300))
       });
-      loadButton.hidden = true;
-      report('Bitte wähle dein Google-Konto. Falls kein Fenster erscheint, tippe auf den Google-Button.', false);
-      // One Tap may not be available on all browsers. The rendered official
-      // Google button remains the accessible and tested fallback.
-      if (typeof window.google.accounts.id.prompt === 'function') {
-        try { window.google.accounts.id.prompt(); } catch (_) { /* optional */ }
-      }
-    } catch (err) {
-      resetButton();
-      report(err && err.message || 'Google-Anmeldung konnte nicht vorbereitet werden.', true);
+      prepared = true;
+      report('', false);
+    } catch (error) {
+      // Email-link sign-in remains available without any third-party script.
+      googleSlot.textContent = 'Google-Anmeldung derzeit nicht verfügbar';
+      report('Du kannst dich weiterhin per E-Mail-Anmeldelink anmelden.', true);
+    } finally {
+      preparing = false;
+    }
+  }
+
+  // The account UI fires this event only when the visitor is not signed in.
+  // This avoids loading Google's third-party library on signed-in account views.
+  document.addEventListener('nolimits-google-login-visible', prepareGoogleButton);
+  document.addEventListener('nolimits-google-id-signout', function () {
+    if (window.google && window.google.accounts && window.google.accounts.id &&
+        typeof window.google.accounts.id.disableAutoSelect === 'function') {
+      window.google.accounts.id.disableAutoSelect();
     }
   });
 })();

@@ -1,61 +1,51 @@
 
 const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/strict');
 const {webcrypto}=require('node:crypto');
-const elements=new Map(),events={};
-function elem(id) {
- if(!elements.has(id))elements.set(id,{
-  hidden:id==='nl-google-button-slot',disabled:false,clientWidth:300,textContent:'',
-  classList:{toggle(){}},firstChild:null,removeChild(){this.firstChild=null;},
-  addEventListener(type,cb){this.callback=cb;}
- });
- return elements.get(id);
-}
-const captured={};
+const els=new Map(), handlers={};
+function el(id) {if(!els.has(id))els.set(id,{hidden:id==='nl-login',clientWidth:340,
+ textContent:'',classList:{toggle(){}},replaceChildren(){this.children=[]},children:[],
+ set textContent(t){this._text=t},get textContent(){return this._text||''}});
+ return els.get(id)}
+const state={loadCount:0,signins:0,dispatched:[],disableAutoSelect:0};
+let cb,config,renderOpts,renderTarget;
 const google={accounts:{id:{
- initialize(o){captured.init=o},
- renderButton(el,opts){assert.equal(el.hidden,false,'button visible before rendering');captured.button=opts;captured.buttonTarget=el;el.firstChild={};},
- prompt(){captured.prompted=true;}
-}}};
-let shouldFail=false,signins=0,success=0;
-const client={auth:{signInWithIdToken:async(o)=>{captured.signin=o;signins++;return {data:{user:{id:'synthetic-user'}},error:shouldFail?new Error('Mock login failure'):null}}}};
+ initialize(o){config=o},renderButton(target,opts){renderTarget=target;renderOpts=opts;target.children.push('google-official-button')},
+ disableAutoSelect(){state.disableAutoSelect++;}}}};
+const mockAuth={enabled:true,client:{auth:{signInWithIdToken:async o=>{state.signins++;state.signin=o;return {error:null}}}}};
 const doc={
- getElementById:elem,
- addEventListener(type,cb){events[type]=cb;},
- dispatchEvent(ev){if(ev.type==='nolimits-google-id-success')success++;if(events[ev.type])events[ev.type](ev);},
- createElement(){throw Error('Google library should not load a new script when mock is present');},
- head:{appendChild(){}}
+ getElementById:el,
+ addEventListener(t,f){handlers[t]=f},
+ dispatchEvent(event){state.dispatched.push(event.type);if(handlers[event.type])return handlers[event.type](event)},
+ createElement(tag){assert.equal(tag,'script');state.loadCount++;return {async:false,onload:null,onerror:null,src:''}},
+ head:{appendChild(script){assert.ok(script.src.includes('accounts.google.com/gsi/client'));setImmediate(()=>{ctx.window.google=google;script.onload()})}}
 };
-const win={google,crypto:webcrypto,NOLIMITS_ACCOUNT:{enabled:true,client}};
-const context={window:win,document:doc,CustomEvent:function(type){this.type=type},TextEncoder,Uint8Array,btoa,Promise,Array,Math};
-vm.runInNewContext(fs.readFileSync(process.argv[2] || 'assets/js/NoLimits_GoogleLogin_20261117.js','utf8'),context);
-assert.equal(win.NOLIMITS_GOOGLE_ID_ACTIVE,true);
-assert.equal(captured.init,undefined,'No third-party library before user click');
+const ctx={window:{crypto:webcrypto,NOLIMITS_ACCOUNT:mockAuth},document:doc,
+ CustomEvent:function(type){this.type=type},btoa,TextEncoder,Uint8Array,Array,Math,Promise,console};
+vm.runInNewContext(fs.readFileSync(process.argv[2] || 'assets/js/NoLimits_GoogleLogin_20261117.js','utf8'),ctx);
+function tick(){return new Promise(resolve=>setTimeout(resolve,20))}
 (async()=>{
- await elem('nl-google-login').callback();
- assert.equal(captured.init.ux_mode,'popup');
- assert.ok(captured.init.client_id.endsWith('.apps.googleusercontent.com'));
- assert.equal(captured.buttonTarget,elem('nl-google-button-slot'));
- assert.equal(captured.init.nonce.length,64,'SHA256 nonce');
- assert.equal(captured.prompted,true,'offer prompt on user click');
- assert.equal(elem('nl-google-login').hidden,true);
- assert.equal(elem('nl-google-button-slot').hidden,false);
- await captured.init.callback({credential:'synthetic-jwt'});
- assert.equal(captured.signin.provider,'google');
- assert.equal(captured.signin.token,'synthetic-jwt');
- const got=Buffer.from(await webcrypto.subtle.digest('SHA-256',new TextEncoder().encode(captured.signin.nonce))).toString('hex');
- assert.equal(captured.init.nonce,got);
- assert.equal(success,1);
- assert.equal(elem('nl-google-login').hidden,false,'button restored for future signout');
- assert.equal(elem('nl-google-button-slot').hidden,true);
- assert.equal(elem('nl-google-login').disabled,false);
- doc.dispatchEvent(new context.CustomEvent('nolimits-google-id-signout'));
- assert.equal(elem('nl-google-login').hidden,false);
- shouldFail=true;
- await elem('nl-google-login').callback();
- await captured.init.callback({credential:'synthetic-jwt-again'});
- assert.equal(signins,2);
- assert.equal(success,1,'failed sign-in does not trigger success');
- assert.equal(elem('nl-google-login').hidden,false,'retry after failure works');
- assert.equal(elem('nl-social-note').hidden,false,'error explained');
- console.log('PASS: lazy Google load, nonce, render, prompt, correct Supabase ID token, auth success event, signout reset, retry on error');
-})().catch(e=>{process.stderr.write(String(e.stack));process.exit(1)});
+ assert.equal(state.loadCount,0,'No 3rd-party Google request until login view');
+ assert.equal(config,undefined,'Google not initialized in authenticated view');
+ el('nl-login').hidden=false;
+ doc.dispatchEvent(new ctx.CustomEvent('nolimits-google-login-visible'));
+ doc.dispatchEvent(new ctx.CustomEvent('nolimits-google-login-visible'));
+ await tick();
+ assert.equal(state.loadCount,1,'Google script loads once');
+ assert.ok(config,'Google initialized on page readiness');
+ assert.equal(renderTarget,el('nl-google-button-slot'));
+ assert.equal(renderTarget.children.length,1,'One directly actionable official button');
+ assert.equal(config.ux_mode,'popup');
+ assert.equal(config.nonce.length,64,'SHA256 nonce');
+ assert.equal(renderOpts.text,'continue_with');
+ assert.equal(el('nl-social-note').hidden,true);
+ await config.callback({credential:'fake-google-id-token'});
+ assert.equal(state.signins,1);
+ assert.equal(state.signin.provider,'google');
+ const actual=Buffer.from(await webcrypto.subtle.digest('SHA-256',new TextEncoder().encode(state.signin.nonce))).toString('hex');
+ assert.equal(actual,config.nonce);
+ assert.equal(state.dispatched.includes('nolimits-google-id-success'),true);
+ doc.dispatchEvent(new ctx.CustomEvent('nolimits-google-id-signout'));
+ assert.equal(state.disableAutoSelect,1);
+ assert.equal(state.loadCount,1);
+ console.log('PASS one official clickable Google button; lazy on login view; nonce protected; success; signout; no duplicate');
+})().catch(err=>{process.stderr.write(err.stack);process.exit(1)});

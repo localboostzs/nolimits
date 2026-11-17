@@ -14,7 +14,7 @@
     'bartschnitt':'Bartschnitt','augenbrauen-zupfen':'Augenbrauen zupfen'
   };
   function message(s,error) {status.textContent=s;status.hidden=!s;status.classList.toggle('error',!!error);}
-  function visible(id) {var loading=document.getElementById('nl-loading');if(loading)loading.hidden=true;login.hidden=id!=='login';details.hidden=id!=='details';setup.hidden=id!=='setup';}
+  function visible(id) {var loading=document.getElementById('nl-loading');if(loading)loading.hidden=true;login.hidden=id!=='login';details.hidden=id!=='details';setup.hidden=id!=='setup';if(id==='login')document.dispatchEvent(new CustomEvent('nolimits-google-login-visible'));}
   async function display() {
     if (!A || !A.enabled){visible('setup');return;}
     try {

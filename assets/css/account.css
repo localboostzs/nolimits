@@ -81,3 +81,8 @@
 .nl-google-gsi-slot{width:100%;max-width:100%;min-height:48px;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .nl-google-gsi-slot[hidden]{display:none!important}
 .nl-google-gsi-slot iframe{max-width:100%}
+
+/* Single-click Google sign-in: reserve its footprint, then show the official button. */
+.nl-google-gsi-slot{min-height:52px;width:100%;display:flex;align-items:center;justify-content:center}
+.nl-google-gsi-slot>.nl-google-loading{display:flex;align-items:center;justify-content:center;min-height:50px;width:min(400px,100%);border:1px solid #d2d2d2;background:#fff;color:#59534a;font-size:.88rem;text-align:center;padding:8px}
+.nl-google-gsi-slot>div{max-width:100%}
