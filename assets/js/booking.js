@@ -141,6 +141,17 @@
     "bartschnitt": "thumb-bartschnitt-360.webp",
     "augenbrauen-zupfen": "thumb-augenbrauen-zupfen-360.webp",
   };
+  var serviceDescriptions = {
+  "haarschnitt-bartschnitt-rasieren": "Die perfekte Männer Frisur passend zu deiner Kopfform. Saubere Umsetzung deines neuen Bartstyles, ob Vollbart oder 3-Tage-Bart, gefolgt von einer Gesichtsmassage und Heisskompresse.",
+  "haarschnitt-bartschnitt-augenbrauen": "Haarschnitt, Bartschnitt und Augenbrauen in einem Termin.",
+  "haarschnitt-waschen": "Entspannende Haarwäsche sowie Nackenmassage.",
+  "haarschnitt-bartschnitt": "Die perfekte Männer Frisur passend zu deiner Kopfform. Saubere Umsetzung deines neuen Bartstyles, ob Vollbart oder 3-Tage-Bart.",
+  "classic-scissor-cut": "Präzise geschnitten, sauber ausgearbeitet und individuell auf deine Kopfform und deinen Style abgestimmt. Perfekt für Old-Money-Frisuren, Mullet, längere Taper Fades und alle Styles, bei denen es auf Form, Struktur und Details ankommt.",
+  "haarschnitt": "Die perfekte Männer Frisur passend zu deiner Kopfform. Ganz egal ob kurzes, mittellanges oder langes Haar.",
+  "jugendliche-10-14": "Haarschnitt für Jugendliche von 10 bis 14 Jahren.",
+  "bartschnitt": "Ausführliche Beratung für den passenden Bart, saubere Umsetzung deines neuen Bartstyles sowie Pflege- und Stylingtipps.",
+  "augenbrauen-zupfen": "Pinzette, Fadentechnik oder Heisswachs."
+};
   function renderServices() {
     var box = $('#services'); box.innerHTML = '';
     box.classList.remove('is-loading'); box.removeAttribute('aria-busy');
@@ -162,6 +173,7 @@
       var detail = el('span', 'bk-service-detail');
       detail.appendChild(el('span', 'n', s.name));
       detail.appendChild(el('span', 'd', s.minutes + ' Minuten' + (Number.isFinite(s.price) ? ' · CHF ' + s.price : '')));
+      if (serviceDescriptions[s.key]) detail.appendChild(el('span','bk-description',serviceDescriptions[s.key]));
       b.appendChild(detail);
       var go = el('span', 'go'); go.setAttribute('aria-hidden', 'true'); go.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'; b.appendChild(go);
       b.addEventListener('click', function () { state.service = s; state.cache = {}; state.date = null; state.slot = null; var n = new Date(); state.month = { y: Number(fmtYM(n).y), m: Number(fmtYM(n).m) - 1 }; showPanel(1); loadMonth(); var h = $('#p-date .bk-h'); h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); scrollTop(); });

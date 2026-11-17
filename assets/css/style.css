@@ -263,3 +263,24 @@ a{color:inherit}
   .js .reveal{opacity:1;transform:none}
 }
 @media (max-width:899.98px){.cut-top,.cut-bottom,.cut-top.cut-bottom{--cut:clamp(20px,5vw,36px)}}
+
+/* Only the two mobile CTA cards: no overflow, equal left and right margins. */
+@media (max-width:899.98px){
+  .cta-grid{grid-template-columns:minmax(0,1fr);min-width:0}
+  .cta-grid>.cta-copy{grid-template-columns:minmax(0,1fr);min-width:0;max-width:100%}
+  .cta-grid>.cta-copy>.hours-card{min-width:0;width:100%;max-width:100%;box-sizing:border-box}
+  .cta-grid>.reveal{min-width:0;width:100%;max-width:100%}
+  .cta-grid>.reveal>.map{min-width:0;width:100%;max-width:100%;box-sizing:border-box}
+  .cta-grid .hours span{min-width:0;overflow-wrap:anywhere}
+}
+/* Legible short descriptions on the public service list. */
+.price-row{grid-template-columns:72px minmax(0,1fr);grid-template-areas:"img name" "img desc" "img price" ". btn";gap:6px 18px}
+.price-row .price{justify-self:start;text-align:left}
+.price-desc{grid-area:desc;min-width:0;margin:2px 0 5px;font-size:.88rem;line-height:1.55;color:var(--text-soft)}
+.price-row>.btn{margin-top:6px}
+@media (min-width:640px){
+  .price-row{grid-template-columns:120px minmax(0,1fr) auto auto;grid-template-areas:"img name price btn" "img desc desc desc";column-gap:24px;row-gap:8px}
+  .price-row .price{justify-self:end;text-align:right}
+  .price-row>.btn{margin-top:0}
+  .price-desc{max-width:70ch;margin:0;align-self:start}
+}

@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="../assets/css/privacy.css?v=20261115-privacy1">
 <script src="../assets/js/privacy.js?v=20261115-privacy1" defer></script>
 <link rel="stylesheet" href="../assets/css/booking.css">
-<link rel="stylesheet" href="../assets/css/account.css?v=20261117-a11y1">
+<link rel="stylesheet" href="../assets/css/account.css?v=20261117-mobile2">
 <script src="../assets/js/config.js"></script>
 <script src="../assets/js/main.js"></script>
 <script defer src="../assets/js/vendor/supabase-2.76.1.js"></script>
@@ -43,7 +43,6 @@
 </div>
 <div id="nl-login" class="nl-account-card" hidden>
 <h2>Anmelden oder registrieren</h2>
-<p class="nl-notice" id="nl-email-test-note">Der Kundenlogin befindet sich noch im Testbetrieb. Deine Anmeldemail kommt jetzt von NoLimits Barbershop. Du kannst weiterhin ohne Konto buchen.</p>
 <div class="nl-social-login" role="group" aria-label="Mit Google anmelden">
   <button type="button" id="nl-google-login" class="nl-social-button nl-social-google">
     <svg class="nl-social-icon" width="20" height="20" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
@@ -54,12 +53,12 @@
     </svg><span>Mit Google fortfahren</span>
   </button>
 </div>
-<p class="nl-social-note nl-small" id="nl-social-note">Du kannst dich mit Google oder mit einem einmaligen E-Mail-Link anmelden.</p>
+<p class="nl-social-note nl-small" id="nl-social-note" hidden></p>
 <div class="nl-auth-separator"><span>oder per E-Mail</span></div>
-<p>Du brauchst kein Passwort. Wir senden dir einen sicheren, einmaligen Anmeldelink.</p>
+
 <form id="nl-email-form" class="nl-form-grid">
 <div class="nl-field"><label for="nl-login-email">E-Mail-Adresse</label><input id="nl-login-email" name="email" type="email" autocomplete="email" placeholder="max.mustermann@gmail.com" maxlength="120" required></div>
-<div class="nl-account-actions"><button class="btn btn-gold" type="submit">Anmeldelink senden</button><a href="../booking-test/">Ohne Konto buchen</a></div>
+<div class="nl-account-actions nl-login-actions"><button class="btn btn-gold" type="submit">Anmeldelink senden</button><a class="btn nl-btn-white" href="../booking-test/">Ohne Konto buchen</a></div>
 </form>
 <p class="nl-small">Mit dem Anmelden wird ein NoLimits-Kundenkonto angelegt. Deine Daten werden nur für Terminbuchungen und die Kundenverwaltung verwendet. <a href="../impressum/">Datenschutz</a></p>
 </div>
@@ -71,7 +70,7 @@
 <div class="nl-field"><label for="nl-name">Vollständiger Name</label><input id="nl-name" name="full_name" maxlength="80" autocomplete="name" required></div>
 <div class="nl-field"><label for="nl-phone">Telefonnummer</label><input id="nl-phone" name="phone" maxlength="30" type="tel" autocomplete="tel" placeholder="+41"></div>
 <div class="nl-field"><label for="nl-address">Adresse</label><input id="nl-address" name="address" maxlength="160" autocomplete="street-address" placeholder="Strasse und Hausnummer, PLZ Ort"></div>
-<div class="nl-account-actions"><button class="btn btn-gold" type="submit">Angaben speichern</button><a href="../booking-test/">Termin buchen</a><button type="button" class="nl-plain-button" id="nl-signout">Abmelden</button></div>
+<div class="nl-account-actions nl-profile-actions"><button class="btn btn-gold" type="submit">Angaben speichern</button><a class="btn nl-btn-outline" href="../booking-test/">Termin buchen</a><button type="button" class="btn nl-btn-signout" id="nl-signout">Abmelden</button></div>
 </form>
 </div>
 </div></section></main>

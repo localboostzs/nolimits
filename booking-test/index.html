@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="../assets/css/style.css">
 <link rel="stylesheet" href="../assets/css/privacy.css?v=20261115-privacy1">
 <script src="../assets/js/privacy.js?v=20261115-privacy1" defer></script>
-<link rel="stylesheet" href="../assets/css/booking.css?v=20261117-cls1">
+<link rel="stylesheet" href="../assets/css/booking.css?v=20261117-mobile2">
 <link rel="stylesheet" href="../assets/css/account.css">
 <script src="../assets/js/config.js"></script>
 <script src="../assets/js/main.js"></script>
@@ -21,7 +21,7 @@
 <script src="../assets/js/vendor/supabase-2.76.1.js" defer></script>
 <script src="../assets/js/account-config.js?v=20261115-2" defer></script>
 <script src="../assets/js/auth-client.js?v=20261115-privacy1" defer></script>
-<script src="../assets/js/booking.js?v=20261117-cls1" defer></script>
+<script src="../assets/js/booking.js?v=20261117-mobile2" defer></script>
 </head>
 <body id="top">
 <a class="skip" href="#main">Weiter zum Hauptinhalt</a>
@@ -82,11 +82,12 @@
 <div id="p-form" class="bk-panel">
 <h2 class="bk-h">Deine Angaben</h2>
 <p class="bk-sub">Wir brauchen nur wenige Angaben.</p>
+<p class="bk-required-hint">* Pflichtfelder</p>
 <form id="bk-form" class="bk-form" novalidate>
-<div class="bk-field"><label for="f-name">Name</label><input id="f-name" name="name" type="text" autocomplete="name" maxlength="80" required placeholder="Max Mustermann"><div id="f-name-err" class="bk-err"></div></div>
-<div class="bk-field"><label for="f-email">E-Mail</label><input id="f-email" name="email" type="email" autocomplete="email" inputmode="email" maxlength="120" required placeholder="max.mustermann@gmail.com"><div id="f-email-err" class="bk-err"></div></div>
-<div class="bk-field"><label for="f-phone">Telefon</label><input id="f-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="30" required placeholder="+41"><div id="f-phone-err" class="bk-err"></div></div>
-<div class="bk-field"><label for="f-address">Adresse</label><input id="f-address" name="address" type="text" autocomplete="street-address" placeholder="Strasse und Hausnummer, PLZ Ort" maxlength="160" required><div id="f-address-err" class="bk-err"></div></div>
+<div class="bk-field"><label for="f-name">Name<span class="bk-required-star" aria-hidden="true">*</span></label><input id="f-name" name="name" type="text" autocomplete="name" maxlength="80" required placeholder="Max Mustermann"><div id="f-name-err" class="bk-err"></div></div>
+<div class="bk-field"><label for="f-email">E-Mail<span class="bk-required-star" aria-hidden="true">*</span></label><input id="f-email" name="email" type="email" autocomplete="email" inputmode="email" maxlength="120" required placeholder="max.mustermann@gmail.com"><div id="f-email-err" class="bk-err"></div></div>
+<div class="bk-field"><label for="f-phone">Telefon<span class="bk-required-star" aria-hidden="true">*</span></label><input id="f-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="30" required placeholder="+41"><div id="f-phone-err" class="bk-err"></div></div>
+<div class="bk-field"><label for="f-address">Adresse<span class="bk-required-star" aria-hidden="true">*</span></label><input id="f-address" name="address" type="text" autocomplete="street-address" placeholder="Strasse und Hausnummer, PLZ Ort" maxlength="160" required><div id="f-address-err" class="bk-err"></div></div>
 <div class="bk-field"><label for="f-notes">Nachricht (optional)</label><textarea id="f-notes" name="notes" maxlength="500" placeholder="Besondere Wünsche (optional)"></textarea></div>
 <div class="bk-hp" aria-hidden="true"><label for="f-web">Website</label><input id="f-web" name="website" type="text" tabindex="-1" autocomplete="off"></div>
 <div><div class="bk-check"><input id="f-terms" name="terms" type="checkbox" required><label id="f-terms-label" for="f-terms"></label></div><div id="f-terms-err" class="bk-err"></div></div>

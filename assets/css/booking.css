@@ -124,3 +124,9 @@
    Keep the form below the fold on mobile rather than moving the footer into the viewport. */
 .bk-services.is-loading{min-height:440px}
 .bk-services.is-loading .bk-loading{min-height:240px}
+
+/* Service summaries: brief and visually subordinate to name/duration/price. */
+.bk-service-detail .bk-description{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+  margin-top:7px;color:var(--text-soft);font-size:.84rem;line-height:1.5;overflow-wrap:anywhere}
+.bk-required-star{color:#765825;font-weight:800;margin-left:2px}
+.bk-required-hint{font-size:.8rem;color:var(--text-soft);margin:0 0 12px}
