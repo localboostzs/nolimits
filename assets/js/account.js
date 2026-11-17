@@ -107,7 +107,7 @@
     socialNote.textContent = text;
     socialNote.hidden = !text;
   }
-  if (A && A.enabled && A.socialProviderStatus) {
+  if (!window.NOLIMITS_GOOGLE_ID_ACTIVE && A && A.enabled && A.socialProviderStatus) {
     A.socialProviderStatus().then(function(providers) {
       if (providers.google) setSocialNote('');
       else setSocialNote('Die Google-Anmeldung ist derzeit nicht verfügbar. Verwende den Anmeldelink per E-Mail.');
@@ -116,6 +116,7 @@
     });
   }
   socialButtons.forEach(function(item) {
+    if (item.provider === 'google' && window.NOLIMITS_GOOGLE_ID_ACTIVE) return;
     if (!item.element) return;
     item.element.addEventListener('click',async function() {
       if (!A || !A.enabled || !A.socialSignIn) {
@@ -134,6 +135,10 @@
         item.element.disabled=false;
       }
     });
+  });
+  document.addEventListener('nolimits-google-id-success', function() {
+    message('');
+    display();
   });
   // Avoid displaying raw OAuth error codes or user-supplied callback text.
   try {
@@ -162,7 +167,7 @@
     finally{b.disabled=false;}
   });
   document.getElementById('nl-signout').addEventListener('click',async function(){
-    await A.signOut();message('Abgemeldet.');await display();
+    await A.signOut();document.dispatchEvent(new CustomEvent('nolimits-google-id-signout'));message('Abgemeldet.');await display();
   });
   display();
 })();
