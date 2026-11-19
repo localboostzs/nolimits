@@ -115,6 +115,10 @@ try {
           }
         }
         if(name==='verwaltung') {
+          // Realistic consent interaction: the privacy dialog must be dismissed
+          // before the staff dashboard can receive pointer events on a phone.
+          const reject=page.locator('.nl-privacy-reject');
+          if(await reject.isVisible()) await reject.click();
           const selectInfo=await page.evaluate(()=>{
             const desk=document.getElementById('nl-desk'),gate=document.getElementById('nl-gate');
             desk.hidden=false;gate.hidden=true;
@@ -149,7 +153,8 @@ try {
             path:'artifacts/nolimits-ui-20261119/'+device.name+'_verwaltung-dropdown-geschlossen.png',
             fullPage:true});
           if(selectInfo.modernSupport) {
-            await page.locator('#nl-admin-service').click();
+            await page.locator('#nl-admin-service').evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));
+            await page.locator('#nl-admin-service').click({position:{x:24,y:24},timeout:6000});
             const opened=await page.locator('#nl-admin-service').evaluate(el=>el.matches(':open'));
             assert.ok(opened,'styled native select opens');
             await page.screenshot({
