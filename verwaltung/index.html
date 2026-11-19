@@ -14,7 +14,8 @@
 <script defer src="../assets/js/vendor/supabase-2.76.1.js"></script>
 <script defer src="../assets/js/account-config.js?v=20261115-2"></script>
 <script defer src="../assets/js/auth-client.js?v=20261115-privacy1"></script>
-<script defer src="../assets/js/admin.js?v=20261116-crm1"></script>
+<script defer src="../assets/js/wix-csv.js?v=20261119-preview1"></script>
+<script defer src="../assets/js/admin.js?v=20261119-preview1"></script>
 </head>
 <body id="top"><a class="skip" href="#main">Zum Inhalt springen</a>
 <header class="site-header"><div class="wrap header-in">
@@ -64,8 +65,10 @@
 <p class="nl-small">Nur nach ausdrücklicher Freigabe von Isen. Importiert werden Name, E-Mail und Telefonnummer aus einem Wix-CSV-Export. Bestehende Wix-Buchungen werden dadurch nicht automatisch übernommen.</p>
 <div class="nl-form-grid">
 <div class="nl-field"><label for="nl-wix-file">Wix-Kontakte (CSV-Datei)</label><input id="nl-wix-file" type="file" accept=".csv,text/csv"></div>
+<div class="nl-account-actions"><button class="nl-plain-button" id="nl-wix-preview" type="button">Import-Vorschau prüfen</button></div>
+<div id="nl-wix-summary" class="nl-notice" role="status" aria-live="polite" hidden></div>
 <label><input id="nl-wix-consent" type="checkbox"> Isen hat dieser Datenübernahme ausdrücklich zugestimmt.</label>
-<div class="nl-account-actions"><button class="nl-plain-button" id="nl-wix-import" type="button">Kontakte importieren</button></div>
+<div class="nl-account-actions"><button class="btn btn-gold btn-sm" id="nl-wix-import" type="button" disabled>Geprüfte Kontakte importieren</button></div>
 </div>
 </section></div>
 </div></div></div></section></main>

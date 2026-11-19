@@ -91,73 +91,71 @@
       }
     }catch(e){msg(e.message,true);}
   }
-  // CSV-Verarbeitung erfolgt vollständig im Browser, der Import nur nach Freigabe.
-  function csvParse(input, delim) {
-    var rows=[],r=[],cell='',quoted=false;
-    for(var i=0;i<input.length;i++){
-      var c=input[i];
-      if(c==='"'){
-        if(quoted && input[i+1]==='"'){cell+='"';i++;}
-        else quoted=!quoted;
-      } else if(c===delim && !quoted){r.push(cell);cell='';}
-      else if((c==='\n'||c==='\r') && !quoted){
-        r.push(cell);if(r.some(function(x){return x.trim();}))rows.push(r);
-        r=[];cell='';if(c==='\r'&&input[i+1]==='\n')i++;
-      } else cell+=c;
+  // Preview remains entirely local: no contact data leaves the browser here.
+  var wixFile=document.getElementById('nl-wix-file'),
+      wixPreview=document.getElementById('nl-wix-preview'),
+      wixSummary=document.getElementById('nl-wix-summary'),
+      wixImport=document.getElementById('nl-wix-import'),
+      wixConsent=document.getElementById('nl-wix-consent');
+  var reviewed=null,reviewedFile=null;
+  function resetWixReview(){
+    reviewed=null;reviewedFile=null;
+    wixImport.disabled=true;
+    wixSummary.hidden=true;
+    wixSummary.textContent='';
+  }
+  wixFile.addEventListener('change',resetWixReview);
+  wixConsent.addEventListener('change',function(){
+    if(!wixConsent.checked)wixImport.disabled=true;
+    else wixImport.disabled=!reviewed;
+  });
+  wixPreview.addEventListener('click',async function(){
+    resetWixReview();
+    var file=wixFile.files&&wixFile.files[0];
+    if(!file){msg('Bitte zuerst eine Wix-CSV-Datei auswählen.',true);return;}
+    if(file.size>5*1024*1024){msg('Die CSV-Datei ist zu gross (max. 5 MB).',true);return;}
+    wixPreview.disabled=true;
+    try{
+      if(!window.NOLIMITS_WIX_CSV)throw Error('CSV-Vorschau konnte nicht geladen werden.');
+      var parsed=window.NOLIMITS_WIX_CSV.parse(await file.text());
+      reviewed=parsed;reviewedFile=file;
+      wixSummary.textContent=parsed.stats.valid+' geeignete Kontakte von '+parsed.stats.rows+
+        ' Zeilen. '+parsed.stats.duplicates+' Dubletten, '+parsed.stats.skipped+
+        ' ohne gültige Kontaktdaten und '+parsed.stats.invalidEmails+
+        ' ungültige E-Mail-Adressen. Noch keine Daten importiert.';
+      wixSummary.hidden=false;
+      wixImport.disabled=!wixConsent.checked;
+      msg('Vorschau erstellt. Überprüfe das Ergebnis vor dem verbindlichen Import.');
+    }catch(e){resetWixReview();msg('Vorschau fehlgeschlagen: '+(e.message||''),true);}
+    finally{wixPreview.disabled=false;}
+  });
+  wixImport.addEventListener('click',async function(){
+    if(!reviewed||!reviewedFile||wixFile.files[0]!==reviewedFile){
+      resetWixReview();msg('Bitte zuerst die aktuelle CSV-Datei in der Vorschau prüfen.',true);return;
     }
-    r.push(cell);if(r.some(function(x){return x.trim();}))rows.push(r);
-    return rows;
-  }
-  function norm(h){
-    return String(h||'').replace(/^\uFEFF/,'').toLowerCase()
-      .replace(/ä/g,'a').replace(/ö/g,'o').replace(/ü/g,'u').replace(/ß/g,'ss')
-      .replace(/[^a-z0-9]/g,'');
-  }
-  document.getElementById('nl-wix-import').addEventListener('click',async function(){
-    var file=document.getElementById('nl-wix-file').files[0],
-      consent=document.getElementById('nl-wix-consent').checked,
-      button=document.getElementById('nl-wix-import');
-    if(!consent){msg('Bitte zuerst die ausdrückliche Einwilligung von Isen bestätigen.',true);return;}
-    if(!file){msg('Bitte eine Wix-CSV-Datei auswählen.',true);return;}
-    if(file.size>5*1024*1024){msg('Die Datei ist zu gross (max. 5 MB).',true);return;}
-    button.disabled=true;
-    try {
-      if(!await A.staff())throw new Error('Keine Verwaltungsberechtigung.');
-      var data=await file.text();
-      var lines=data.split(/\r?\n/,1)[0];
-      var delim=(lines.match(/;/g)||[]).length>(lines.match(/,/g)||[]).length?';':',';
-      var rows=csvParse(data,delim);
-      if(rows.length<2)throw new Error('Keine Kontaktdaten gefunden.');
-      var head=rows.shift().map(norm);
-      function get(row, aliases){
-        for(var k of aliases){var idx=head.indexOf(k);if(idx>=0&&row[idx])return row[idx].trim();}
-        return '';
-      }
-      var valid=[],seen=new Set();
-      for(var row of rows.slice(0,2000)){
-        var email=get(row,['email','emailaddress','primaryemail','emails','emailadresse','email1']).toLowerCase().slice(0,120);
-        var phone=get(row,['phone','phonenumber','telefon','telephone','mobile','handynummer','primaryphone']).slice(0,30);
-        var id=get(row,['contactid','wixcontactid','id','contactsid']);
-        var first=get(row,['firstname','vorname','givenname']);
-        var last=get(row,['lastname','nachname','surname','familyname']);
-        var name=get(row,['name','displayname','fullname','contactname'])||[first,last].filter(Boolean).join(' ');
-        var external=(id?'wix:':email?'email:':'phone:')+(id||email||phone);
-        if(!id&&!email&&!phone||seen.has(external))continue;
-        seen.add(external);
-        valid.push({source:'wix',external_id:external.slice(0,180),name:(name||email||phone).slice(0,100),email,phone});
-      }
-      if(!valid.length)throw new Error('Keine geeigneten Kontaktspalten erkannt. Bitte Wix-CSV prüfen.');
-      for(var i=0;i<valid.length;i+=50){
-        var batch=valid.slice(i,i+50);
+    if(!wixConsent.checked){msg('Der Import erfordert die ausdrückliche Einwilligung von Isen.',true);return;}
+    var rows=reviewed.contacts;
+    if(!confirm(rows.length+' Wix-Kontakte nach ausdrücklicher Freigabe jetzt importieren? Es werden keine bestehenden Wix-Termine übernommen.'))return;
+    wixImport.disabled=true;
+    try{
+      if(!await A.staff())throw Error('Keine Verwaltungsberechtigung.');
+      for(var i=0;i<rows.length;i+=50){
+        var batch=rows.slice(i,i+50);
         var result=await A.client.from('nl_legacy_contacts').upsert(batch,{onConflict:'external_id'});
         if(result.error)throw result.error;
       }
-      msg(valid.length+' Kontakte importiert. Bitte eventuelle Dubletten und die nächste Terminliste prüfen.');
-      document.getElementById('nl-wix-file').value='';
-      document.getElementById('nl-wix-consent').checked=false;
+      msg(rows.length+' geprüfte Kontakte importiert. Bitte Dubletten und bestehende Wix-Termine separat kontrollieren.');
+      wixFile.value='';
+      wixConsent.checked=false;
+      resetWixReview();
       await loadData();
-    }catch(e){msg('Import fehlgeschlagen: '+(e.message||''),true);}
-    finally{button.disabled=false;}
+    }catch(e){
+      // Partial imports can exist after a network failure. Keep preview for
+      // idempotent retry; upsert uses stable external_id.
+      wixImport.disabled=false;
+      msg('Import fehlgeschlagen oder unvollständig: '+(e.message||'')+
+        '. Bitte den Importstatus prüfen; ein erneuter Lauf aktualisiert bestehende Wix-IDs.',true);
+    }
   });
   form.addEventListener('submit',async function(ev){
     ev.preventDefault();msg('');
