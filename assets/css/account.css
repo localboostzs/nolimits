@@ -91,3 +91,170 @@
 .nl-google-clean-button{width:min(400px,100%);margin-inline:auto;min-height:52px;font-weight:500}
 /* Center only the login heading and its Google button, not form fields. */
 #nl-login>h2{text-align:center}
+
+
+/* Mobile staff dashboard: keep the CSV file control and grid children within
+   the 320px viewport. Works with long local filenames, too. */
+@media (max-width: 560px) {
+  .nl-admin-grid, .nl-admin-grid > *, .nl-admin-panel,
+  .nl-form-grid, .nl-form-grid > *, .nl-field {
+    min-width: 0;
+    max-width: 100%;
+  }
+  #nl-wix-file {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+/* The German staff heading has no natural line break on very narrow phones. */
+.nl-admin-title{overflow-wrap:anywhere}
+@media (max-width:359px){
+  .nl-admin-title{font-size:clamp(2rem,9vw,2.6rem);line-height:1.12}
+}
+
+
+/* NoLimits customer quick-booking layout and accessible staff select design - 2026-11-19 */
+/* Service name and CTA are actual grid items, never an inline text/button pair. */
+#nl-last.nl-quick {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px 24px;
+  min-width: 0;
+  margin: 22px 0;
+  padding: clamp(18px, 3vw, 26px);
+  border: 1px solid var(--line-light);
+  background: var(--surface);
+}
+#nl-last.nl-quick strong {
+  display: block;
+  min-width: 0;
+  font-family: var(--font-head);
+  font-size: clamp(1.3rem, 2.4vw, 1.8rem);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.nl-account-card #nl-last.nl-quick > .btn {
+  display: inline-flex;
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding-inline: clamp(14px, 2vw, 22px);
+  white-space: normal;
+  text-align: center;
+  line-height: 1.4;
+  letter-spacing: .1em;
+}
+@media (max-width: 760px) {
+  #nl-last.nl-quick {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: stretch;
+    gap: 14px;
+  }
+  .nl-account-card #nl-last.nl-quick > .btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 52px;
+  }
+}
+
+/* Native controls retain keyboard handling, validation and accessible options.
+   Unsupported browsers get a polished native select; supporting browsers
+   also render the *opened* option picker in NoLimits colors. */
+#nl-admin-book-form .nl-field select {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 56px;
+  padding: 14px 44px 14px 16px;
+  color: #25231e;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23856531' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 16px center;
+  background-repeat: no-repeat;
+  background-size: 18px 18px;
+  border: 1px solid #cfc6b5;
+  border-radius: 8px;
+  font: inherit;
+  font-size: .96rem;
+  font-weight: 500;
+  line-height: 1.45;
+  cursor: pointer;
+  transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
+}
+#nl-admin-book-form .nl-field select:hover {
+  border-color: #9c7a44;
+  background-color: #fffdf9;
+}
+#nl-admin-book-form .nl-field select:focus,
+#nl-admin-book-form .nl-field select:focus-visible {
+  outline: 2px solid #a17a40;
+  outline-offset: 2px;
+  border-color: #a17a40;
+  box-shadow: 0 0 0 4px rgba(161, 122, 64, .12);
+}
+#nl-admin-book-form .nl-field select:disabled {
+  cursor: not-allowed;
+  opacity: .6;
+  background-color: #f1ede7;
+}
+/* Chromium 135+, Safari 27+: customize the entire opened menu. */
+@supports (appearance: base-select) {
+  #nl-admin-book-form .nl-field select,
+  #nl-admin-book-form .nl-field select::picker(select) {
+    appearance: base-select;
+  }
+  #nl-admin-book-form .nl-field select {
+    background-image: none;
+    padding-right: 16px;
+  }
+  #nl-admin-book-form .nl-field select::picker-icon {
+    color: #856531;
+    margin-left: 16px;
+    transition: transform .2s ease;
+  }
+  #nl-admin-book-form .nl-field select:open::picker-icon {
+    transform: rotate(180deg);
+  }
+  #nl-admin-book-form .nl-field select::picker(select) {
+    border: 1px solid #d7c7ac;
+    border-radius: 10px;
+    padding: 7px;
+    background: #fffdfa;
+    color: #25231e;
+    box-shadow: 0 15px 38px rgba(24, 22, 18, .18);
+    max-height: min(360px, 60vh);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  #nl-admin-book-form .nl-field select option {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 11px 13px;
+    border-radius: 6px;
+    white-space: normal;
+    line-height: 1.45;
+    font-size: .93rem;
+    cursor: pointer;
+  }
+  #nl-admin-book-form .nl-field select option:hover,
+  #nl-admin-book-form .nl-field select option:focus-visible {
+    background: #f3eadd;
+  }
+  #nl-admin-book-form .nl-field select option:checked {
+    background: #f2e4cd;
+    color: #694716;
+    font-weight: 700;
+  }
+  #nl-admin-book-form .nl-field select option::checkmark {
+    color: #856531;
+  }
+}
