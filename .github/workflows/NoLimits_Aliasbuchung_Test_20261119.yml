@@ -22,6 +22,7 @@ jobs:
           node tests/NoLimits_Aliasbuchung_Tests_20261119.mjs
           node tests/NoLimits_AliasStaging_Isolation_20261119.mjs
           node tests/NoLimits_AliasCRM_Regression_20261119.mjs
+          node tests/NoLimits_KundenTermin_E2E_20261119.mjs
       - name: Verify Wrangler stage bundle (no Cloudflare deployment)
         working-directory: worker
         run: |
