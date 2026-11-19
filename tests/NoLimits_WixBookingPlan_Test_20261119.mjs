@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {buildDryRun} from '../tools/NoLimits_WixBookingPlan_20261119.mjs';
 
 const now=Date.parse('2026-11-19T12:00:00.000Z');
-const services={'haarschnitt':{minutes:30},'bartschnitt':{minutes:15}};
+const services={'haarschnitt':{minutes:30},'bartschnitt':{minutes:15},'lang':{minutes:120}};
 function row(id,service='haarschnitt',iso='2026-11-25T09:00:00+01:00',status='CONFIRMED'){
  return {wixId:id,serviceKey:service,startIso:iso,status,
   customerName:'Interner Test',customerEmail:'internal@example.invalid',customerPhone:'+41790000000'};
@@ -33,6 +33,13 @@ const overlapping=buildDryRun([
 ],{services,now});
 assert.equal(overlapping.ready,false);
 assert.equal(overlapping.conflicts[0].reason,'overlapping_staff_time');
+const longOverlap=buildDryRun([
+ row('LONG-1','lang','2026-11-25T09:00:00+01:00'),
+ row('SHORT-1','bartschnitt','2026-11-25T09:30:00+01:00'),
+ row('SHORT-2','bartschnitt','2026-11-25T10:00:00+01:00')
+],{services,now});
+assert.equal(longOverlap.conflicts.length,2,'both short bookings overlap with the long booking');
+assert.equal(longOverlap.conflicts[1].firstWixId,'LONG-1');
 
 const invalid=buildDryRun([
  row('WIX-LAB-BAD','unknown'),
