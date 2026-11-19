@@ -26,6 +26,7 @@ jobs:
           node --check worker/src/index.js
           node tests/NoLimits_Aliasbuchung_Tests_20261119.mjs
           node tests/NoLimits_AliasStaging_Isolation_20261119.mjs
+          node tests/NoLimits_Kalenderdatei_Tests_20261119.mjs
       - name: Verify required staging deployment secrets exist
         env:
           CF_ACCOUNT_ID: ${{ secrets.NOLIMITS_STAGING_CF_ACCOUNT_ID }}
@@ -33,6 +34,10 @@ jobs:
         run: |
           test -n "$CF_ACCOUNT_ID" || (echo "Missing NOLIMITS_STAGING_CF_ACCOUNT_ID" && exit 1)
           test -n "$CF_TOKEN" || (echo "Missing NOLIMITS_STAGING_CF_API_TOKEN" && exit 1)
+      - name: Prove staging URL is disabled by default
+        run: |
+          grep -qx 'workers_dev = false' worker/wrangler.alias-staging.toml
+          grep -qx 'NL_ICS_ENABLED = "true"' worker/wrangler.alias-staging.toml
       - name: Deploy ONLY nolimits-alias-staging
         uses: cloudflare/wrangler-action@v3
         with:
