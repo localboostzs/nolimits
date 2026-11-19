@@ -147,6 +147,11 @@ async function getContacts(req, env) {
     try {
       const [upcoming,past] = await Promise.all([
         listCalBookings(env,'upcoming'),listCalBookings(env,'past')]);
+      // Resolve opaque booking aliases back to real customer addresses in the CRM.
+      const controlledBookings = [...upcoming, ...past].filter(b =>
+        names.has(Number(b.eventTypeId || b.eventType?.id)));
+      const resolvedAliases = await lookupBookingAliases(env,
+        controlledBookings.map(b => b.attendees?.[0]?.email));
       for (const [kind,list] of [['upcoming',upcoming],['past',past]]) {
         for (const b of list) {
           const eventTypeId=Number(b.eventTypeId || b.eventType?.id);
@@ -154,7 +159,10 @@ async function getContacts(req, env) {
           // Cal.com-Termine oder deren Teilnehmer in NoLimits anzeigen.
           if (!names.has(eventTypeId)) continue;
           const attendee=b.attendees?.[0]||{};
-          const c=record(attendee.email,attendee.name,attendee.phoneNumber);
+          const customerEmail = isAliasEmail(attendee.email, env)
+            ? resolvedAliases.get(String(attendee.email).toLowerCase()) : attendee.email;
+          if (!customerEmail) { headings.bookingsWarning=true; continue; }
+          const c=record(customerEmail,attendee.name,attendee.phoneNumber);
           if(!c) continue;
           c[kind].push({
             uid:b.uid,start:b.start||b.startTime,end:b.end||b.endTime,
@@ -234,6 +242,97 @@ function fail(code, message, status, req, env) {
 
 const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s + 'T00:00:00Z'));
 const isEmail = (s) => s.length <= 120 && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]{2,}$/.test(s);
+
+// --- NoLimits alias bookings (opt-in only, disabled by default) ---
+// The real email stays in NoLimits Supabase; Cal.com receives an opaque alias.
+// Do not enable on production until email routing, migrations and webhooks are tested.
+function aliasSettings(env) {
+  const domain = String(env.NL_ALIAS_DOMAIN || '').trim().toLowerCase();
+  const prefix = String(env.NL_ALIAS_PREFIX || 'buchung').trim().toLowerCase();
+  const separator = env.NL_ALIAS_SEPARATOR === '+' ? '+' : '-';
+  if (!/^[a-z0-9](?:[a-z0-9.-]{1,90})\.[a-z]{2,}$/.test(domain) ||
+      !/^[a-z][a-z0-9-]{0,19}$/.test(prefix)) return null;
+  return { domain, prefix, separator };
+}
+function isAliasEmail(email, env) {
+  const cfg = aliasSettings(env);
+  if (!cfg) return false;
+  const e = String(email || '').toLowerCase();
+  const start = cfg.prefix + cfg.separator;
+  return e.endsWith('@' + cfg.domain) &&
+    /^[0-9a-f]{32}$/.test(e.slice(start.length, -('@' + cfg.domain).length)) &&
+    e.startsWith(start);
+}
+function aliasApiConfig(env) {
+  const url = String(env.NL_SUPABASE_URL || '');
+  const key = String(env.NL_SUPABASE_SECRET_KEY || '');
+  if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(url) ||
+      !(key.startsWith('sb_secret_') || key.startsWith('eyJ'))) {
+    throw Error('Alias database is not configured');
+  }
+  // New Supabase sb_secret keys must be sent on apikey, NOT Authorization: Bearer.
+  const headers = { apikey: key, 'Content-Type': 'application/json' };
+  if (key.startsWith('eyJ')) headers.Authorization = 'Bearer ' + key;
+  return { url: url + '/rest/v1/nl_booking_email_aliases', headers };
+}
+async function createBookingAlias(env, customerEmail, eventTypeId) {
+  const cfg = aliasSettings(env);
+  if (!cfg) throw Error('Alias domain is not configured');
+  const unique = crypto.randomUUID().replace(/-/g, '');
+  const alias = cfg.prefix + cfg.separator + unique + '@' + cfg.domain;
+  const db = aliasApiConfig(env);
+  const response = await fetch(db.url, {
+    method: 'POST',
+    headers: { ...db.headers, Prefer: 'return=minimal' },
+    body: JSON.stringify({ alias_email: alias, customer_email: customerEmail, event_type_id: eventTypeId }),
+    redirect: 'manual'
+  });
+  if (!response.ok) throw Error('Could not store alias before booking');
+  return alias;
+}
+async function bindBookingAlias(env, alias, uid) {
+  if (!alias || !VALID_UID.test(uid)) return;
+  const db = aliasApiConfig(env);
+  const response = await fetch(db.url + '?alias_email=eq.' + encodeURIComponent(alias), {
+    method: 'PATCH',
+    headers: { ...db.headers, Prefer: 'return=minimal' },
+    body: JSON.stringify({ booking_uid: uid }),
+    redirect: 'manual'
+  });
+  if (!response.ok) throw Error('Alias booking UID update failed');
+}
+async function lookupBookingAliases(env, addresses) {
+  const aliases = [...new Set(addresses.map(e => String(e || '').trim().toLowerCase()).filter(e => isAliasEmail(e, env)))];
+  const found = new Map();
+  if (!aliases.length) return found;
+  const db = aliasApiConfig(env);
+  for (let i = 0; i < aliases.length; i += 30) {
+    const batch = aliases.slice(i, i + 30);
+    const query = new URLSearchParams({
+      select: 'alias_email,customer_email',
+      alias_email: 'in.(' + batch.map(a => '"' + a + '"').join(',') + ')'
+    });
+    const response = await fetch(db.url + '?' + query, { headers: db.headers, redirect: 'manual' });
+    if (!response.ok) throw Error('Alias lookup failed');
+    const rows = await response.json();
+    if (!Array.isArray(rows)) throw Error('Invalid alias lookup');
+    for (const row of rows) {
+      if (isAliasEmail(row.alias_email, env) && isEmail(String(row.customer_email || ''))) {
+        found.set(String(row.alias_email).toLowerCase(), String(row.customer_email).toLowerCase());
+      }
+    }
+  }
+  return found;
+}
+async function resolveAttendeeEmail(env, email) {
+  if (!isAliasEmail(email, env)) return email;
+  const map = await lookupBookingAliases(env, [email]);
+  const realEmail = map.get(String(email).toLowerCase());
+  if (!realEmail) throw Error('Unmapped booking alias');
+  return realEmail;
+}
+// --- End NoLimits alias bookings ---
+
 const clean = (s, max) => String(s ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').trim().slice(0, max);
 
 function calHeaders(env, version) {
@@ -310,10 +409,20 @@ async function book(req, env, adminMode = false) {
   if (b.accepted !== true) return fail('terms_required', 'Bitte die Stornierungsbedingungen bestätigen.', 400, req, env);
   if (Number.isNaN(startMs) || startMs < Date.now() || startMs > Date.now() + 366 * 86400000) return fail('invalid_start', 'Ungültiger Termin.', 400, req, env);
 
+  // Alias mode is OFF unless explicitly enabled on this Worker deployment.
+  // Store mapping BEFORE contacting Cal.com, so immediate webhooks can resolve it.
+  let bookingAlias = null;
+  if (env.NL_ALIAS_MODE === 'enabled') {
+    try {
+      bookingAlias = await createBookingAlias(env, email, service.eventTypeId);
+    } catch {
+      return fail('alias_unavailable', 'Die Buchung ist momentan nicht verfügbar. Bitte später erneut versuchen.', 503, req, env);
+    }
+  }
   const payload = {
     start: new Date(startMs).toISOString(),
     eventTypeId: service.eventTypeId,
-    attendee: { name, email, timeZone: TIME_ZONE, language: 'de', phoneNumber: phone },
+    attendee: { name, email: bookingAlias || email, timeZone: TIME_ZONE, language: 'de', phoneNumber: phone },
     bookingFieldsResponses: { ...(adminMode && ADMIN_SERVICES[b.service] ? {} : { stornierungsbedingungen_akzeptiert: true }), ...(notes ? { notes } : {}) },
   };
   let res;
@@ -336,6 +445,9 @@ async function book(req, env, adminMode = false) {
   const d = out?.data;
   // Nur bestätigte Buchungen als Erfolg melden.
   if (!d || d.status !== 'accepted') return fail('not_confirmed', 'Die Buchung wurde nicht bestätigt. Bitte erneut versuchen.', 502, req, env);
+  // UID binding is best-effort: alias->real email was already persisted before Cal.com.
+  // Never return a booking error after Cal.com has accepted it (avoids double bookings).
+  if (bookingAlias) await bindBookingAlias(env, bookingAlias, d.uid).catch(() => null);
   const token = env.CAL_API_KEY ? await managementToken(d.uid, d.start, env) : null;
   const manageUrl = token ? FRONTEND_BASE + MANAGE_PATH + '?uid=' + encodeURIComponent(d.uid) + '&token=' + encodeURIComponent(token) : null;
   return json({ ok: true, booking: { uid: d.uid, status: d.status, start: d.start, end: d.end, service: service.name, manageUrl } }, 201, req, env);
@@ -557,12 +669,27 @@ async function onCalWebhook(req, env) {
     } catch { /* Cal.com unavailable; do not send an unverified email. */ }
   }
   if (!match) return json({ok:true,ignored:true},200,req,env);
-  const customer = (p.attendees || []).find(a=>isEmail(String(a.email||'')));
+  let customer = (p.attendees || []).find(a=>isEmail(String(a.email||'')));
+  // Some cancellation/reschedule webhooks omit attendees; resolve via Cal.com if possible.
+  if (!customer) {
+    try {
+      const lookup = await readCalBooking(uid, env);
+      customer = (lookup.booking?.attendees || []).find(a=>isEmail(String(a.email||'')));
+    } catch { /* no verified attendee: fail safely below */ }
+  }
   if (!customer) return json({ok:true,ignored:true},200,req,env);
+  let destinationEmail;
+  try {
+    destinationEmail = await resolveAttendeeEmail(env, customer.email);
+  } catch {
+    // Do not fall back to sending the branded email to an alias.
+    // A non-2xx response also permits upstream retries where supported.
+    return fail('alias_lookup_failed','Die E-Mail-Zuordnung konnte nicht geprüft werden.',503,req,env);
+  }
   const tok = typ==='BOOKING_CANCELLED'?null:await managementToken(uid,p.startTime,env);
   const link = tok ? FRONTEND_BASE+MANAGE_PATH+'?uid='+encodeURIComponent(uid)+'&token='+encodeURIComponent(tok) : null;
   const subject = typ==='BOOKING_CANCELLED'?'Dein Termin wurde storniert – NoLimits Barbershop':typ==='BOOKING_RESCHEDULED'?'Dein neuer Termin – NoLimits Barbershop':'Dein Termin ist bestätigt – NoLimits Barbershop';
-  const mail = {from:'NoLimits Barbershop <login@nolimits-barber.ch>',to:[customer.email],subject,html:mailHtml(typ,p,match,link)};
+  const mail = {from:'NoLimits Barbershop <login@nolimits-barber.ch>',to:[destinationEmail],subject,html:mailHtml(typ,p,match,link)};
   const key = 'nolimits/'+typ+'/'+uid;
   const resp=await fetch('https://api.resend.com/emails',{
     method:'POST',headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json','Idempotency-Key':key},
