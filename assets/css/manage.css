@@ -32,3 +32,6 @@
 #nl-manage-details.is-cancelled #nl-manage-result-message{margin:0 0 28px}
 #nl-manage-details.is-cancelled #nl-manage-result > .btn{display:inline-flex;justify-content:center;align-items:center;min-height:48px}
 @media(max-width:540px){#nl-manage-details.is-cancelled #nl-manage-result > .btn{width:100%}}
+
+/* Management lifecycle: hidden always wins over flex/grid style rules. */
+.nl-manage-wrap [hidden]{display:none!important}
