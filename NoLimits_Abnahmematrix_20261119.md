@@ -20,8 +20,8 @@ Statuslegende: **PASS** = ausdrücklich nachgewiesen; **TEILWEISE** = nur Mockte
 | Alias-Rollback bei `NL_ALIAS_MODE=off` | TEILWEISE | Mocktest PASS, Live-Wechsel mit noch aktivem Alias-Termin offen |
 | Kunden-Terminverwaltung (gültiger Link, Storno, Umbuchung) | TEILWEISE | Mocktests PASS; Staging-Mail verweist noch auf Live-Frontend, isolierter Browser-E2E offen |
 | Mitarbeiter-CRM: Alias-Auflösung, RLS und Fremdbuchungsfilter | TEILWEISE | Neuer sourcebasierter Mocktest PASS; reales Mitarbeiter-Login offen |
-| Google-Anmeldung, Kundenkonto, Profil speichern | TEILWEISE | Bestehende Integrationstests vorhanden; echte Browser-/OAuth-Prüfung offen |
-| Mobile Website und Browser-Screenshots | TEILWEISE | 15 read-only Playwright-Prüfungen (5 Seiten × 320px/390px/1366px) im Feature-Branch **PASS**; 320px-Verwaltungsseiten-Fix durch Regressionstest bestätigt. Manuelle Design-/Bedienungsprüfung nach Login noch offen. |
+| Google-Anmeldung, Kundenkonto, Profil speichern | TEILWEISE | Nutzer hat Google- und E-Mail-Anmeldung in der öffentlichen Testseite manuell als funktionierend bestätigt (19.11.). Profiländerung und weitere Kontoabläufe noch nicht umfassend abgenommen; Überlappungsfix ist nur im Feature-Branch. |
+| Mobile Website und Browser-Screenshots | TEILWEISE | 15 read-only Seiten-/Viewport-Tests plus simulierte angemeldete Kontoansicht mit kurzen und langen Dienstleistungsnamen, ohne Überlappung; native, vollständig gestylte Dropdowns lassen sich bei 320/390/1366px öffnen. GitHub Actions **PASS** (Run 44546949751). Manuelle Designabnahme der unveröffentlichten Version noch offen. |
 | Liveprodukt und neues Frontend unterscheiden | PASS | Wix auf `www.nolimits-barber.ch`, GitHub-Demoseite auf `localboostzs.github.io/nolimits` |
 | Domainmigration mit DNS-/Mail-Rollback | OFFEN | Vorbereitete Route und DNS-Ziel noch abzusichern; niemals Live-DNS vorzeitig ändern |
 | Sichere Website-/Worker-Releasepipeline | OFFEN | Worker-Namenskonflikt `nolimits-booking` vs `nolimits-booking-test` vor Deploy lösen |
@@ -36,3 +36,12 @@ Statuslegende: **PASS** = ausdrücklich nachgewiesen; **TEILWEISE** = nur Mockte
 **Gate für Kontakt mit Isen:** Alle Phase-1-Tests müssen mit dokumentierter Evidenz bestanden sein, ausser den explizit und unvermeidlich von Isens Konten abhängigen Phase-2/3-Aktionen. Nicht bestandene Tests werden repariert, nicht stillschweigend als erfolgreich markiert.
 
 **Wix-Gate:** Nicht kündigen, nicht abschalten, keine Auto-Verlängerung ändern, solange das neue Produkt nicht nach Isens Freigabe und produktiver Migration nachweislich läuft.
+
+
+## UI-Nachbesserung aufgrund manueller Kunden-/Staff-Tests (19.11.2026)
+- Benutzerbestätigung: Google-Login, E-Mail-Anmeldelink und Mitarbeiter-Verwaltung funktionieren im bestehenden Testsystem. Screenshot wies Überlappung von `Haarschnitt` und `Gleiche Leistung wieder buchen` auf.
+- Fix nur im Feature-Branch: `#nl-last.nl-quick` als Grid mit definierten Zeilen und Abständen, responsive ab 760px; keine Änderungen an Auth, API oder Live-Buchungen.
+- Mitarbeiter-Formular: `#nl-admin-service` und `#nl-admin-slot` optisch neu; geöffnetes Popup erhält `appearance: base-select`-Design, falls vom Browser unterstützt, sonst modern gestylter nativer Fallback. Labels `for` korrigiert.
+- Testnachweis: [GitHub Actions UI-Audit](https://github.com/localboostzs/nolimits/actions/runs/44546949751) **success**. Simulierter angemeldeter Zustand mit kurzem und langem Servicenamen, 3 Bildschirmgrössen, beide geöffneten Mitarbeiter-Dropdowns. **Keine** echte Anmeldung/Anwenderdaten in CI.
+- Bildschirmfotos: [NoLimits_UI_Audit_20261119](https://github.com/localboostzs/nolimits/actions/runs/44546949751/artifacts/14541830489) – GitHub Actions Artifact mit PNGs; 7 Tage verfügbar.
+- Weiterer manueller Abnahmeschritt: Nutzer kontrolliert die Bilder im Artifact; der Feature-Branch bleibt bis zur vollständigen Testfreigabe **unveröffentlicht**.
