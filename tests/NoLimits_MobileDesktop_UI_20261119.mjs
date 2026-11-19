@@ -179,8 +179,15 @@ try {
           assert.ok(summary.includes('Noch keine Daten importiert'),summary);
           assert.equal(await page.locator('#nl-wix-import').isDisabled(),true,
             'preview alone cannot grant consent');
+          const disabledOpacity=await page.locator('#nl-wix-import').evaluate(
+            el=>parseFloat(getComputedStyle(el).opacity));
+          assert.ok(disabledOpacity<.7,'unapproved import must visually appear disabled');
           await page.locator('#nl-wix-consent').check();
           assert.equal(await page.locator('#nl-wix-import').isEnabled(),true);
+          const enabledOpacity=await page.locator('#nl-wix-import').evaluate(
+            el=>parseFloat(getComputedStyle(el).opacity));
+          assert.ok(enabledOpacity>disabledOpacity,
+            'approved import action must have a distinct visual enabled state');
           await page.locator('#nl-wix-file').setInputFiles({
             name:'Wix_Demo_Geaendert.csv',mimeType:'text/csv',
             buffer:Buffer.from('Email,Name\\nchanged@example.invalid,Neue Person'.replace(/\\n/g,'\n'))
