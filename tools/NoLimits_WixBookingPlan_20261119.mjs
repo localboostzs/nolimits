@@ -50,11 +50,14 @@ export function buildDryRun(bookings,{services,now=Date.now()}={}){
   }
   const conflicts=[];
   const sorted=[...normalized].sort((a,b)=>a.startIso.localeCompare(b.startIso));
-  for(let i=1;i<sorted.length;i++){
-    const previous=sorted[i-1],current=sorted[i];
-    if(Date.parse(current.startIso)<Date.parse(previous.endIso)){
-      conflicts.push({firstWixId:previous.wixId,secondWixId:current.wixId,reason:'overlapping_staff_time'});
+  // Track the longest-running overlapping appointment, not simply the last row.
+  // A long haircut can conflict with several shorter later bookings.
+  let active=null;
+  for(const current of sorted){
+    if(active&&Date.parse(current.startIso)<Date.parse(active.endIso)){
+      conflicts.push({firstWixId:active.wixId,secondWixId:current.wixId,reason:'overlapping_staff_time'});
     }
+    if(!active||Date.parse(current.endIso)>Date.parse(active.endIso))active=current;
   }
   return {
     ready:blockers.length===0&&conflicts.length===0,
