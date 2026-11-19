@@ -6,7 +6,7 @@
 - Reale Testbuchung mit `info+nolimits-v2-calprobe-20261119@localboost-zs.ch` wurde akzeptiert; Cal.com Bestätigungs- und Stornierungsmails kamen bei verbundenem `info@localboost-zs.ch` Gmail an.
 - Reale zweite Testbuchung mit `info+nolimits-v2-resched-20261119@localboost-zs.ch` wurde erstellt, umgebucht und storniert. Alle drei Cal.com-Mails landeten beim **selben** Alias. Umbuchung hat neue UID, aber dieselbe Teilnehmer-E-Mail.
 - Supabase NoLimits Projekt `jcctdjjunxmxaphjkrsz`: Migration `nolimits_alias_mapping_20261119` angewandt, eigene Tabelle `nl_booking_email_aliases`, RLS an, keine Policies für `anon` oder `authenticated`. Synthetischer Probe-Datensatz erfolgreich gelesen und wieder gelöscht.
-- Staging-Worker-Code in `feature/NoLimits_Aliasbuchung_20261119` hat GitHub Actions-Mocktests bestanden: https://github.com/localboostzs/nolimits/actions/runs/44497571643
+- Staging-Worker-Code in `feature/NoLimits_Aliasbuchung_20261119` hat GitHub Actions-Mocktests sowie die Cloudflare-Wrangler-Bündelprüfung bestanden: https://github.com/localboostzs/nolimits/actions/runs/44513247515
 - Produktive Cal.com-Terminarten und Cloudflare-Worker unverändert.
 
 ## DNS- und Cloudflare-Verbindung (Blocker)
@@ -19,9 +19,13 @@
 - `worker/wrangler.alias-staging.toml`: **neuer Worker** `nolimits-alias-staging`, explizit getrennt von `nolimits-booking` und `nolimits-booking-test`; verwendet Testdomain `localboost-zs.ch`, Alias `info+<32hex>@localboost-zs.ch`.
 - `.github/workflows/NoLimits_Aliasbuchung_Deploy_20261119.yml`: Nur manuell und **nur** auf Alias-Feature-Branch ausführbar, deployt ausschliesslich den obigen Worker. Erfordert GitHub-Action-Repository-Secrets `NOLIMITS_STAGING_CF_API_TOKEN` und `NOLIMITS_STAGING_CF_ACCOUNT_ID`. Erzeugt selbst keine Secret Values.
 - Cloudflare zusätzliche Worker-Secrets `CAL_API_KEY`, `CAL_WEBHOOK_SECRET`, `NL_MANAGE_SECRET`, `RESEND_API_KEY`, `NL_SUPABASE_SECRET_KEY` (und für CRM, Login optionale `NL_SUPABASE_PUBLISHABLE_KEY`, `GOOGLE_OAUTH_CLIENT_SECRET`).
-- Staging Worker `ALLOWED_ORIGINS=https://localboostzs.github.io`. Zur manuellen Testbuchung vor Live-Website-Änderung: Testanfrage mit Testaccount; nie echte Kundenbuchungen zu Staging umleiten.
-- **VORSICHT:** Der Staging-Worker verwendet dieselben Event-Type-IDs wie NoLimits Live. Jede echte Buchung auf Staging bucht damit im produktiven Cal.com-Kalender. Vor echten Integrationstests separate Testtypen/Services oder bewusst reservierte isolierte Testfenster sowie sichere Rückgängigmachung vorsehen.
+- Staging Worker `ALLOWED_ORIGINS=https://localboostzs.github.io`. Die Einstellungen `NL_ALIAS_STAGING_ONLY=true` und `[alias] './services.js' -> './src/services.alias-staging.js'` verhindern die Nutzung echter NoLimits-Terminarten. Zur manuellen Testbuchung vor Live-Website-Änderung: Testanfrage mit Testaccount; nie echte Kundenbuchungen zu Staging umleiten.
+- **ISOLATION:** Der Staging-Worker ersetzt `./services.js` über Wranglers `[alias]` durch `./src/services.alias-staging.js`. Dadurch darf der öffentliche Buchungsendpunkt **ausschliesslich** den versteckten Test-Typ `7982460` buchen. Die Admin-Buchungsfunktion ist im Staging deaktiviert, und die echten Test-E-Mail-Adressen müssen von `localboost-zs.ch` stammen. Es gelten weiterhin die normalen Buchungs-/Abbruchregeln und ein realer Cal.com-Testkalender.
 - Live-Cal.com-Webhook bleibt bestehen. Für echte End-to-End-Tests Staging-Hook mit Signatur auf separater Test-Terminart konfigurieren. Keine produktiven Webhooks austauschen oder duplizieren.
+
+## Staging-Build geprüft
+- GitHub Actions `44513247515`: Status **success**. Der Test hat `wrangler deploy --dry-run` ausgeführt (ohne Anmeldung, ohne Deployment) und geprüft, dass das erzeugte Staging-Bundle den versteckten Cal-Testevent enthält und keine produktive NoLimits-EventType-ID `7888953`.
+- Das Branch-Repository ist weiterhin nicht deployed; kein Live-Webhook oder Live-Worker umgeschaltet.
 
 ## Was der Nutzer später noch bereitstellen muss
 1. **Cloudflare-Account-ID (kein Geheimnis)**: Dashboard → Workers & Pages → Übersicht → Account ID (32 Hex-Zeichen). Quelle: https://developers.cloudflare.com/fundamentals/account/find-account-and-zone-ids/
