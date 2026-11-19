@@ -2,7 +2,8 @@
 name = "nolimits-alias-staging"
 main = "src/index.js"
 compatibility_date = "2026-11-01"
-workers_dev = true
+# Public workers.dev is intentionally disabled by default. Enable only for a short QA window.
+workers_dev = false
 
 # Wrangler module alias: the isolated staging worker uses only the hidden Cal LAB event.
 [alias]
@@ -16,6 +17,8 @@ NL_ALIAS_DOMAIN = "localboost-zs.ch"
 NL_ALIAS_PREFIX = "info"
 NL_ALIAS_SEPARATOR = "+"
 NL_EMAIL_ENABLED = "true"
+# ONLY for internal NoLimits test emails. Real-calendar attachment QA before production.
+NL_ICS_ENABLED = "true"
 NL_SUPABASE_URL = "https://jcctdjjunxmxaphjkrsz.supabase.co"
 
 # Bind only on staging after verification and keep all values as Worker secrets:
