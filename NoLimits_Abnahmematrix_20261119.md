@@ -29,8 +29,8 @@ Statuslegende: **PASS** = ausdrücklich nachgewiesen; **TEILWEISE** = nur Mockte
 | Wix-Terminübernahme inkl. bereits bestehender Buchungen | TEILWEISE | Offline-Dry-Run CLI mit synthetischen Terminen PASS (Run 44568821345), inklusive UTC/Offset, Servicezuordnung, Dubletten, abgesagten Buchungen und Überschneidungen. Wix-Exportfeld-Adapter und vollständige echte Migration erst mit Isens Zustimmung. |
 | Kalenderintegration und Kundenkonto mit Isen | BLOCKIERT | Nach Phase-1-Freigabe während Isen-Termin; danach End-to-End mit echten Zugängen |
 | Rechtliches: Datenschutz, Aufbewahrung, Kundenhinweise | OFFEN | Vor Isens Produktiv-Freigabe dokumentieren |
-| Zustellbarkeit von Kalendereinladung für Kunden | OFFEN | Cal.com-ICS geht an Alias; eigene ICS-Beilage/Download prüfen |
-| Monitoring, Fehleralarm, Wiederanlauf, Backup | OFFEN | Vor produktiver Freigabe testen |
+| Zustellbarkeit von Kalenderdateien für Kunden | TEILWEISE | NoLimits `.ics` aus dem opt-in Stage-Worker bei Bestätigung und Stornierung an interne Originaladresse zugestellt; Resend `delivered`, Dateianhänge vom Typ `text/calendar; charset=utf-8` nachgewiesen. Browser-/Kalender-App-Import und automatisches Aktualisierungsverhalten noch nicht abgenommen. Nicht mit Cal.com-Kalendersynchronisation verwechseln. |
+| Monitoring, Fehleralarm, Wiederanlauf, Backup | TEILWEISE | Read-only Live-API-Baseline `/api/health`=200, `/api/services`=200 (9 Services) bestätigt. Cloudflare-Live-Deployment-ID/Version und Rate-Limit-/Secret-Namen dokumentiert; automatisierte Preflight-Unit-Tests PASS (Run 44584132600). Echte Alarmierung, Datenbank-Wiederherstellung und Fehlerfall-Rollback vor Go-live noch ausstehend. |
 | Benutzerfreundliche Vorführung für Isen | OFFEN | Website, Buchung, Mails, Demo-Konto; erst zeigen, wenn Phase 1 vollständig PASS/abgegrenzt |
 
 **Gate für Kontakt mit Isen:** Alle Phase-1-Tests müssen mit dokumentierter Evidenz bestanden sein, ausser den explizit und unvermeidlich von Isens Konten abhängigen Phase-2/3-Aktionen. Nicht bestandene Tests werden repariert, nicht stillschweigend als erfolgreich markiert.
@@ -56,3 +56,10 @@ Statuslegende: **PASS** = ausdrücklich nachgewiesen; **TEILWEISE** = nur Mockte
 - **Manuelle iPhone-/Mobile-Abnahme** ausdrücklich erst ganz am Ende von Phase 1, unmittelbar vor dem Treffen mit Isen.
 
 **Wichtige Releasegrenze:** Staging-Worker war jeweils nur kurzzeitig für interne Tests erreichbar und ist wieder deaktiviert. Alias-Backend und Wix-Migration sind weiterhin **nicht produktiv**; der PR bleibt **DRAFT**.
+
+## Ergänzung: Kalenderdateien, Monitoring und Cutover-Plan (19.11.2026)
+- [NoLimits_GoLive_Rollback_20261119.md](NoLimits_GoLive_Rollback_20261119.md) enthält den Worker-Deploymentstand, Alias-Rollback-Gates, Wix-Schutz, Belegungsabgleich, Phase-2/3-Schnitt und Monitoring-Checkliste.
+- Staging-Worker wurde ausschliesslich auf der Feature-Branch-Pipeline mit **`workers_dev=false`** und `NL_ICS_ENABLED=true` aktualisiert; [GitHub Actions PASS](https://github.com/localboostzs/nolimits/actions/runs/44582493689). Nach dem E2E-Test wurde sein workers.dev-Zugang wieder deaktiviert. Die fünf vorhandenen Cloudflare-Secrets blieben erhalten.
+- NoLimits-Kalenderdatei `NoLimits_Termin.ics` bei bestätigtem und storniertem LAB-Termin via Resend und Gmail zugestellt (je `delivered`); Resend-Anhang-Metadaten belegen `text/calendar; charset=utf-8`. Die vorhandenen Mails wurden an interne Plus-Adressen geschickt. **Kalender-App-Import und zuverlässige Verarbeitung von Updates sind noch nicht verifiziert** und dürfen nicht als native Live-Synchronisierung verkauft werden. Für die normale produktive Umgebung ist das Flag nicht aktiviert.
+- Die internen LAB-Buchungen sind wieder storniert, zugehörige Test-Aliasse gezielt gelöscht. Der Stage-Zugang bleibt disabled. Es wurden weder echte Wix-Kundendaten noch produktive Worker-Konfigurationen verändert.
+- `tools/NoLimits_ReadonlyPreflight_20261119.mjs`: rein lesende API-Abnahme mit strenger Liste von neun öffentlichen Leistungen und Warnung bei Änderungen; [Regression PASS](https://github.com/localboostzs/nolimits/actions/runs/44584132600). Dieser Check ersetzt **keinen** echten E2E-Test gegen Resend/Cal.com/Supabase.
