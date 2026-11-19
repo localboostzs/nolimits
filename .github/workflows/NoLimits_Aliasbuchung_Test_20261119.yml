@@ -1,0 +1,21 @@
+name: NoLimits Aliasbuchung Staging Test
+on:
+  push:
+    branches:
+      - feature/NoLimits_Aliasbuchung_20261119
+  workflow_dispatch:
+jobs:
+  alias-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: node --check worker/src/index.js
+      - name: Alias booking, webhook, rollback mock tests
+        run: node tests/NoLimits_Aliasbuchung_Tests_20261119.mjs
