@@ -1,9 +1,16 @@
-name: NoLimits Alias-Staging manueller Deploy
+name: NoLimits Alias-Staging Deploy (isoliert)
 on:
+  # A workflow_dispatch button requires this file on the default branch.
+  # Use a branch-only push to register a safe, rerunnable deploy job without merging.
   workflow_dispatch:
+  push:
+    branches:
+      - feature/NoLimits_Aliasbuchung_20261119
+    paths:
+      - .github/workflows/NoLimits_Aliasbuchung_Deploy_20261119.yml
 jobs:
   deploy:
-    # Reject any accidental deploy from main or an unrelated branch.
+    # Never deploy from main, or any other branch.
     if: github.ref == 'refs/heads/feature/NoLimits_Aliasbuchung_20261119'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -14,10 +21,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Run alias mock integration tests
+      - name: Run alias mock integration and isolation tests
         run: |
           node --check worker/src/index.js
           node tests/NoLimits_Aliasbuchung_Tests_20261119.mjs
+          node tests/NoLimits_AliasStaging_Isolation_20261119.mjs
       - name: Verify required staging deployment secrets exist
         env:
           CF_ACCOUNT_ID: ${{ secrets.NOLIMITS_STAGING_CF_ACCOUNT_ID }}
