@@ -58,7 +58,7 @@ for(const typ of ['BOOKING_CREATED','BOOKING_RESCHEDULED','BOOKING_CANCELLED']){
   assert.equal(res.status,200,await res.text());
 }
 assert.equal(sent.length,3);
-for(const mail of sent){assert.deepEqual(mail.to,['real-customer@example.org']);assert.ok(mail.html.includes('NOLIMITS'));}
+for(const mail of sent){assert.deepEqual(mail.to,['real-customer@example.org']);assert.equal(mail.from,'NoLimits Barbershop <noreply@nolimits-barber.ch>');assert.ok(mail.html.includes('NOLIMITS'));}
 env.NL_ALIAS_MODE='off';
 const p=JSON.stringify({triggerEvent:'BOOKING_CREATED',payload:{uid,eventTypeId:7888953,startTime:future,attendees:[{email:alias,name:'Test Kunde'}]}});
 const sig=crypto.createHmac('sha256',env.CAL_WEBHOOK_SECRET).update(p).digest('hex');
