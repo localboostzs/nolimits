@@ -5,6 +5,10 @@ on:
       - feature/NoLimits_Aliasbuchung_20261119
     paths:
       - 'tests/NoLimits_MobileDesktop_UI_20261119.mjs'
+      - 'tests/NoLimits_ManageBrowser_E2E_20261119.mjs'
+      - 'assets/js/manage.js'
+      - 'assets/js/wix-csv.js'
+      - 'assets/js/admin.js'
       - 'assets/css/**'
       - 'verwaltung/**'
       - 'booking-test/**'
@@ -42,11 +46,17 @@ jobs:
         env:
           NOLIMITS_UI_BASE: http://127.0.0.1:8765
         run: node tests/NoLimits_MobileDesktop_UI_20261119.mjs
+      - name: Customer management browser E2E (mock API, no bookings)
+        env:
+          NOLIMITS_UI_BASE: http://127.0.0.1:8765
+        run: node tests/NoLimits_ManageBrowser_E2E_20261119.mjs
       - name: Save screenshots of public demo pages
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: NoLimits_UI_Audit_20261119
-          path: artifacts/nolimits-ui-20261119/
+          path: |
+            artifacts/nolimits-ui-20261119/
+            artifacts/nolimits-manage-e2e-20261119/
           if-no-files-found: ignore
           retention-days: 7
