@@ -579,10 +579,75 @@ async function routeManage(req, env, url) {
   }
   return fail('not_found','Nicht gefunden.',404,req,env);
 }
+// Optional .ics for real customers: no Cal.com attendee alias or auth token is included.
+// Stable UID comes from the alias UUID, so reschedule/cancel refer to the same entry.
+function calendarEscape(value) {
+  return String(value ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '')
+    .replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,')
+    .replace(/\r\n|\r|\n/g, '\\n');
+}
+function calendarFold(line) {
+  let out = '', count = 0;
+  const encoder = new TextEncoder();
+  for (const char of line) {
+    const bytes = encoder.encode(char).length;
+    if (count + bytes > 75) {
+      out += '\r\n ';
+      count = 1;
+    }
+    out += char;
+    count += bytes;
+  }
+  return out;
+}
+function calendarUTC(time) {
+  const value = new Date(time);
+  if (!Number.isFinite(value.getTime())) throw Error('Invalid calendar time');
+  return value.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+}
+function calendarAttachment(type, p, match, attendeeEmail, env) {
+  if (env.NL_ICS_ENABLED !== 'true' || !isAliasEmail(attendeeEmail, env)) return null;
+  const aliasId = String(attendeeEmail).toLowerCase().match(/(?:\+|-)([0-9a-f]{32})@/)?.[1];
+  if (!aliasId) return null;
+  const begin = Date.parse(p.startTime);
+  if (!Number.isFinite(begin)) return null;
+  const rawEnd = Date.parse(p.endTime || '');
+  const finish = Number.isFinite(rawEnd) && rawEnd > begin
+    ? rawEnd : begin + match[1].minutes * 60000;
+  const cancelled = type === 'BOOKING_CANCELLED';
+  const method = cancelled ? 'CANCEL' : 'PUBLISH';
+  const sequence = cancelled ? 2 : type === 'BOOKING_RESCHEDULED' ? 1 : 0;
+  const properties = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//NoLimits Barbershop//Terminservice//DE',
+    'CALSCALE:GREGORIAN',
+    'METHOD:' + method,
+    'BEGIN:VEVENT',
+    'UID:nolimits-' + aliasId + '@nolimits-barber.ch',
+    'DTSTAMP:' + calendarUTC(Date.now()),
+    'DTSTART:' + calendarUTC(begin),
+    'DTEND:' + calendarUTC(finish),
+    'SEQUENCE:' + sequence,
+    'STATUS:' + (cancelled ? 'CANCELLED' : 'CONFIRMED'),
+    'SUMMARY:' + calendarEscape('NoLimits Barbershop – ' + match[1].name),
+    'LOCATION:' + calendarEscape('Schmiedgasse 94, 6438 Ibach, Schweiz'),
+    'DESCRIPTION:' + calendarEscape('Termin bei NoLimits Barbershop. Änderungen und Absagen über den persönlichen Link aus der Bestätigungs-E-Mail. Bei manueller Kalenderübernahme aktualisieren sich Einträge je nach Kalender-App nicht automatisch.'),
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ];
+  const ics = properties.map(calendarFold).join('\r\n') + '\r\n';
+  return {
+    filename: 'NoLimits_Termin.ics',
+    content: btoa(String.fromCharCode(...new TextEncoder().encode(ics))),
+    content_type: 'text/calendar; charset=utf-8'
+  };
+}
+
 function mailEscape(value) {
   return String(value ?? '').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 }
-function mailHtml(event, p, match, manageUrl) {
+function mailHtml(event, p, match, manageUrl, hasCalendar = false) {
   const cancelled = event === 'BOOKING_CANCELLED';
   const title = cancelled ? 'Dein Termin wurde storniert' : event === 'BOOKING_RESCHEDULED' ? 'Dein Termin wurde verschoben' : 'Dein Termin ist bestätigt';
   const intro = cancelled ? 'Dein Termin wurde erfolgreich storniert. Hier findest du die Angaben zur abgesagten Buchung.' : event === 'BOOKING_RESCHEDULED' ? 'Dein Termin wurde erfolgreich verschoben. Hier sind deine neuen Termindetails.' : 'Vielen Dank für deine Buchung. Wir freuen uns auf deinen Besuch bei NoLimits.';
@@ -629,6 +694,7 @@ ${price}
 <div style="font-size:14px;line-height:1.8;color:#59534a;"><strong style="color:#171715;">Ort:</strong> Schmiedgasse 94, 6438 Ibach</div>
 </td></tr></table>
 ${safeLink}
+${hasCalendar ? '<p style="font-size:13px;line-height:1.8;color:#59534a;margin:20px 0 0;">Eine Kalenderdatei liegt bei. Beim Importieren oder bei Änderungen bitte den bestehenden Kalendereintrag kontrollieren; der Kalender wird nicht automatisch synchronisiert.</p>' : ''}
 <p style="font-size:13px;line-height:1.8;color:#59534a;margin:28px 0 0;">${securityHint}</p>
 <table role="presentation" border="0" cellspacing="0" cellpadding="0" width="100%" style="margin-top:33px;border-collapse:collapse;"><tr><td style="height:1px;background:#ddd4c4;"></td></tr></table>
 <p style="margin:24px 0 0;font-size:12px;line-height:1.7;color:#59534a;">NoLimits Barbershop · Schmiedgasse 94, 6438 Ibach · Bezahlung vor Ort.</p>
@@ -694,7 +760,10 @@ async function onCalWebhook(req, env) {
   const tok = typ==='BOOKING_CANCELLED'?null:await managementToken(uid,p.startTime,env);
   const link = tok ? FRONTEND_BASE+MANAGE_PATH+'?uid='+encodeURIComponent(uid)+'&token='+encodeURIComponent(tok) : null;
   const subject = typ==='BOOKING_CANCELLED'?'Dein Termin wurde storniert – NoLimits Barbershop':typ==='BOOKING_RESCHEDULED'?'Dein neuer Termin – NoLimits Barbershop':'Dein Termin ist bestätigt – NoLimits Barbershop';
-  const mail = {from:'NoLimits Barbershop <noreply@nolimits-barber.ch>',to:[destinationEmail],subject,html:mailHtml(typ,p,match,link)};
+  const calendar = calendarAttachment(typ, p, match, customer.email, env);
+  const mail = {from:'NoLimits Barbershop <noreply@nolimits-barber.ch>',to:[destinationEmail],subject,
+    html:mailHtml(typ,p,match,link,!!calendar)};
+  if (calendar) mail.attachments = [calendar];
   const key = 'nolimits/'+typ+'/'+uid;
   const resp=await fetch('https://api.resend.com/emails',{
     method:'POST',headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json','Idempotency-Key':key},
