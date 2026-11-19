@@ -46,11 +46,25 @@ const env={NL_ALIAS_MODE:'enabled',NL_ALIAS_DOMAIN:'nolimits-barber.ch',NL_ALIAS
 const book=await app.fetch(new Request(base+'/api/book',{method:'POST',headers:{'Content-Type':'application/json'},
   body:JSON.stringify({service:'haarschnitt',name:'Test Kunde',email:'real-customer@example.org',
     phone:'+41790000000',accepted:true,start:future,elapsedMs:5000})}),env);
-assert.equal(book.status,201,await book.text());
+assert.equal(book.status,201);
+const bookingResult=await book.json();
+assert.ok(bookingResult.booking?.manageUrl?.includes('/termin-verwalten/'));
 assert.equal(aliasTable.size,1);
 const alias=[...aliasTable.keys()][0];
 assert.equal(aliasTable.get(alias).customer_email,'real-customer@example.org');
 assert.equal(aliasTable.get(alias).booking_uid,uid);
+const signedManageLink=new URL(bookingResult.booking.manageUrl);
+const signedManageParams=signedManageLink.searchParams.toString();
+const manageOk=await app.fetch(new Request(base+'/api/manage?'+signedManageParams),env);
+assert.equal(manageOk.status,200);
+const manageDetails=await manageOk.json();
+assert.equal(manageDetails.ok,true);
+assert.equal(manageDetails.booking.serviceKey,'haarschnitt');
+assert.equal(manageDetails.booking.canManage,true);
+const manageBad=await app.fetch(new Request(base+'/api/manage?uid='+uid+'&token=invalid'),env);
+assert.equal(manageBad.status,403);
+const manageMismatch=await app.fetch(new Request(base+'/api/manage?uid=DifferentBookingUid123&token='+signedManageLink.searchParams.get('token')),env);
+assert.equal(manageMismatch.status,403);
 for(const typ of ['BOOKING_CREATED','BOOKING_RESCHEDULED','BOOKING_CANCELLED']){
   const p=JSON.stringify({triggerEvent:typ,payload:{uid,eventTypeId:7888953,startTime:future,attendees:[{email:alias,name:'Test Kunde'}]}});
   const sig=crypto.createHmac('sha256',env.CAL_WEBHOOK_SECRET).update(p).digest('hex');
