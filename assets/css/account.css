@@ -91,3 +91,21 @@
 .nl-google-clean-button{width:min(400px,100%);margin-inline:auto;min-height:52px;font-weight:500}
 /* Center only the login heading and its Google button, not form fields. */
 #nl-login>h2{text-align:center}
+
+
+/* Mobile staff dashboard: keep the CSV file control and grid children within
+   the 320px viewport. Works with long local filenames, too. */
+@media (max-width: 560px) {
+  .nl-admin-grid, .nl-admin-grid > *, .nl-admin-panel,
+  .nl-form-grid, .nl-form-grid > *, .nl-field {
+    min-width: 0;
+    max-width: 100%;
+  }
+  #nl-wix-file {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
