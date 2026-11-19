@@ -694,7 +694,7 @@ async function onCalWebhook(req, env) {
   const tok = typ==='BOOKING_CANCELLED'?null:await managementToken(uid,p.startTime,env);
   const link = tok ? FRONTEND_BASE+MANAGE_PATH+'?uid='+encodeURIComponent(uid)+'&token='+encodeURIComponent(tok) : null;
   const subject = typ==='BOOKING_CANCELLED'?'Dein Termin wurde storniert – NoLimits Barbershop':typ==='BOOKING_RESCHEDULED'?'Dein neuer Termin – NoLimits Barbershop':'Dein Termin ist bestätigt – NoLimits Barbershop';
-  const mail = {from:'NoLimits Barbershop <login@nolimits-barber.ch>',to:[destinationEmail],subject,html:mailHtml(typ,p,match,link)};
+  const mail = {from:'NoLimits Barbershop <noreply@nolimits-barber.ch>',to:[destinationEmail],subject,html:mailHtml(typ,p,match,link)};
   const key = 'nolimits/'+typ+'/'+uid;
   const resp=await fetch('https://api.resend.com/emails',{
     method:'POST',headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json','Idempotency-Key':key},
