@@ -18,4 +18,6 @@ jobs:
       - name: Syntax check
         run: node --check worker/src/index.js
       - name: Alias booking, webhook, rollback mock tests
-        run: node tests/NoLimits_Aliasbuchung_Tests_20261119.mjs
+        run: |
+          node tests/NoLimits_Aliasbuchung_Tests_20261119.mjs
+          node tests/NoLimits_AliasStaging_Isolation_20261119.mjs

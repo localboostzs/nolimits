@@ -383,6 +383,8 @@ async function getSlots(url, req, env, privateService) {
 }
 
 async function book(req, env, adminMode = false) {
+  // Internal admin-only event types are not usable in the isolated alias staging Worker.
+  if (adminMode && env.NL_ALIAS_STAGING_ONLY === 'true') return fail('staging_admin_disabled', 'In dieser Testumgebung nicht verfügbar.', 403, req, env);
   if (await limited(env, 'RL_BOOK', 'b:' + clientIp(req), 5, 10 * 60_000)) return fail('rate_limited', 'Zu viele Buchungsversuche. Bitte später erneut versuchen.', 429, req, env);
   const len = Number(req.headers.get('Content-Length') || 0);
   if (len > MAX_BODY) return fail('too_large', 'Anfrage zu gross.', 413, req, env);
@@ -399,6 +401,9 @@ async function book(req, env, adminMode = false) {
   const service = adminMode ? (ADMIN_SERVICES[b.service] || SERVICES[b.service]) : SERVICES[b.service];
   const name = clean(b.name, 80);
   const email = clean(b.email, 120).toLowerCase();
+  if (env.NL_ALIAS_STAGING_ONLY === 'true' && !/^[a-z0-9._%+-]+@localboost-zs\.ch$/i.test(email)) {
+    return fail('staging_test_email_only', 'In dieser Testumgebung nur interne LocalBoost-Testadressen.', 403, req, env);
+  }
   const phone = clean(b.phone, 30);
   const notes = clean(b.notes, 500);
   const startMs = Date.parse(b.start);
@@ -423,7 +428,7 @@ async function book(req, env, adminMode = false) {
     start: new Date(startMs).toISOString(),
     eventTypeId: service.eventTypeId,
     attendee: { name, email: bookingAlias || email, timeZone: TIME_ZONE, language: 'de', phoneNumber: phone },
-    bookingFieldsResponses: { ...(adminMode && ADMIN_SERVICES[b.service] ? {} : { stornierungsbedingungen_akzeptiert: true }), ...(notes ? { notes } : {}) },
+    bookingFieldsResponses: { ...((env.NL_ALIAS_STAGING_ONLY === 'true' || (adminMode && ADMIN_SERVICES[b.service])) ? {} : { stornierungsbedingungen_akzeptiert: true }), ...(notes ? { notes } : {}) },
   };
   let res;
   try {

@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const config=fs.readFileSync('worker/wrangler.alias-staging.toml','utf8');
+const services=fs.readFileSync('worker/src/services.alias-staging.js','utf8');
+const source=fs.readFileSync('worker/src/index.js','utf8');
+assert.match(config,/name = "nolimits-alias-staging"/);
+assert.match(config,/NL_ALIAS_STAGING_ONLY = "true"/);
+assert.match(config,/NL_ALIAS_DOMAIN = "localboost-zs.ch"/);
+assert.match(config,/"\.\/services\.js" = "\.\/src\/services\.alias-staging\.js"/);
+assert.match(services,/7982460/);
+assert.doesNotMatch(services,/788895[0-9]|7912905/);
+assert.match(source,/staging_admin_disabled/);
+assert.match(source,/staging_test_email_only/);
+console.log('PASS staging Worker uses only hidden Cal test event, stage-only email, and has no live NoLimits event IDs');

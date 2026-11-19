@@ -4,9 +4,14 @@ main = "src/index.js"
 compatibility_date = "2026-11-01"
 workers_dev = true
 
+# Wrangler module alias: the isolated staging worker uses only the hidden Cal LAB event.
+[alias]
+"./services.js" = "./src/services.alias-staging.js"
+
 [vars]
 ALLOWED_ORIGINS = "https://localboostzs.github.io"
 NL_ALIAS_MODE = "enabled"
+NL_ALIAS_STAGING_ONLY = "true"
 NL_ALIAS_DOMAIN = "localboost-zs.ch"
 NL_ALIAS_PREFIX = "info"
 NL_ALIAS_SEPARATOR = "+"
