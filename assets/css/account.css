@@ -258,3 +258,16 @@
     color: #856531;
   }
 }
+
+
+/* An import without Isen's approval must also *look* unavailable, not gold. */
+#nl-wix-import:disabled {
+  opacity: .48;
+  background: #ddd5c8;
+  color: #655e53;
+  border-color: #ddd5c8;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+#nl-wix-import:disabled:hover { transform: none; box-shadow: none; }
