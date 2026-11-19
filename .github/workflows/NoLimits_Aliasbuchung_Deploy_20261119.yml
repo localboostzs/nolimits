@@ -1,0 +1,34 @@
+name: NoLimits Alias-Staging manueller Deploy
+on:
+  workflow_dispatch:
+jobs:
+  deploy:
+    # Reject any accidental deploy from main or an unrelated branch.
+    if: github.ref == 'refs/heads/feature/NoLimits_Aliasbuchung_20261119'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run alias mock integration tests
+        run: |
+          node --check worker/src/index.js
+          node tests/NoLimits_Aliasbuchung_Tests_20261119.mjs
+      - name: Verify required staging deployment secrets exist
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.NOLIMITS_STAGING_CF_ACCOUNT_ID }}
+          CF_TOKEN: ${{ secrets.NOLIMITS_STAGING_CF_API_TOKEN }}
+        run: |
+          test -n "$CF_ACCOUNT_ID" || (echo "Missing NOLIMITS_STAGING_CF_ACCOUNT_ID" && exit 1)
+          test -n "$CF_TOKEN" || (echo "Missing NOLIMITS_STAGING_CF_API_TOKEN" && exit 1)
+      - name: Deploy ONLY nolimits-alias-staging
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.NOLIMITS_STAGING_CF_API_TOKEN }}
+          accountId: ${{ secrets.NOLIMITS_STAGING_CF_ACCOUNT_ID }}
+          workingDirectory: ./worker
+          command: deploy -c wrangler.alias-staging.toml
