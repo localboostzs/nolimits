@@ -162,6 +162,32 @@ try {
               fullPage:true});
             await page.keyboard.press('Escape');
           }
+          // Import preview with fake contacts: no staff session, no database writes.
+          const importFile='Contact ID;First Name;Last Name;Email;Phone\\n'+
+            'synthetic-1;Test;Person;test@example.invalid;+41790000001\\n'+
+            'synthetic-2;Test;Person 2;second@example.invalid;+41790000002';
+          await page.locator('#nl-wix-file').setInputFiles({
+            name:'Wix_Demo_Nur_Testdaten.csv',mimeType:'text/csv',
+            buffer:Buffer.from(importFile.replace(/\\n/g,'\n'))
+          });
+          assert.equal(await page.locator('#nl-wix-import').isDisabled(),true,
+            'import disabled until preview and explicit approval');
+          await page.locator('#nl-wix-preview').click();
+          await page.waitForFunction(()=>!document.getElementById('nl-wix-summary').hidden);
+          const summary=await page.locator('#nl-wix-summary').textContent();
+          assert.ok(summary.includes('2 geeignete Kontakte'),summary);
+          assert.ok(summary.includes('Noch keine Daten importiert'),summary);
+          assert.equal(await page.locator('#nl-wix-import').isDisabled(),true,
+            'preview alone cannot grant consent');
+          await page.locator('#nl-wix-consent').check();
+          assert.equal(await page.locator('#nl-wix-import').isEnabled(),true);
+          await page.locator('#nl-wix-file').setInputFiles({
+            name:'Wix_Demo_Geaendert.csv',mimeType:'text/csv',
+            buffer:Buffer.from('Email,Name\\nchanged@example.invalid,Neue Person'.replace(/\\n/g,'\n'))
+          });
+          assert.equal(await page.locator('#nl-wix-import').isDisabled(),true,
+            'changing CSV invalidates prior preview');
+          console.log('PASS',device.name,'Wix migration preview, consent and stale-file guards');
           console.log('PASS',device.name,'verwaltung dropdown touch size/labels/picker');
         }
         console.log('PASS',device.name,name,'status',response.status(),'width',layout.document);
