@@ -5,7 +5,7 @@ import { chromium } from 'playwright';
 import {mkdir} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
-const root='https://localboostzs.github.io/nolimits';
+const root=(process.env.NOLIMITS_UI_BASE||'https://localboostzs.github.io/nolimits').replace(/\/$/,'');
 const pages=[
   ['start','/'],
   ['buchung','/booking-test/'],
@@ -44,8 +44,17 @@ try {
           document:document.documentElement.scrollWidth,
           body:document.body.scrollWidth
         }));
-        assert.ok(layout.document<=layout.viewport+2,
-          name+' '+device.name+' has horizontal overflow: '+JSON.stringify(layout));
+        if(layout.document>layout.viewport+2) {
+          const offenders=await page.evaluate(()=>{
+            const width=document.documentElement.clientWidth;
+            return Array.from(document.querySelectorAll('body *')).map(el=>{
+              const r=el.getBoundingClientRect();
+              const c=getComputedStyle(el);
+              return {tag:el.tagName.toLowerCase(),id:el.id,cls:String(el.className||'').slice(0,80),left:Math.round(r.left),right:Math.round(r.right),width:Math.round(r.width),display:c.display};
+            }).filter(x=>x.display!=='none'&&x.width>0&&x.right>width+2&&x.left<width).sort((a,b)=>b.right-a.right).slice(0,12);
+          });
+          throw Error(name+' '+device.name+' has horizontal overflow: '+JSON.stringify({layout,offenders}));
+        }
         assert.deepEqual(jsErrors,[],name+' '+device.name+' no unhandled JS exceptions');
         if(name==='buchung') {
           assert.equal(await page.locator('form#bk-form').count(),1);
