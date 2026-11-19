@@ -25,6 +25,7 @@ jobs:
           node tests/NoLimits_KundenTermin_E2E_20261119.mjs
           node tests/NoLimits_WixCSV_Probeimport_20261119.mjs
           node tests/NoLimits_WixBookingPlan_Test_20261119.mjs
+          node tools/NoLimits_WixBookingPlan_20261119.mjs tests/fixtures/NoLimits_WixBookings_Synthetisch_20261119.json | node -e "let s=''; process.stdin.on('data',c=>s+=c).on('end',()=>{const r=JSON.parse(s);if(!r.ready||r.summary.prepared!==2)process.exit(1); console.log('PASS: Wix booking CLI offline readiness with two synthetic appointments')})"
       - name: Verify Wrangler stage bundle (no Cloudflare deployment)
         working-directory: worker
         run: |
