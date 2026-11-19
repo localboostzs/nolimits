@@ -6,6 +6,8 @@ const source=fs.readFileSync('worker/src/index.js','utf8');
 assert.match(config,/name = "nolimits-alias-staging"/);
 assert.match(config,/NL_ALIAS_STAGING_ONLY = "true"/);
 assert.match(config,/NL_ALIAS_DOMAIN = "localboost-zs.ch"/);
+assert.match(config,/NL_ICS_ENABLED = "false"/,
+  'a manual calendar re-import created duplicates, so staging attachments must remain off');
 assert.match(config,/"\.\/services\.js" = "\.\/src\/services\.alias-staging\.js"/);
 assert.match(services,/7982460/);
 assert.doesNotMatch(services,/788895[0-9]|7912905/);
