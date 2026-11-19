@@ -2,6 +2,20 @@
 **Stand:** 19.11.2026 · **Status:** Entwurf; keine produktive Umschaltung. 
 **Gilt für:** GitHub `localboostzs/nolimits`, PR #3, Feature-Branch `feature/NoLimits_Aliasbuchung_20261119`.
 
+## VERBINDLICHER Projektablauf (vom Auftraggeber am 19.11.2026 festgelegt)
+**Phase 1 – VOR dem Treffen mit Isen:** Gesamtes Testsystem vollständig entwickeln, visuell und technisch bis ins Detail prüfen, alle E-Mail-Fälle, Buchungsabläufe, Kundenkonto, CRM, Admin, Sicherheit, Mobile, Rechte, Rollback und Migrationswerkzeuge testen. Bereitstellung so vorbereiten, dass nach Isens Freigabe nur noch seine eigenen Konten, Eventtypen, Kalender, Tokens, Kundendaten und die Domain-Umstellung durchgeführt werden müssen. **Isen erst für einen Termin kontaktieren, wenn Phase 1 abgeschlossen ist.**
+
+**Phase 2 – gemeinsamer Vorführ- und Einrichtungstermin:** Isen bekommt nur die verständliche Produktvorführung (Website, Terminbuchung, Mails, sein Konto); keine technischen Implementierungsdetails. Bei seiner Go-live-Freigabe gemeinsam alle Schritte durchführen, die zwingend seine Mitwirkung benötigen: bestehende Wix-Kalender-/Kundenbuchungen exportieren oder sichern, neue Cal.com-Kalenderanbindung, sein Nutzerkonto, seine Berechtigungen sowie seine Zustimmung für Datenmigration, Kundenkommunikation und Produktivstart. Noch **keine** unkontrollierte Wix-Abschaltung beim Termin.
+
+**Phase 3 – NACH dem Treffen zuhause:** Mit ChatGPT technische Migration, Datenabgleich, Secrets und Eventtype-IDs umstellen, Tests mit Isens Zugang und den echten Kunden-/Kalenderdaten abschliessen, Produktivschaltung bewusst durchführen, überwachen und Rollback bereithalten. Erst wenn das neue System produktiv nachweislich funktioniert, bestehende Wix-Lösung und kostenpflichtige Verlängerung beenden.
+
+## ABSOLUTE Wix- und Abrechnungsregel
+**Wix ist derzeit das Live-Produkt.** Automatische Verlängerung, Hosting, Domain-Verbindung, Kalender und Buchungssystem dürfen nicht vorzeitig deaktiviert, gekündigt, gelöscht, umgeleitet oder beeinträchtigt werden. NICHT EIGENSTÄNDIG kündigen, auch nicht im Hinblick auf die nächste erwartete Zahlung am 30.11.2026. Der Nutzer prüft beziehungsweise veranlasst die Kündigung **erst nach** bestätigtem produktivem Betrieb der neuen Lösung. Ein begrenzter Zeitraum mit Doppelbetrieb und gegebenenfalls einer weiteren Wix-Zahlung ist sicherer als Ausfall oder verlorene Buchungen.
+
+## Zeitliches Ziel
+Phase 1 soll nach Wunsch **möglichst vor dem 30.11.2026** fertig sein; Qualität und laufender Livebetrieb haben Vorrang gegenüber dem Datum. Für Phase 2 und 3 keine fiktiven Zeitgarantien geben; tatsächliche Migration hängt von Isens Zugängen, Daten, Kalender und Freigabe ab.
+
+---
 ## Durchgeführte Nachweise
 - Versteckter Cal.com-Lab-Typ **7982460**: Buchung, Umbuchung, Stornierung erfolgreich, Cal.com E-Mails nur an internen `info+…@localboost-zs.ch`-Alias; drei personalisierte Resend-Mails an originale interne Testadresse zugestellt.
 - Eigenes Cloudflare Staging `nolimits-alias-staging`; öffentliche Workers.dev- und Preview-URLs nach Tests abgeschaltet.
