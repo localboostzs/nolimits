@@ -21,7 +21,7 @@ Statuslegende: **PASS** = ausdrücklich nachgewiesen; **TEILWEISE** = nur Mockte
 | Kunden-Terminverwaltung (gültiger Link, Storno, Umbuchung) | TEILWEISE | Mocktests PASS; Staging-Mail verweist noch auf Live-Frontend, isolierter Browser-E2E offen |
 | Mitarbeiter-CRM: Alias-Auflösung, RLS und Fremdbuchungsfilter | TEILWEISE | Neuer sourcebasierter Mocktest PASS; reales Mitarbeiter-Login offen |
 | Google-Anmeldung, Kundenkonto, Profil speichern | TEILWEISE | Bestehende Integrationstests vorhanden; echte Browser-/OAuth-Prüfung offen |
-| Mobile Website und Browser-Screenshots | IN PRÜFUNG | Read-only Playwright: 5 Seiten × 3 Grössen; 320px-Admin-Überlauf erkannt, Feature-Branch-Fix eingereicht |
+| Mobile Website und Browser-Screenshots | TEILWEISE | 15 read-only Playwright-Prüfungen (5 Seiten × 320px/390px/1366px) im Feature-Branch **PASS**; 320px-Verwaltungsseiten-Fix durch Regressionstest bestätigt. Manuelle Design-/Bedienungsprüfung nach Login noch offen. |
 | Liveprodukt und neues Frontend unterscheiden | PASS | Wix auf `www.nolimits-barber.ch`, GitHub-Demoseite auf `localboostzs.github.io/nolimits` |
 | Domainmigration mit DNS-/Mail-Rollback | OFFEN | Vorbereitete Route und DNS-Ziel noch abzusichern; niemals Live-DNS vorzeitig ändern |
 | Sichere Website-/Worker-Releasepipeline | OFFEN | Worker-Namenskonflikt `nolimits-booking` vs `nolimits-booking-test` vor Deploy lösen |
