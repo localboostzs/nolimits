@@ -3,11 +3,20 @@
 import assert from 'node:assert/strict';
 import {pathToFileURL} from 'node:url';
 
-const knownPublicKeys=[
- 'haarschnitt-bartschnitt-rasieren','haarschnitt-bartschnitt-augenbrauen',
- 'haarschnitt-waschen','haarschnitt-bartschnitt','classic-scissor-cut',
- 'haarschnitt','jugendliche-10-14','bartschnitt','augenbrauen-zupfen'
-];
+// Expected public prices and minutes as confirmed in NoLimits service mapping.
+// Fail closed if a future release changes them without updating the approved baseline.
+const expectedPublicServices=Object.freeze({
+ 'haarschnitt-bartschnitt-rasieren':{minutes:60,price:60},
+ 'haarschnitt-bartschnitt-augenbrauen':{minutes:45,price:55},
+ 'haarschnitt-waschen':{minutes:45,price:50},
+ 'haarschnitt-bartschnitt':{minutes:45,price:45},
+ 'classic-scissor-cut':{minutes:30,price:40},
+ 'haarschnitt':{minutes:30,price:30},
+ 'jugendliche-10-14':{minutes:30,price:25},
+ 'bartschnitt':{minutes:15,price:15},
+ 'augenbrauen-zupfen':{minutes:15,price:15}
+});
+const knownPublicKeys=Object.keys(expectedPublicServices);
 export async function checkReadiness(base,{client=fetch}={}){
  const target=new URL(base);
  if(target.protocol!=='https:')throw Error('HTTPS required');
@@ -31,7 +40,9 @@ export async function checkReadiness(base,{client=fetch}={}){
  assert.deepEqual([...keys].sort(),[...knownPublicKeys].sort(),
   'unexpected services/IDs or private staff-only services are public');
  for(const entry of services.services){
-   assert.ok(Number.isFinite(entry.minutes)&&entry.minutes>0,'duration must be > 0');
+   const expected=expectedPublicServices[entry.key];
+   assert.equal(entry.minutes,expected.minutes,'unexpected duration for '+entry.key);
+   assert.equal(entry.price,expected.price,'unexpected CHF price for '+entry.key);
    assert.ok(typeof entry.name==='string'&&entry.name.length>1);
  }
  return {healthy:true,services:services.services.length,
