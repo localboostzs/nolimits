@@ -19,7 +19,7 @@ const devices=[
   {name:'desktop1366',viewport:{width:1366,height:768},isMobile:false,deviceScaleFactor:1}
 ];
 await mkdir('artifacts/nolimits-ui-20261119',{recursive:true});
-const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+const browser=await chromium.launch({headless:true,args:['--no-sandbox'],...(process.env.PLAYWRIGHT_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_EXECUTABLE_PATH}:{})});
 const problems=[];
 try {
   for(const device of devices) {
