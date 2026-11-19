@@ -109,3 +109,9 @@
     box-sizing: border-box;
   }
 }
+
+/* The German staff heading has no natural line break on very narrow phones. */
+.nl-admin-title{overflow-wrap:anywhere}
+@media (max-width:359px){
+  .nl-admin-title{font-size:clamp(2rem,9vw,2.6rem);line-height:1.12}
+}
