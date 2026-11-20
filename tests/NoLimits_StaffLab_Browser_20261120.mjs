@@ -73,7 +73,8 @@ async function scenario(name,{authorized=true,crmFound=true,badLink=false,crmAli
      assert.equal(booked,1,'only one Cal LAB booking');
      assert.equal(cancelled,1,'always cancel LAB booking, even on CRM failure');
      assert.ok(cleanups>=1,'always attempt server-verified test alias cleanup');
-     assert.ok(crmCalls>=1);
+     if(badLink)assert.equal(crmCalls,0,'wrong management link must fail before loading CRM');
+     else assert.ok(crmCalls>=1);
      const out=await page.locator('#nl-lab-output').innerText();
      assert.ok(!out.includes(fakeToken),'signed manage token must never appear in UI output');
      assert.ok(!out.includes('mock-internal-staff-session'),'auth session must never appear in UI output');
