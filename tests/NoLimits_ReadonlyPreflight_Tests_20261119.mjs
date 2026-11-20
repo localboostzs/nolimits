@@ -12,13 +12,14 @@ const known={
  'bartschnitt':[15,15],
  'augenbrauen-zupfen':[15,15]
 };
-function fake(extra=[],fail=''){
+function fake(extra=[],fail='',staffHttp=401){
  const paths=[];
  return {paths,client:async(url,opts)=>{
    assert.equal(opts.method,'GET');
    const path=new URL(url).pathname;paths.push(path);
    if(fail===path)return Response.json({ok:false},{status:503});
    if(path==='/api/health')return Response.json({ok:true});
+   if(path==='/api/admin/contacts')return Response.json({ok:staffHttp===200},{status:staffHttp});
    if(path==='/api/services')return Response.json({ok:true,services:[...Object.keys(known),...extra].map(key=>({key,name:key,minutes:known[key]?.[0]??30,price:known[key]?.[1]??30}))});
    throw Error('Unknown read request '+path);
  }};
@@ -26,7 +27,7 @@ function fake(extra=[],fail=''){
 const baseline=fake();
 const result=await checkReadiness('https://nolimits-booking-test.example.invalid/',{client:baseline.client});
 assert.equal(result.services,9);
-assert.deepEqual(baseline.paths,['/api/health','/api/services']);
+assert.deepEqual(baseline.paths,['/api/health','/api/admin/contacts','/api/services']);
 await assert.rejects(()=>checkReadiness('http://nolimits.example.invalid'),/HTTPS required/);
 await assert.rejects(()=>checkReadiness('https://user:pass@nolimits.example.invalid'),/Unexpected URL/);
 await assert.rejects(()=>checkReadiness('https://nolimits.example.invalid/?secret=abc'),/Unexpected URL/);
@@ -43,6 +44,8 @@ badPrice.client=async(url,opts)=>{
  return data;
 };
 await assert.rejects(()=>checkReadiness('https://nolimits.example.invalid',{client:badPrice.client}),/unexpected CHF price/);
+await assert.rejects(()=>checkReadiness('https://nolimits.example.invalid',{client:fake([], '',200).client}),/staff contacts must require/);
+await assert.rejects(()=>checkReadiness('https://nolimits.example.invalid',{client:fake([], '',503).client}),/staff contacts must require/);
 await assert.rejects(()=>checkReadiness('https://nolimits.example.invalid',{client:fake([],'/api/health').client}),/READONLY_FAIL/);
 await assert.rejects(()=>checkReadiness('https://nolimits.example.invalid',{client:fake([],'/api/services').client}),/READONLY_FAIL/);
 console.log('PASS: read-only release smoke checker enforces HTTPS, nine public services, no staff services and no mutations');
