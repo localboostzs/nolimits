@@ -33,7 +33,7 @@ done
 pg_major="$(pg_dump --version | grep -oE '[0-9]+' | head -1)"
 test "$pg_major" -ge 17 || { echo "pg_dump 17+ required." >&2; exit 2; }
 # Repository must already be initialised and readable; no hidden paid add-ons.
-restic snapshots --last >/dev/null
+restic cat config >/dev/null
 
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 archive="NoLimits_SupabaseLogical_${timestamp}.dump"
