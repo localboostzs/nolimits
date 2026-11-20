@@ -477,14 +477,26 @@ async function book(req, env, adminMode = false) {
   // Never return a booking error after Cal.com has accepted it (avoids double bookings).
   if (bookingAlias) await bindBookingAlias(env, bookingAlias, d.uid).catch(() => null);
   const token = env.CAL_API_KEY ? await managementToken(d.uid, d.start, env) : null;
-  const manageUrl = token ? FRONTEND_BASE + MANAGE_PATH + '?uid=' + encodeURIComponent(d.uid) + '&token=' + encodeURIComponent(token) : null;
+  const manageUrl = customerManageLink(d.uid, token, env);
   return json({ ok: true, booking: { uid: d.uid, status: d.status, start: d.start, end: d.end, service: service.name, manageUrl } }, 201, req, env);
 }
 
 
 /* Customer booking management: stateless signed links, no PII or secret in public repo. */
-const MANAGE_PATH = '/nolimits/termin-verwalten/';
-const FRONTEND_BASE = 'https://localboostzs.github.io';
+// The customer-facing site changes only AFTER Isen approves go-live.
+// Only the approved NoLimits domains are allowed; arbitrary URLs in Worker
+// environment configuration cannot redirect signed management links.
+const DEFAULT_PUBLIC_SITE_BASE = 'https://localboostzs.github.io/nolimits';
+function publicSiteBase(env) {
+  const configured = String(env.NL_PUBLIC_SITE_BASE || '').trim().replace(/\/+$/, '');
+  if (configured === DEFAULT_PUBLIC_SITE_BASE ||
+      /^https:\/\/(?:www\.)?nolimits-barber\.ch$/i.test(configured)) return configured;
+  return DEFAULT_PUBLIC_SITE_BASE;
+}
+function customerManageLink(uid, token, env) {
+  return token ? publicSiteBase(env) + '/termin-verwalten/?uid=' +
+    encodeURIComponent(uid) + '&token=' + encodeURIComponent(token) : null;
+}
 const VALID_UID = /^[A-Za-z0-9_-]{12,120}$/;
 function serviceForCal(eventTypeId) {
   return Object.entries({ ...SERVICES, ...ADMIN_SERVICES })
@@ -596,7 +608,8 @@ async function routeManage(req, env, url) {
       if (!r.ok) return fail('upstream_error','Umbuchung nicht bestätigt. Bitte erneut versuchen.',502,req,env);
       const out = await r.json().catch(()=>null), newer = out?.data;
       return json({ok:true,booking:{start:newer?.start||chosen,end:newer?.end||null,status:newer?.status||'accepted',
-        manageUrl: newer?.uid && newer?.start ? FRONTEND_BASE+MANAGE_PATH+'?uid='+encodeURIComponent(newer.uid)+'&token='+encodeURIComponent(await managementToken(newer.uid,newer.start,env)) : null
+        manageUrl: newer?.uid && newer?.start ? customerManageLink(newer.uid,
+          await managementToken(newer.uid, newer.start, env), env) : null
       }},200,req,env);
     } catch { return fail('unavailable','Umbuchung momentan nicht erreichbar.',502,req,env); }
   }
@@ -670,7 +683,7 @@ function calendarAttachment(type, p, match, attendeeEmail, env) {
 function mailEscape(value) {
   return String(value ?? '').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 }
-function mailHtml(event, p, match, manageUrl, hasCalendar = false) {
+function mailHtml(event, p, match, manageUrl, hasCalendar = false, env = {}) {
   const cancelled = event === 'BOOKING_CANCELLED';
   const title = cancelled ? 'Dein Termin wurde storniert' : event === 'BOOKING_RESCHEDULED' ? 'Dein Termin wurde verschoben' : 'Dein Termin ist bestätigt';
   const intro = cancelled ? 'Dein Termin wurde erfolgreich storniert. Hier findest du die Angaben zur abgesagten Buchung.' : event === 'BOOKING_RESCHEDULED' ? 'Dein Termin wurde erfolgreich verschoben. Hier sind deine neuen Termindetails.' : 'Vielen Dank für deine Buchung. Wir freuen uns auf deinen Besuch bei NoLimits.';
@@ -700,7 +713,7 @@ function mailHtml(event, p, match, manageUrl, hasCalendar = false) {
 <tr><td align="center" style="padding:32px 12px 40px;">
 <table role="presentation" class="email-shell" width="560" border="0" cellspacing="0" cellpadding="0" style="width:560px;max-width:100%;border-collapse:collapse;background-color:#f4efe7;">
 <tr><td align="center" style="background:#0f0f0e;padding:35px 24px 28px;border-top:5px solid #c0974f;">
-<img src="https://localboostzs.github.io/nolimits/assets/img/logo-nolimits.jpg" alt="NoLimits Barbershop" width="78" height="78" style="width:78px;height:78px;object-fit:cover;border:0;display:block;margin:0 auto 17px;">
+<img src="${mailEscape(publicSiteBase(env)+'/assets/img/logo-nolimits.jpg')}" alt="NoLimits Barbershop" width="78" height="78" style="width:78px;height:78px;object-fit:cover;border:0;display:block;margin:0 auto 17px;">
 <div style="font-size:11px;font-weight:700;letter-spacing:3px;line-height:17px;color:#d9b672;text-transform:uppercase;">NOLIMITS BARBERSHOP</div>
 <div style="height:1px;width:72px;background:#c0974f;margin-top:16px;"></div>
 </td></tr>
@@ -725,7 +738,7 @@ ${hasCalendar ? '<p style="font-size:13px;line-height:1.8;color:#59534a;margin:2
 <tr><td class="email-padding" style="background:#171715;padding:27px 45px 29px;">
 <div style="font-size:12px;color:#d9b672;font-weight:bold;letter-spacing:.7px;">NoLimits Barbershop</div>
 <div style="font-size:11px;color:#a8a093;margin-top:8px;line-height:1.8;">Schmiedgasse 94, 6438 Ibach, Schweiz</div>
-<div style="font-size:11px;margin-top:10px;"><a href="https://nolimits-barber.ch" style="color:#d9b672;text-decoration:underline;">Website</a> &nbsp;&nbsp; <a href="https://localboostzs.github.io/nolimits/impressum/" style="color:#d9b672;text-decoration:underline;">Impressum &amp; Datenschutz</a></div>
+<div style="font-size:11px;margin-top:10px;"><a href="${mailEscape(publicSiteBase(env))}" style="color:#d9b672;text-decoration:underline;">Website</a> &nbsp;&nbsp; <a href="${mailEscape(publicSiteBase(env)+'/impressum/')}" style="color:#d9b672;text-decoration:underline;">Impressum &amp; Datenschutz</a></div>
 </td></tr>
 </table>
 </td></tr>
@@ -781,11 +794,11 @@ async function onCalWebhook(req, env) {
     return fail('alias_lookup_failed','Die E-Mail-Zuordnung konnte nicht geprüft werden.',503,req,env);
   }
   const tok = typ==='BOOKING_CANCELLED'?null:await managementToken(uid,p.startTime,env);
-  const link = tok ? FRONTEND_BASE+MANAGE_PATH+'?uid='+encodeURIComponent(uid)+'&token='+encodeURIComponent(tok) : null;
+  const link = customerManageLink(uid, tok, env);
   const subject = typ==='BOOKING_CANCELLED'?'Dein Termin wurde storniert – NoLimits Barbershop':typ==='BOOKING_RESCHEDULED'?'Dein neuer Termin – NoLimits Barbershop':'Dein Termin ist bestätigt – NoLimits Barbershop';
   const calendar = calendarAttachment(typ, p, match, customer.email, env);
   const mail = {from:'NoLimits Barbershop <noreply@nolimits-barber.ch>',to:[destinationEmail],subject,
-    html:mailHtml(typ,p,match,link,!!calendar)};
+    html:mailHtml(typ,p,match,link,!!calendar,env)};
   if (calendar) mail.attachments = [calendar];
   const key = 'nolimits/'+typ+'/'+uid;
   const resp=await fetch('https://api.resend.com/emails',{
