@@ -10,7 +10,7 @@ const future=new Date(Date.now()+10*86400000).toISOString();
 const fakeUid='SyntheticLabBookQA123456789';
 const fakeToken='A'.repeat(43);
 const fakeLink='https://localboostzs.github.io/nolimits/termin-verwalten/?uid='+fakeUid+'&token='+fakeToken;
-async function scenario(name,{authorized=true,crmFound=true}={}){
+async function scenario(name,{authorized=true,crmFound=true,badLink=false,crmAliasLeak=false}={}){
  const context=await browser.newContext({viewport:{width:1366,height:768},locale:'de-CH'});
  const page=await context.newPage();let booked=0,cancelled=0,crmCalls=0,customerEmail='';
  await page.route('**/assets/js/auth-client.js*',route=>route.fulfill({
@@ -34,10 +34,13 @@ async function scenario(name,{authorized=true,crmFound=true}={}){
      assert.match(p.email,/^info\+nl-lab-staff-\d+@localboost-zs\.ch$/);
      assert.equal(p.service,'haarschnitt');
      assert.equal(p.accepted,true);
-     body={ok:true,booking:{uid:fakeUid,status:'accepted',manageUrl:fakeLink}};
+     body={ok:true,booking:{uid:fakeUid,status:'accepted',manageUrl:
+       badLink?fakeLink.replace('https://localboostzs.github.io/nolimits/termin-verwalten/',
+         'https://untrusted.example/other/'):fakeLink}};
    }else if(path==='/api/admin/contacts'&&method==='GET'){
      crmCalls++;
-     body={ok:true,contacts:crmFound?[{email:customerEmail,upcoming:[{uid:fakeUid}],past:[]}]:[]};
+     body={ok:true,contacts:crmFound?[{email:customerEmail,upcoming:[{uid:fakeUid}],past:[]},
+       ...(crmAliasLeak?[{email:'info+'+'a'.repeat(32)+'@localboost-zs.ch',upcoming:[]}]:[])]:[]};
    }else if(path==='/api/manage/cancel'&&method==='POST'){
      cancelled++;const p=req.postDataJSON();
      assert.equal(p.uid,fakeUid);
@@ -59,7 +62,8 @@ async function scenario(name,{authorized=true,crmFound=true}={}){
      await page.locator('#nl-lab-run').waitFor({state:'visible',timeout:8000});
      await page.waitForFunction(()=>!document.getElementById('nl-lab-run').disabled);
      await page.locator('#nl-lab-run').click();
-     await page.getByText(crmFound?'GESAMTER MITARBEITER-LAB-TEST BESTANDEN.':
+     const success=crmFound&&!badLink&&!crmAliasLeak;
+     await page.getByText(success?'GESAMTER MITARBEITER-LAB-TEST BESTANDEN.':
        'LAB-TEST NOCH NICHT VOLLSTÄNDIG BESTANDEN.',{exact:false}).waitFor({timeout:30000});
      assert.equal(booked,1,'only one Cal LAB booking');
      assert.equal(cancelled,1,'always cancel LAB booking, even on CRM failure');
@@ -68,6 +72,8 @@ async function scenario(name,{authorized=true,crmFound=true}={}){
      assert.ok(!out.includes(fakeToken),'signed manage token must never appear in UI output');
      assert.ok(!out.includes('mock-internal-staff-session'),'auth session must never appear in UI output');
      if(!crmFound) assert.match(out,/nicht rechtzeitig/);
+     if(badLink) assert.match(out,/unerwartetes Ziel/);
+     if(crmAliasLeak) assert.match(out,/Aliasadresse/);
      console.log('PASS',name,crmFound?'booking/CRM/cancel':'CRM error still cancels booking');
    }
  }finally{await context.close();}
@@ -76,5 +82,7 @@ try{
  await scenario('authorized-staff-success');
  await scenario('unauthorized-staff', {authorized:false});
  await scenario('crm-lag-fails-closed-but-cancels', {authorized:true,crmFound:false});
+ await scenario('wrong-manage-url-still-cancels', {authorized:true,badLink:true});
+ await scenario('crm-alias-exposure-still-cancels', {authorized:true,crmAliasLeak:true});
 }finally{await browser.close();}
 console.log('PASS: isolated LAB browser E2E uses mock auth and one test booking, cancellation always runs');
