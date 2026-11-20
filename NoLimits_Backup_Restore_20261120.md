@@ -2,7 +2,7 @@
 
 **Stand:** 20.11.2026  
 **Projekt:** NoLimits / LocalBoost Zentralschweiz  
-**Status (20.11.2026):** **Echtes NoLimits-Datenbankbackup und separater Restore im Supabase-Postgres-Image technisch PASS (gemäss Home-Server-Agent-Bericht).** Strukturen und Zeilenzahlen stimmen; ein zeilenweiser Vergleich der Dateninhalte fehlt noch. Offsite-Kopie und ntfy-Empfangsbestätigung offen. Die früheren synthetischen Tests bleiben als unabhängige CI-Nachweise dokumentiert.
+**Status (20.11.2026):** **Echtes NoLimits-Datenbankbackup und separater Restore im Supabase-Postgres-Image technisch PASS (gemäss Home-Server-Agent-Bericht).** Strukturen und Zeilenzahlen stimmen; ein zeilenweiser Vergleich der Dateninhalte fehlt noch. Offsite-Kopie und echter Dateninhaltsabgleich offen. **ntfy-Testwarnung auf dem iPhone vom Nutzer empfangen (PASS).** Die früheren synthetischen Tests bleiben als unabhängige CI-Nachweise dokumentiert.
 
 ## 1. Derzeit bestätigte Supabase-Situation
 
@@ -60,7 +60,7 @@ Die verbleibende echte Backup-Einrichtung ist eine **bewusste Release-Sperre** u
 - Geschützter, gestreamter Datenbankdump in das bestehende verschlüsselte Restic-Repository `/mnt/backup/restic`. Kein persistenter Klartext-SQL-Dump auf dem Host.
 - **Zwei bestätigte Restic-Snapshots laut Agent:** `d6e62ef9` (manuell) und `b094749f` (systemd-Service), jeweils 322 KiB. `pg_restore --list` zeigt 480 Einträge.
 - Eigenständiger `nolimits-supabase-backup.timer` täglich **14:30 Europe/Zurich**, `Persistent=true`. Bestehende `homeserver-backup`- und `second-brain-backup`-Dienste unangetastet. Kein `forget`, kein `prune`.
-- Eigener ntfy-Fehleralarm; **synthetische Fehlersimulation wurde ausgelöst und Meldung versendet (Agent-Bericht)**. **Empfang auf dem Nutzergerät noch nicht bestätigt**.
+- Eigener ntfy-Fehleralarm; **synthetische Fehlersimulation wurde ausgelöst und Meldung versendet (Agent-Bericht)**. **Empfang auf dem iPhone durch den Nutzer am 20.11.2026 bestätigt (PASS)**.
 
 ### Echte Wiederherstellungsprobe (ohne Änderung der Supabase-Quelldaten)
 
@@ -76,11 +76,11 @@ Read-only-Abfrage von `storage.buckets`, `storage.objects` und `vault.secrets`: 
 
 ### Noch offene Risiken und sinnvolle Nacharbeiten
 
-1. **ntfy-Push auf dem Nutzergerät bestätigen**; Versandtest allein beweist nicht den Empfang.
+1. **ntfy-Push auf dem Nutzergerät bestätigt (PASS):** Der Nutzer hat den Empfang der synthetischen Fehlermeldung «NoLimits Supabase-Backup fehlgeschlagen» auf dem iPhone ausdrücklich bestätigt.
 2. **Zweite, verschlüsselte, räumlich getrennte Kopie**: die jetzige USB bleibt im selben Haus, damit bei Brand/Diebstahl ein gemeinsamer Ausfallpunkt. Vor der Produktivfreigabe mit dem Auftraggeber eine realistische Offsite-Strategie definieren.
 3. **Wiederherstellung gegen Dateninhalte testen**, z. B. mit geschützten deterministischen Hashes ausgewählter Testdatensätze/Tabellen auf Quelle und Restore. Keine personenbezogenen Zeilen oder Hashes in öffentliches GitHub, Logs oder Chat exportieren; private Hashvergleiche statt Datenexport bevorzugen.
 4. **Aufbewahrung kontrolliert planen**, bevor die USB voll wird. Agent meldet **11.8 GB frei**; wegen geteilter Restic-Instanz niemals unkontrolliert `forget`/`prune` einsetzen.
 5. **Bei Einführung von Storage-Objekten/Vault-Geheimnissen** Recovery-Plan erweitern und gesondert testen.
 6. Der lokale Agent-Bericht kann nach Bereinigung von Geheimnissen/sensiblen Logzeilen im Feature-Branch zusammengefasst werden. `restore.log` aus dem privaten Home-Server-Verzeichnis **nicht ungeprüft** in das öffentliche Repo kopieren.
 
-**Release-Einstufung:** **Backup+Restore-Schema- und Mengencheck PASS**; **dauerhafter Betrieb eingerichtet (gemäss Agent)**. Offsite-Resilienz, tatsächliche Inhaltsgleichheit und ntfy-Empfang bleiben offen. **Kein** Eingriff in Wix, Produktiv-Worker oder bestehende Termine.
+**Release-Einstufung:** **Backup+Restore-Schema- und Mengencheck PASS**; **dauerhafter Betrieb eingerichtet (gemäss Agent)**. Offsite-Resilienz und tatsächliche Inhaltsgleichheit bleiben offen; **ntfy-Empfang PASS**. **Kein** Eingriff in Wix, Produktiv-Worker oder bestehende Termine.
