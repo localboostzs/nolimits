@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>NoLimits LAB – Mitarbeiter-Abnahme</title>
+<link rel="icon" type="image/jpeg" href="../assets/img/logo-nolimits.jpg">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/privacy.css?v=20261115-privacy1">
+<link rel="stylesheet" href="../assets/css/account.css?v=20261119-wix-safety2">
+<style>
+.nl-lab-page{max-width:840px;margin:50px auto 110px;padding:24px}
+.nl-lab-panel{border:1px solid #d9d1c5;background:#f6f1ea;padding:28px 30px}
+.nl-lab-panel h1{font-size:clamp(1.8rem,5vw,3rem);line-height:1.13;margin:10px 0 18px}
+.nl-lab-panel p{line-height:1.6}
+.nl-lab-tag{display:inline-block;padding:7px 12px;color:#fff;background:#302620;letter-spacing:.15em;font-size:.75rem;font-weight:700}
+.nl-lab-primary{background:#b7924e;color:#14130f;border:0;padding:13px 18px;font-weight:700;cursor:pointer;min-height:46px}
+.nl-lab-primary:disabled{background:#d4c9b8;color:#625e59;cursor:not-allowed}
+#nl-lab-output{font-size:.95rem;line-height:1.7;overflow-wrap:anywhere;list-style:disc;margin:18px 0 0;padding-left:24px}
+#nl-lab-output li{margin:0 0 9px}
+.nl-lab-hint{padding:15px;border-left:4px solid #977036;background:#ede5d8}
+.nl-lab-error{color:#a32626}
+.nl-lab-success{color:#125a35}
+@media(max-width:640px){.nl-lab-page{margin:20px auto;padding:10px}.nl-lab-panel{padding:20px}}
+</style>
+<script src="../assets/js/privacy.js?v=20261115-privacy1" defer></script>
+<script src="../assets/js/vendor/supabase-2.76.1.js" defer></script>
+<script src="../assets/js/account-config.js?v=20261115-2" defer></script>
+<script src="../assets/js/auth-client.js?v=20261115-privacy1" defer></script>
+<script src="../assets/js/NoLimits_StaffLab_20261120.js?v=1" defer></script>
+</head>
+<body>
+<main class="nl-lab-page">
+<section class="nl-lab-panel" aria-labelledby="lab-title">
+<span class="nl-lab-tag">NUR INTERN · CAL.COM LAB</span>
+<h1 id="lab-title">Mitarbeiter-Integrationstest</h1>
+<p>Diese Testseite überprüft mit Ihrer bestehenden NoLimits-Mitarbeiteranmeldung die isolierte Cal.com-Testleistung, die E-Mail-Alias-Zuordnung und den CRM-Eintrag.</p>
+<p class="nl-lab-hint"><strong>Kein echter Kundentermin.</strong> Es wird ausschliesslich die kostenlose 15-Minuten-LAB-Leistung mit einer automatisch erstellten internen LocalBoost-Testadresse verwendet. Ein erfolgreich angelegter Testtermin wird anschliessend automatisch storniert. Falls die Stornierung scheitert, wird dies ausdrücklich angezeigt.</p>
+<p id="nl-lab-auth" role="status" aria-live="polite">Prüfe Mitarbeiteranmeldung …</p>
+<p><button type="button" class="nl-lab-primary" id="nl-lab-run" disabled>Gesamten LAB-Test starten</button></p>
+<ol id="nl-lab-output" aria-live="polite"></ol>
+<p style="margin-top:28px;font-size:.88rem">Der Staging-Worker ist standardmässig öffentlich deaktiviert. Dieser Test funktioniert nur während eines kontrollierten LAB-Testfensters. Es werden keine Wix-Kontakte importiert und keine echten Barbershop-Leistungen gebucht.</p>
+<p><a href="../verwaltung/">Zur normalen Mitarbeiterverwaltung</a></p>
+</section>
+</main>
+</body>
+</html>
