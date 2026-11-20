@@ -123,7 +123,7 @@
         var crm = await request('GET','/api/admin/contacts',jwt);
         var entry=(crm.contacts||[]).find(function(c) { return c.email === testEmail; });
         if (entry && (entry.upcoming||[]).some(function(b) { return b.uid === signed.uid; })) {
-          if (/info\\+[0-9a-f]{32}@localboost-zs\\.ch/i.test(JSON.stringify(crm.contacts||[])))
+          if (/info\+[0-9a-f]{32}@localboost-zs\.ch/i.test(JSON.stringify(crm.contacts||[])))
             fail('Interne Aliasadresse ist in den CRM-Antwortdaten sichtbar.');
           crmMatches=true;
           break;
