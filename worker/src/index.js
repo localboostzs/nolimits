@@ -301,6 +301,22 @@ async function bindBookingAlias(env, alias, uid) {
   });
   if (!response.ok) throw Error('Alias booking UID update failed');
 }
+// Remove an alias only after Cal.com has DEFINITIVELY rejected its request.
+// Never delete after network timeouts/5xx or ambiguous booking states: a
+// confirmed booking and its later webhook might still need the mapping.
+async function discardRejectedBookingAlias(env, alias) {
+  if (!isAliasEmail(alias, env)) return false;
+  const db = aliasApiConfig(env);
+  const response = await fetch(db.url + '?alias_email=eq.' + encodeURIComponent(alias) +
+    '&booking_uid=is.null', {
+    method: 'DELETE',
+    headers: { ...db.headers, Prefer: 'return=minimal' },
+    redirect: 'manual'
+  });
+  if (!response.ok) throw Error('Unable to remove rejected booking alias');
+  return true;
+}
+
 async function lookupBookingAliases(env, addresses) {
   const aliases = [...new Set(addresses.map(e => String(e || '').trim().toLowerCase()).filter(e => isAliasEmail(e, env)))];
   const found = new Map();
@@ -438,6 +454,13 @@ async function book(req, env, adminMode = false) {
   }
   const out = await res.json().catch(() => null);
   if (!res.ok) {
+    // For definite validation/conflict rejections Cal.com did not create a
+    // booking. Delete only the still-unbound alias to avoid storing unnecessary
+    // customer email addresses indefinitely. On timeouts/5xx keep it for
+    // possible delayed acceptance and webhook delivery.
+    if (bookingAlias && [400, 409, 422].includes(res.status)) {
+      await discardRejectedBookingAlias(env, bookingAlias).catch(() => null);
+    }
     // Keine Kundendaten weiterreichen oder protokollieren; nur eine sinnvolle Fehlerklasse zurückgeben.
     const msg = String(out?.message || out?.error?.message || '').toLowerCase();
     if (/email|mail/.test(msg)) return fail('invalid_email', 'Diese E-Mail-Adresse kann keine Nachrichten empfangen. Bitte eine gültige Adresse angeben.', 400, req, env);
