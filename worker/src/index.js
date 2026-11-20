@@ -74,8 +74,9 @@ async function listCalBookings(env, status) {
 }
 async function getContacts(req, env) {
   const grouped = new Map();
-  const names = new Map(Object.entries(SERVICES).concat(Object.entries(ADMIN_SERVICES))
-    .map(([,s]) => [s.eventTypeId, s.name]));
+  const names = new Map(Object.entries(SERVICES).concat(
+    env.NL_ALIAS_STAGING_ONLY === 'true' ? [] : Object.entries(ADMIN_SERVICES)
+  ).map(([,s]) => [s.eventTypeId, s.name]));
   const headings = {
     bookingsWarning: false,
     legacyWarning: false,
@@ -399,8 +400,6 @@ async function getSlots(url, req, env, privateService) {
 }
 
 async function book(req, env, adminMode = false) {
-  // Internal admin-only event types are not usable in the isolated alias staging Worker.
-  if (adminMode && env.NL_ALIAS_STAGING_ONLY === 'true') return fail('staging_admin_disabled', 'In dieser Testumgebung nicht verfügbar.', 403, req, env);
   if (await limited(env, 'RL_BOOK', 'b:' + clientIp(req), 5, 10 * 60_000)) return fail('rate_limited', 'Zu viele Buchungsversuche. Bitte später erneut versuchen.', 429, req, env);
   const len = Number(req.headers.get('Content-Length') || 0);
   if (len > MAX_BODY) return fail('too_large', 'Anfrage zu gross.', 413, req, env);
@@ -414,6 +413,11 @@ async function book(req, env, adminMode = false) {
   if (b.website) return json({ ok: false, error: { code: 'rejected', message: 'Anfrage abgelehnt.' } }, 400, req, env);
   if (typeof b.elapsedMs === 'number' && b.elapsedMs < 3000) return fail('too_fast', 'Bitte Angaben in Ruhe prüfen und erneut senden.', 400, req, env);
 
+  // Staff LAB bookings are allowed only against SERVICES (hidden Cal.com LAB event).
+  // Never fall through to a production-only internal event type from ADMIN_SERVICES.
+  if (adminMode && env.NL_ALIAS_STAGING_ONLY === 'true' && !Object.hasOwn(SERVICES, b.service)) {
+    return fail('staging_admin_disabled','Nur die interne Testleistung ist in dieser Umgebung buchbar.',403,req,env);
+  }
   const service = adminMode ? (ADMIN_SERVICES[b.service] || SERVICES[b.service]) : SERVICES[b.service];
   const name = clean(b.name, 80);
   const email = clean(b.email, 120).toLowerCase();
@@ -909,14 +913,17 @@ export default {
         const access = await requireStaff(req, env);
         if (!access.ok) return fail(access.code, access.message, access.status, req, env);
         if (req.method === 'GET' && url.pathname === '/api/admin/services') {
-          const list = Object.entries(SERVICES).concat(Object.entries(ADMIN_SERVICES))
-            .map(([key,s]) => ({ key, name:s.name, minutes:s.minutes, price:s.price ?? null, internal:!!ADMIN_SERVICES[key] }));
+          const available = Object.entries(SERVICES).concat(
+            env.NL_ALIAS_STAGING_ONLY === 'true' ? [] : Object.entries(ADMIN_SERVICES));
+          const list = available.map(([key,s]) =>
+            ({ key, name:s.name, minutes:s.minutes, price:s.price ?? null, internal:!!ADMIN_SERVICES[key] }));
           return json({ ok:true, services:list }, 200, req, env);
         }
         if (req.method === 'GET' && url.pathname === '/api/admin/contacts') return await getContacts(req, env);
         if (req.method === 'GET' && url.pathname === '/api/admin/slots') {
           const key = url.searchParams.get('service');
-          const service = SERVICES[key] || ADMIN_SERVICES[key];
+          const service = SERVICES[key] ||
+            (env.NL_ALIAS_STAGING_ONLY === 'true' ? null : ADMIN_SERVICES[key]);
           if (!service) return fail('invalid_service','Unbekannte Leistung.',400,req,env);
           return await getSlots(url, req, env, service);
         }
