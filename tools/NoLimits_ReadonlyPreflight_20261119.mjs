@@ -34,6 +34,14 @@ export async function checkReadiness(base,{client=fetch}={}){
    return data;
  };
  await request('/api/health');
+ // The staff directory must NEVER be accessible to unauthenticated visitors.
+ // 401 is expected; 200 would expose customer data. Do not read the response
+ // body or log any potentially sensitive details if this security guard fails.
+ const guest=await client(url+'/api/admin/contacts',{
+   method:'GET',redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(10000),
+   headers:{Accept:'application/json'}
+ });
+ if(guest.status!==401)throw Error('READONLY_FAIL: staff contacts must require a valid login (expected HTTP 401; got '+guest.status+')');
  const services=await request('/api/services');
  assert.ok(Array.isArray(services.services),'services must be an array');
  const keys=services.services.map(s=>s.key);
@@ -46,7 +54,7 @@ export async function checkReadiness(base,{client=fetch}={}){
    assert.ok(typeof entry.name==='string'&&entry.name.length>1);
  }
  return {healthy:true,services:services.services.length,
-   checked:['/api/health','/api/services'],note:'Read-only checks do not prove booking, staff CRM, customer email or calendar sync.'};
+   checked:['/api/health','/api/admin/contacts (unauthenticated must be 401)','/api/services'],note:'Read-only checks do not prove booking, staff CRM, customer email or calendar sync.'};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
  const url=process.argv[2];
