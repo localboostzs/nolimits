@@ -5,6 +5,7 @@ on:
       - feature/NoLimits_Aliasbuchung_20261119
     paths:
       - .github/workflows/NoLimits_API_ReadonlyProbe_20261120.yml
+      - tools/NoLimits_ReadonlyPreflight_20261119.mjs
   workflow_dispatch:
 
 jobs:
