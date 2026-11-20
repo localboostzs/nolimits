@@ -87,3 +87,8 @@ Statuslegende: **PASS** = ausdrücklich nachgewiesen; **TEILWEISE** = nur Mockte
 - **Datenbestand:** Supabase `nl_booking_email_aliases`: 0 Zeilen; `nl_legacy_contacts`: 0; `nl_customer_profiles`: 2; `nl_staff`: 1, nur aggregierte Statistik. RLS- und Rollenprüfung ist positiv, aber echte Rollen-/Rechteabnahme des Mitarbeiters in Staging weiterhin erforderlich.
 - **Mitarbeiter-Staging vorbereitet:** Public Supabase key wurde als Worker-Secret ohne Offenlegung in `nolimits-alias-staging` hinterlegt; sechs Secret-Namen nachgewiesen. Cloudflare workers.dev und Previews bleiben deaktiviert. Ohne persönliche Mitarbeiter-Session kann der reale E2E-Alias-CRM-Login nicht vollständig automatisiert werden; dieser Test ist noch offen.
 - **Keine manuelle Mobile-Abnahme vorziehen.** Sie bleibt der letzte Schritt von Phase 1; Isen erst danach. Wix-Site und Abo bleiben aktiv.
+
+## Letzte Staging-Bereitstellung (20.11.2026)
+- Nach allen weiteren Alias-/Domain-/Release-Sicherungskorrekturen wurde **ausschliesslich der separate `nolimits-alias-staging` Worker** aus dem Feature-Branch erneut bereitgestellt; GitHub Actions [PASS](https://github.com/localboostzs/nolimits/actions/runs/44647449832).
+- Direkt danach Cloudflare-Einstellungen kontrolliert: `workers.dev.enabled=false`, `previews_enabled=false`, `NL_ALIAS_STAGING_ONLY=true`, `NL_ICS_ENABLED=false`, serverseitiger `NL_SUPABASE_PUBLISHABLE_KEY` vorhanden. Kein Merge in `main`, keine Wix-/Live-Worker-/Domainänderung.
+- Noch offener manueller Phase-1-Nachweis: gültiger Mitarbeiter-JWT und vollständige Alias-LAB-Terminauflösung im CRM. Dazu ist ein kontrolliertes, temporär erreichbares Staging-Fenster nötig; kein Zugangstoken in Chat oder Screenshots.
