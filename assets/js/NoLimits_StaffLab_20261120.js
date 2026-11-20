@@ -46,14 +46,14 @@
   }
   function urlParams(manageUrl) {
     var url = new URL(manageUrl);
-    if (url.origin !== 'https://localboostzs.github.io' ||
-        url.pathname !== '/nolimits/termin-verwalten/') {
-      fail('Der persönliche Verwaltungslink verweist auf ein unerwartetes Ziel.');
-    }
     var uid = url.searchParams.get('uid');
     var token = url.searchParams.get('token');
     if (!uid || !token) fail('Signierte Verwaltungsdaten fehlen.');
-    return {uid:uid,token:token};
+    // Preserve the token for emergency cleanup even if the link has a wrong host.
+    // Never follow the wrong URL or display the token on screen.
+    return {uid:uid,token:token,expectedTarget:
+      url.origin === 'https://localboostzs.github.io' &&
+      url.pathname === '/nolimits/termin-verwalten/'};
   }
   async function ready() {
     if (!account) {
@@ -114,6 +114,7 @@
       created = true;
       signed = urlParams(book.booking.manageUrl);
       if (signed.uid !== book.booking.uid) fail('Der signierte Verwaltungslink gehört nicht zum Testtermin.');
+      if (!signed.expectedTarget) fail('Der persönliche Verwaltungslink verweist auf ein unerwartetes Ziel.');
       line('Verbindliche LAB-Testbuchung erstellt und persönlicher Verwaltungslink geprüft.');
 
       // Bookings may appear slightly later in Cal.com list results. Retry briefly.
@@ -122,7 +123,8 @@
         var crm = await request('GET','/api/admin/contacts',jwt);
         var entry=(crm.contacts||[]).find(function(c) { return c.email === testEmail; });
         if (entry && (entry.upcoming||[]).some(function(b) { return b.uid === signed.uid; })) {
-          if (JSON.stringify(entry).includes('info+info+')) fail('Fehlerhaftes Alias in der Kundenansicht.');
+          if (/info\\+[0-9a-f]{32}@localboost-zs\\.ch/i.test(JSON.stringify(crm.contacts||[])))
+            fail('Interne Aliasadresse ist in den CRM-Antwortdaten sichtbar.');
           crmMatches=true;
           break;
         }
@@ -132,6 +134,9 @@
     } catch (error) {
       line(error?.message || 'Unerwarteter LAB-Testfehler.','error');
     } finally {
+      if (created && !signed) {
+        line('WICHTIG: Testbuchung erstellt, aber kein gültiger Stornotoken vorhanden. Bitte intern prüfen und manuell stornieren.','error');
+      }
       if (created && signed) {
         try {
           var result = await request('POST','/api/manage/cancel',null,{
