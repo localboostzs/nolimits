@@ -7,11 +7,14 @@ on:
       - 'tests/NoLimits_MobileDesktop_UI_20261119.mjs'
       - 'tests/NoLimits_ManageBrowser_E2E_20261119.mjs'
       - 'tests/NoLimits_AccountProfile_Browser_20261119.mjs'
+      - 'tests/NoLimits_StaffLab_Browser_20261120.mjs'
       - 'assets/js/manage.js'
       - 'assets/js/wix-csv.js'
       - 'assets/js/admin.js'
       - 'assets/css/**'
       - 'verwaltung/**'
+      - 'verwaltung-lab/**'
+      - 'assets/js/NoLimits_StaffLab_20261120.js'
       - 'booking-test/**'
       - 'konto/**'
       - 'termin-verwalten/**'
@@ -55,6 +58,10 @@ jobs:
         env:
           NOLIMITS_UI_BASE: http://127.0.0.1:8765
         run: node tests/NoLimits_AccountProfile_Browser_20261119.mjs
+      - name: Staff-only LAB full browser E2E (mock API, no real booking)
+        env:
+          NOLIMITS_UI_BASE: http://127.0.0.1:8765
+        run: node tests/NoLimits_StaffLab_Browser_20261120.mjs
       - name: Save screenshots of public demo pages
         if: always()
         uses: actions/upload-artifact@v4
