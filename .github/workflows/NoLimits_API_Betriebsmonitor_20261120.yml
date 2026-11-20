@@ -1,0 +1,41 @@
+name: NoLimits – API Betriebsmonitor (nur lesend)
+on:
+  schedule:
+    # Twice per day, UTC; schedule can be delayed by GitHub Actions.
+    - cron: "17 5,17 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: nolimits-api-readonly-monitor
+  cancel-in-progress: false
+
+jobs:
+  readonly-preflight:
+    name: Health + nine verified services/prices
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check current booking Worker with GET only (three attempts)
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://nolimits-booking-test.broken-haze-6cad.workers.dev"
+          for attempt in 1 2 3; do
+            echo "Read-only attempt ${attempt}/3"
+            if node tools/NoLimits_ReadonlyPreflight_20261119.mjs "$API"; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then sleep 10; fi
+          done
+          echo "::error::NoLimits API returned an invalid health check or unexpected service list/prices."
+          exit 1
+
+# Does not write to GitHub, Cal.com, Wix, Cloudflare, Resend or Supabase.
+# A failed job appears red in GitHub Actions; email notifications depend on GitHub settings.
+# This is not an end-to-end booking/email/CRM test and cannot validate such transactions.
