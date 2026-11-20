@@ -22,6 +22,7 @@ jobs:
           node tests/NoLimits_Aliasbuchung_Tests_20261119.mjs
           node tests/NoLimits_AliasStaging_Isolation_20261119.mjs
           node tests/NoLimits_AliasCRM_Regression_20261119.mjs
+          node tests/NoLimits_StaffLabBooking_E2E_20261120.mjs
           node tests/NoLimits_KundenTermin_E2E_20261119.mjs
           node tests/NoLimits_WixCSV_Probeimport_20261119.mjs
           node tests/NoLimits_WixBookingPlan_Test_20261119.mjs
