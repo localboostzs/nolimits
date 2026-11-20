@@ -1,0 +1,24 @@
+name: NoLimits synthetischer Backup-Restore-Test
+on:
+  push:
+    branches:
+      - feature/NoLimits_Aliasbuchung_20261119
+    paths:
+      - 'tools/NoLimits_Synthetische_BackupProbe_20261120.sh'
+      - 'supabase/migrations/NoLimits_AliasMapping_20261119.sql'
+      - '.github/workflows/NoLimits_BackupRestore_Test_20261120.yml'
+  workflow_dispatch:
+jobs:
+  postgres-backup-rehearsal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dump and restore ONLY synthetic alias data using Docker PostgreSQL 17
+        shell: bash
+        run: bash tools/NoLimits_Synthetische_BackupProbe_20261120.sh
+
+# No real Supabase connection, customer records, production domains,
+# database credentials or backups are used in this test.
