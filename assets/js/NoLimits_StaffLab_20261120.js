@@ -78,7 +78,7 @@
     testActive = true;
     runButton.disabled = true;
     output.replaceChildren();
-    var signed = null, created = false, cancelled = false, crmMatches = false;
+    var signed = null, created = false, cancelled = false, crmMatches = false, aliasCleaned = false;
     try {
       if (!(await ready())) fail('Bitte zuerst als Mitarbeiter anmelden.');
       var jwt = await account.bearer();
@@ -151,10 +151,23 @@
           line('WICHTIG: Die automatische Stornierung ist fehlgeschlagen. Der interne LAB-Termin muss geprüft und storniert werden.','error');
         }
       }
-      line(crmMatches && cancelled ?
+      // Only a server-verified cancellation may delete this one LAB alias.
+      if (cancelled && signed && jwt) {
+        for (var attempt=0;attempt<4 && !aliasCleaned;attempt++) {
+          if (attempt>0) await delay(1500);
+          try {
+            var cleanup=await request('POST','/api/lab/cleanup',jwt,{uid:signed.uid});
+            aliasCleaned=cleanup.cleaned===true;
+          } catch { /* Cal.com may need a moment to reflect cancellation. */ }
+        }
+        line(aliasCleaned ? 'Stornierte LAB-Aliaszuordnung aus Supabase entfernt.' :
+          'WICHTIG: Die stornierte LAB-Aliaszuordnung konnte nicht bereinigt werden. Bitte melden.',
+          aliasCleaned?'success':'error');
+      }
+      line(crmMatches && cancelled && aliasCleaned ?
         'GESAMTER MITARBEITER-LAB-TEST BESTANDEN. Bitte das Ergebnis an LocalBoost zurückmelden.' :
         'LAB-TEST NOCH NICHT VOLLSTÄNDIG BESTANDEN. Bitte die Ergebnisanzeige zurückmelden.',
-        crmMatches && cancelled?'success':'error');
+        crmMatches && cancelled && aliasCleaned?'success':'error');
       testActive = false;
       runButton.disabled = false;
     }
