@@ -546,6 +546,45 @@ async function readCalBooking(uid, env) {
   if (!b || b.uid !== uid || !serviceForCal(b.eventTypeId || b.eventType?.id)) return { response: null, booking: null };
   return { response: res, booking: b };
 }
+// QA-only cleanup: remove the synthetic alias only AFTER Cal.com reports
+// the exact LAB booking as cancelled. Never reachable in the production Worker.
+async function cleanupCancelledLabAlias(req, env) {
+  if (env.NL_ALIAS_STAGING_ONLY !== 'true') {
+    return fail('not_found','Nicht gefunden.',404,req,env);
+  }
+  const staff = await requireStaff(req, env);
+  if (!staff.ok) return fail(staff.code,staff.message,staff.status,req,env);
+  if (Number(req.headers.get('Content-Length') || 0) > 512) {
+    return fail('too_large','Anfrage zu gross.',413,req,env);
+  }
+  const b=await req.json().catch(()=>null);
+  const uid=clean(b?.uid,120);
+  if (!VALID_UID.test(uid)) return fail('invalid_uid','Ungültiger Testtermin.',400,req,env);
+  const service=Object.values(SERVICES).find(s=>Number(s.eventTypeId)===7982460);
+  if (!service) return fail('staging_config_error','LAB-Test ist nicht eingerichtet.',503,req,env);
+  try {
+    const found=await readCalBooking(uid,env);
+    const booking=found.booking;
+    if (!booking || Number(booking.eventTypeId || booking.eventType?.id)!==7982460) {
+      return fail('not_lab_booking','Kein bestätigter LAB-Testtermin.',403,req,env);
+    }
+    if (!['cancelled','canceled'].includes(String(booking.status||'').toLowerCase())) {
+      return fail('not_cancelled','LAB-Testtermin muss zuerst storniert werden.',409,req,env);
+    }
+    const db=aliasApiConfig(env);
+    const q=new URLSearchParams({booking_uid:'eq.'+uid,event_type_id:'eq.7982460'});
+    const response=await fetch(db.url+'?'+q,{
+      method:'DELETE',
+      headers:{...db.headers,Prefer:'return=minimal'},
+      redirect:'manual'
+    });
+    if (!response.ok) throw Error('LAB cleanup not confirmed');
+    return json({ok:true,cleaned:true},200,req,env);
+  } catch {
+    return fail('cleanup_unavailable','LAB-Testdaten konnten nicht bereinigt werden.',503,req,env);
+  }
+}
+
 async function accessManage(req, env, uid, token) {
   if (!env.CAL_API_KEY) return { error: fail('not_configured', 'Die Terminverwaltung wird gerade eingerichtet. Bis dahin bitte den Stornolink aus der Cal.com-E-Mail verwenden.', 503, req, env) };
   if (!(await validManagementToken(uid, token, env))) return { error: fail('invalid_link', 'Dieser Buchungslink ist ungültig oder abgelaufen.', 403, req, env) };
@@ -908,6 +947,7 @@ export default {
     try {
       if (req.method === 'POST' && url.pathname === '/api/auth/google/exchange') return await exchangeGoogleCode(req, env);
       if (req.method === 'POST' && url.pathname === '/api/webhooks/cal') return await onCalWebhook(req, env);
+      if (req.method === 'POST' && url.pathname === '/api/lab/cleanup') return await cleanupCancelledLabAlias(req, env);
       if ((req.method === 'GET' || req.method === 'POST') && (url.pathname === '/api/manage' || url.pathname.startsWith('/api/manage/'))) return await routeManage(req, env, url);
       if (url.pathname.startsWith('/api/admin/')) {
         const access = await requireStaff(req, env);
