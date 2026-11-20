@@ -42,7 +42,7 @@ async function run(label,site,expected,index){
    body:JSON.stringify({service:'haarschnitt',name:'Domain Testkunde',email:ownerEmail,
      phone:'+41790000000',accepted:true,start:future,elapsedMs:6000})
  }),env);
- assert.equal(response.status,201,await response.text());
+ assert.equal(response.status,201,await response.clone().text());
  const data=await response.json();
  const url=new URL(data.booking.manageUrl);
  assert.equal(url.origin+url.pathname,expected+'/termin-verwalten/');
