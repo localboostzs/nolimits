@@ -28,12 +28,14 @@ jobs:
           node tests/NoLimits_Kalenderdatei_Tests_20261119.mjs
           node tests/NoLimits_AliasCleanup_Tests_20261120.mjs
           node tests/NoLimits_DomainSwitch_Tests_20261120.mjs
+          node tests/NoLimits_ProductionCandidate_Tests_20261120.mjs
           node tests/NoLimits_ReadonlyPreflight_Tests_20261119.mjs
           node tools/NoLimits_WixBookingPlan_20261119.mjs tests/fixtures/NoLimits_WixBookings_Synthetisch_20261119.json | node -e "let s=''; process.stdin.on('data',c=>s+=c).on('end',()=>{const r=JSON.parse(s);if(!r.ready||r.summary.prepared!==2)process.exit(1); console.log('PASS: Wix booking CLI offline readiness with two synthetic appointments')})"
       - name: Verify Wrangler stage bundle (no Cloudflare deployment)
         working-directory: worker
         run: |
           npx --yes wrangler@4 deploy --dry-run --outdir ../.alias-staging-dry-run -c wrangler.alias-staging.toml
+          npx --yes wrangler@4 deploy --dry-run --outdir ../.alias-production-candidate-dry-run -c wrangler.production-candidate.toml
           grep -rl 'NoLimits LAB Alias-Test' ../.alias-staging-dry-run >/dev/null
           if grep -rl '7888953' ../.alias-staging-dry-run; then
             echo 'ERROR: live Cal.com event type included in staging bundle'
