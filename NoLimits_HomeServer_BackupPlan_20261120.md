@@ -1,13 +1,13 @@
 # NoLimits – kostenloses Backup auf dem Home Server (Vorbereitung)
 
-**Stand:** 20.11.2026. **Installiert und aktiv (laut Home-Server-Agent-Bericht).** Der echte Datenbank-Restore in einer isolierten Supabase-Postgres-Testumgebung ist erfolgreich (0 Fehler). Diese Anleitung dokumentiert weiterhin den ursprünglichen Installationsplan und die noch offenen Betriebsanforderungen. Keine Passwörter, Tokens, Kundendaten, Server-IP-Adressen oder Restic-Repositories werden ins GitHub-Repo aufgenommen.
+**Stand:** 21.11.2026. **Installiert und aktiv (laut Home-Server-Agent-Bericht).** Der echte Datenbank-Restore in einer isolierten Supabase-Postgres-Testumgebung und ein echter SHA-256-Inhaltsvergleich von 42 Tabellen ohne Abweichungen sind erfolgreich. Diese Anleitung dokumentiert weiterhin den ursprünglichen Installationsplan und die noch offenen Betriebsanforderungen. Keine Passwörter, Tokens, Kundendaten, Server-IP-Adressen oder Restic-Repositories werden ins GitHub-Repo aufgenommen.
 
 ## Aktueller Stand und Begründung
 
 - Supabase Free bietet laut offizieller Dokumentation keine integrierten täglichen Wiederherstellungsbackups. Empfohlen werden regelmässige CLI-Dumps mit separater Sicherung.
 - NoLimits Supabase-Projekt: `jcctdjjunxmxaphjkrsz`, Postgres **17.11** (read-only geprüft).
 - Verknüpfter Supabase-Backup-Status: verwaltete Backups **leer**, PITR aus.
-- Das bereits erfolgreich geprüfte **synthetische** `pg_dump`/`pg_restore`-Experiment ist [hier](NoLimits_Backup_Restore_20261120.md) dokumentiert. **Ein echter isolierter Datenbank-Restore wurde nach dem synthetischen Test inzwischen bestanden; Inhalte wurden bislang nur über Strukturen und Zeilenzahlen abgeglichen.**
+- Das bereits erfolgreich geprüfte **synthetische** `pg_dump`/`pg_restore`-Experiment ist [hier](NoLimits_Backup_Restore_20261120.md) dokumentiert. **Ein echter isolierter Datenbank-Restore sowie ein zusätzlicher SHA-256-Vergleich sämtlicher 42 Tabellen wurden inzwischen ohne Abweichungen bestanden.**
 - Eigene Staging-LAB- und Wix-Daten müssen erst nach Freigabe importiert werden. Es sind aktuell nur NoLimits-Testprofile vorhanden.
 
 Offizielle Quellen:
@@ -52,4 +52,4 @@ RESTIC_PASSWORD_FILE=<lokaler geheimer Passwortdateipfad>
 
 **Verboten ohne separate Freigabe:** Supabase-Daten löschen oder wiederherstellen, neue kostenpflichtige Cloudleistungen aktivieren, Passwörter in Chat/GitHub eintragen, unangekündigte Änderungen an bestehenden Server-/Restic-Jobs vornehmen, reale Kunden-Dumps in GitHub ablegen, Wix kündigen oder die NoLimits-Produktivseite umschalten.
 
-**Abschlussstatus, aktualisiert 20.11.2026:** Skript auf dem Home Server installiert, zwei echte verschlüsselte Restic-Snapshots erstellt, separater Restore im `supabase/postgres:17.6.1.136`-Testcontainer **ohne Fehler** bestanden. Eigener täglicher Timer um 14:30 Europe/Zurich und ntfy-Fehleralarm eingerichtet. Siehe [verifizierte Ergebnisse und Einschränkungen](NoLimits_Backup_Restore_20261120.md). Offsite-Kopie, Dateninhaltsabgleich und kontrollierte Aufbewahrung bleiben **OFFEN**. **ntfy-Fehlerwarnung auf iPhone bestätigt (PASS).** Die untenstehenden Schritte sind historische Installationsanweisungen und müssen nicht erneut durchgeführt werden.
+**Abschlussstatus, aktualisiert 20.11.2026:** Skript auf dem Home Server installiert, zwei echte verschlüsselte Restic-Snapshots erstellt, separater Restore im `supabase/postgres:17.6.1.136`-Testcontainer **ohne Fehler** bestanden. Eigener täglicher Timer um 14:30 Europe/Zurich und ntfy-Fehleralarm eingerichtet. Siehe [verifizierte Ergebnisse und Einschränkungen](NoLimits_Backup_Restore_20261120.md). Offsite-Kopie und kontrollierte Aufbewahrung bleiben **OFFEN**. Der echte Dateninhaltsabgleich wurde am 21.11.2026 mit Snapshot `d91b6a3e` erfolgreich abgeschlossen (**42 Tabellen, 0 Abweichungen**). **ntfy-Fehlerwarnung auf iPhone bestätigt (PASS).** Die untenstehenden Schritte sind historische Installationsanweisungen und müssen nicht erneut durchgeführt werden.
