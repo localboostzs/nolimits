@@ -59,7 +59,7 @@ async function run(label,site,expected,index){
  assert.equal(sent.length,1);
  const mail=sent[0];
  assert.deepEqual(mail.to,[ownerEmail]);
- assert.match(mail.html,new RegExp(expected.replace(/[.*+?^$()|[\]{}\\]/g,'\\$&')+'/assets/img/logo-nolimits\\.jpg'));
+ assert.ok(mail.html.includes(expected+'/assets/img/logo-nolimits.jpg'));
  assert.ok(mail.html.includes(expected+'/impressum/'));
  assert.ok(mail.html.includes(expected+'/termin-verwalten/?uid='));
  assert.ok(!mail.html.includes('https://malicious.example'));
