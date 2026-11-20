@@ -1,6 +1,6 @@
 # NoLimits – Produktivwechsel, Rollback und Betriebsprüfung
 
-**Stand:** 19.11.2026. **Status:** Vorbereitung, KEINE Produktivfreigabe. Gilt für `localboostzs/nolimits` (GitHub), Wix-Livesystem, Cal.com, Cloudflare und Supabase. Die technische Ausführung ist nach ausdrücklicher Freigabe durch Isen und Auftraggeber vorgesehen.
+**Stand:** 20.11.2026. **Status:** Vorbereitung, KEINE Produktivfreigabe. Gilt für `localboostzs/nolimits` (GitHub), Wix-Livesystem, Cal.com, Cloudflare und Supabase. Die technische Ausführung ist nach ausdrücklicher Freigabe durch Isen und Auftraggeber vorgesehen.
 
 ## 0. Verbindliche Sperren
 
@@ -23,7 +23,7 @@
 | Aktuelle Rate-Limits | `RL_BOOK`: Namespace 1001, 5/60 s; `RL_SLOTS`: Namespace 1002, 60/60 s | Bestehende Bindings beim Wechsel erhalten |
 | Bereits vorhandene Secrets | `CAL_API_KEY`, `CAL_WEBHOOK_SECRET`, `GOOGLE_OAUTH_CLIENT_SECRET`, `NL_EMAIL_ENABLED`, `NL_MANAGE_SECRET`, `NL_SUPABASE_PUBLISHABLE_KEY`, `NL_SUPABASE_URL`, `RESEND_API_KEY` | Werte nicht auslesen/dokumentieren |
 | Neue Alias-Secretbindung später | `NL_SUPABASE_SECRET_KEY` | **Fehlt am bestehenden Live-Worker**; erst bei freigegebener Umstellung |
-| Stage-E-Mail/ICS | `nolimits-alias-staging`; `NL_ICS_ENABLED=true` nur für LAB | workers.dev und Previews nach Test **aus** |
+| Staging und Kalenderdateien | `nolimits-alias-staging`; `NL_ICS_ENABLED=false` nach echter Google-Kalender-Abnahme | Ein manuell importierter Umbuchungstermin erzeugte ein Duplikat; ICS für Kunden NICHT freigegeben |
 | Öffentliche Buchungs-Services | 9 | Read-only `GET /api/health` 200, `GET /api/services` 200, 9 Services |
 
 **WICHTIG:** Der frühere `worker/wrangler.toml` würde mit `name = "nolimits-booking"` einen anderen Worker betreffen. **Nicht** in dieser Form auf die vorhandene API deployen. Vor jeder Freigabe korrekte Ziel-ID, Scripts, Eventtyp-Zuordnungen, Bindings und Secrets prüfen.
@@ -38,6 +38,16 @@
 6. Ganz am Schluss: Auftraggeber prüft komplette **Mobile-Darstellung** und alle wesentlichen Abläufe auf dem iPhone. Erst danach gegebenenfalls Isen-Termin.
 
 **Stopper:** Fehlgeschlagene Zustellung, falsche Domain, neue ungeklärte Doppelbuchung, offen erreichbarer Stage-Worker, fehlende RLS, unsicherer Alias-Rollback oder falsche Service-IDs → kein Kontakt mit Isen.
+
+
+### Nachtrag 20.11.2026 – Bereits erledigte technische Release-Sicherungen
+
+1. **Erreichbarkeit und Datenschutz:** Zweimal täglich via GitHub Actions auf `main` ausschliesslich lesende Prüfung der bisherigen Buchungs-API `/api/health`, der neun öffentlichen Leistungen inkl. Preis/Dauer und des **verweigerten anonymen Zugriffs auf `/api/admin/contacts` (HTTP 401)**. Die ersten manuell gestarteten Läufe sind erfolgreich. Fehlgeschlagene GitHub-Actions-Jobs sind sichtbar; automatische Benutzerbenachrichtigungen hängen von den GitHub-Notification-Einstellungen ab. Das Monitoring versendet keine Testbuchungen und kontrolliert **nicht** E-Mail-Zustellung oder Cal.com-Schreibfähigkeit.
+2. **Eindeutiges Veröffentlichungsziel:** `worker/wrangler.production-candidate.toml` referenziert den wirklich vorhandenen Worker `nolimits-booking-test`, erhält beide Rate-Limits und deaktiviert Alias + Kalender-ICS. Über GitHub CI nur `wrangler deploy --dry-run`, **nie produktiv deployed**.
+3. **Domain-Umschaltung ohne erneute Codeänderung:** `NL_PUBLIC_SITE_BASE` als serverseitig konfigurierte, explizit beschränkte Website-Basis. Bis zur Freigabe Standard `https://localboostzs.github.io/nolimits`; nach Isens Einverständnis auf `https://nolimits-barber.ch` (oder bestätigtes `www`) setzen. Nur diese Hostnamen sind im Worker erlaubt. Buchungslinks, Umbuchungslinks, E-Mail-Logo sowie Impressum-/Website-Links verwenden dieselbe validierte Basis. **Gleichzeitig** `ALLOWED_ORIGINS` für den späteren echten Browser-Origin konfigurieren; vorher darf die Wix-Domain nicht auf neue Buchungen umgestellt werden.
+4. **Minimierung gespeicherter E-Mail-Zuordnungen:** Bei eindeutigen Cal.com-Ablehnungen (HTTP 400/409/422) wird das noch nicht gebundene Alias aus Supabase entfernt. Bei Timeout/5xx/unklarer Annahme bleibt die Zuordnung bewusst bestehen, damit mögliche bestätigte Termine/Mails nicht verloren gehen. Mock-Tests `PASS`; Feature-Branch noch nicht live.
+5. **Anwenderbefund iCalendar:** Bestätigung, Umbuchung, Storno als eigene Mails jeweils `delivered`. Manueller Google-ICS-Import hinterliess den ursprünglichen Termin trotz Umbuchung/Storno. [Exakter Befund](NoLimits_Kalenderimport_Befund_20261120.md). Kalenderdatei **deaktiviert**, keine falschen Synchronisationsversprechen.
+6. **Supabase-Audit:** Alle vier NoLimits-Tabellen mit RLS; Alias-Mapping hat keine `anon`/`authenticated`-Tabellenprivilegien. Am 20.11.2026: 0 Aliaszuordnungen, 0 importierte Legacy-Kontakte, 2 Test-/Kundenprofile, 1 Mitarbeiterkonto (nur aggregiert; keine Identitäten ausgelesen). Supabase-Sicherheitsadvisor meldet unter anderem optionalen Schutz gegen geleakte Passwörter deaktiviert; die derzeitige Anmeldung ist passwortlos. Nicht blind Auth-Optionen ändern.
 
 ## 3. Phase 2 – Gespräch mit Isen, erst nach Freigabe
 
@@ -59,10 +69,10 @@ Kurz und ohne technische Implementierungsdetails Website, Terminbuchungsablauf, 
 
 ### Worker-Deployment
 - Ausschliesslich bestehendes Worker-Ziel `nolimits-booking-test` identifizieren; nicht den abweichenden `wrangler.toml`-Namen verwenden.
-- Neue Worker-Version zunächst mit `NL_ALIAS_MODE` **aus** ausrollen; vor/nach Read-only Health/Services vergleichen.
+- Nur den geprüften **`worker/wrangler.production-candidate.toml`** für das bestehende Worker-Ziel verwenden, nicht den abweichenden historischen `wrangler.toml`. Vor einem echten Deploy **explizite Freigabe** und aktuelle Version/Bindings/Secrets sichern. Der Kandidat wurde bisher ausschliesslich trocken kompiliert. Alias zunächst **aus** (`NL_ALIAS_MODE=off`), Kalender-ICS aus (`NL_ICS_ENABLED=false`). Vor/nach Read-only Health/Services und Mitarbeiterzugriff vergleichen.
 - Live-Webhooks nur einmal konfigurieren und Signatur prüfen; keine doppelten Kundennachrichten auslösen.
 - Geheimnis `NL_SUPABASE_SECRET_KEY` **nur serverseitig** hinzufügen. `NL_ALIAS_DOMAIN=localboost-zs.ch`, `NL_ALIAS_PREFIX=info`, `NL_ALIAS_SEPARATOR=+` und die geprüfte Empfängerweiterleitung setzen.
-- Alias erst nach End-to-End-Staging und mindestens einer internen, ausdrücklich autorisierten Live-Probe aktivieren (`NL_ALIAS_MODE=enabled`). E-Mail `NL_ICS_ENABLED` separat freigeben; eine .ics-Datei ist **kein** automatisch synchronisierter Kalender.
+- Alias erst nach End-to-End-Staging und mindestens einer internen, ausdrücklich autorisierten Live-Probe aktivieren (`NL_ALIAS_MODE=enabled`). `NL_ICS_ENABLED=false` **beibehalten**, bis eine neu konzipierte Einladung mit echter Kalender-App erfolgreich getestet ist; manuelle ICS-Importe haben in Google Kalender Duplikate verursacht.
 - Vor der tatsächlichen Domain-/CTA-Umschaltung: Mailprüfung, Terminmanagement, Doppelbuchungsabwehr, CRM und Kalenderzugriff mit Isens Identität vollständig prüfen.
 
 ### Wix-Kunden und Termine
