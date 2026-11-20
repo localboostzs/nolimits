@@ -67,9 +67,24 @@ jobs:
             # Negative security probes: no customer, no real booking, no secrets in the payload.
             # Only the hidden LAB workers.dev route is temporarily enabled.
             LAB="https://nolimits-alias-staging.broken-haze-6cad.workers.dev"
-            curl --silent --show-error --max-time 15 --fail "$LAB/api/health" \
-              -o /tmp/nl-stage-health.json
-            jq -e '.ok == true' /tmp/nl-stage-health.json >/dev/null
+            # Cloudflare workers.dev DNS/route may take several seconds to propagate
+            # after the API confirms enabled=true. Do not treat the first 404 as a
+            # backend failure; always close the route even if readiness never appears.
+            LAB_READY=0
+            for attempt in $(seq 1 12); do
+              HEALTH_STATUS="$(curl --silent --show-error --max-time 10 \
+                -o /tmp/nl-stage-health.json -w '%{http_code}' "$LAB/api/health")"
+              if [ "$HEALTH_STATUS" = "200" ] && \
+                 jq -e '.ok == true' /tmp/nl-stage-health.json >/dev/null 2>&1; then
+                LAB_READY=1
+                break
+              fi
+              sleep 2
+            done
+            test "$LAB_READY" -eq 1 || {
+              echo "::error::NoLimits LAB health did not become available within controlled window."
+              exit 1
+            }
             GUEST_STATUS="$(curl --silent --show-error --max-time 15 \
               -o /dev/null -w '%{http_code}' "$LAB/api/admin/contacts")"
             test "$GUEST_STATUS" = "401" || {
