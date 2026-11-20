@@ -2,7 +2,7 @@
 
 **Stand:** 20.11.2026  
 **Projekt:** NoLimits / LocalBoost Zentralschweiz  
-**Status (20.11.2026):** **Echtes NoLimits-Datenbankbackup und separater Restore im Supabase-Postgres-Image technisch PASS (gemäss Home-Server-Agent-Bericht).** Strukturen und Zeilenzahlen stimmen; ein zeilenweiser Vergleich der Dateninhalte fehlt noch. Offsite-Kopie und echter Dateninhaltsabgleich offen. **ntfy-Testwarnung auf dem iPhone vom Nutzer empfangen (PASS).** Die früheren synthetischen Tests bleiben als unabhängige CI-Nachweise dokumentiert.
+**Status (21.11.2026):** **Vollständiges NoLimits-Datenbankbackup, isolierter Restore und per-Tabellen-SHA-256-Inhaltsvergleich technisch PASS (gemäss dem vom Nutzer übermittelten Home-Server-Agent-Bericht).** Frischer Snapshot `d91b6a3e`: alle 42 geprüften Tabellen in `public/auth/storage/vault` ohne Abweichung. **ntfy-Testwarnung auf dem iPhone empfangen (PASS).** Offsite-Kopie und langfristige Aufbewahrung bleiben offen. Die früheren synthetischen Tests bleiben als unabhängige CI-Nachweise dokumentiert.
 
 ## 1. Derzeit bestätigte Supabase-Situation
 
@@ -84,3 +84,18 @@ Read-only-Abfrage von `storage.buckets`, `storage.objects` und `vault.secrets`: 
 6. Der lokale Agent-Bericht kann nach Bereinigung von Geheimnissen/sensiblen Logzeilen im Feature-Branch zusammengefasst werden. `restore.log` aus dem privaten Home-Server-Verzeichnis **nicht ungeprüft** in das öffentliche Repo kopieren.
 
 **Release-Einstufung:** **Backup+Restore-Schema- und Mengencheck PASS**; **dauerhafter Betrieb eingerichtet (gemäss Agent)**. Offsite-Resilienz und tatsächliche Inhaltsgleichheit bleiben offen; **ntfy-Empfang PASS**. **Kein** Eingriff in Wix, Produktiv-Worker oder bestehende Termine.
+
+## 6. Echter Inhaltsvergleich auf Home Server – PASS (21.11.2026)
+
+Vom Nutzer übermittelter Abschlussbericht des privaten Claude-Code-Agenten, kontrollierter Lauf nach frischem Snapshot:
+
+- **Verschlüsseltes Backup:** Restic-Snapshot `d91b6a3e` erfolgreich erstellt, bestehendes Repository und separater Timer funktionsfähig.
+- **Isolierter Restore:** `supabase/postgres:17.6.1.136`, ausschliesslich Loopback `127.0.0.1`, temporärer `tmpfs`, **0 Restore-Fehler beim finalen Durchlauf**.
+- **Echter SHA-256-Datensatzinhaltsvergleich:** **PASS – 42 Tabellen aus `public`, `auth`, `storage`, `vault`; 0 Abweichungen**. Das vorher in CI mit fiktiven Datensätzen positiv und negativ getestete Vergleichswerkzeug wurde nun auch auf Quelle/Restore angewendet. Einzelne Inhalte und Hashwerte wurden nicht in den Chat übertragen.
+- **Betrieb:** `nolimits-supabase-backup.timer` aktiv, täglich **14:30 Europe/Zurich**. Restic-Repository gesund, laut Agent **87 Snapshots**, `homeserver-backup` und `second-brain-backup` unverändert aktiv; die letzten NoLimits-/Home-Server-Backups erfolgreich.
+- **Cleanup:** Testcontainer, temporärer Klartext-Dump und temporäre Test-Passwortdateien entfernt, kein offener Test-Port verblieben. Der Agent installierte hierfür Node.js v22.
+- **Transparenter Fehlerverlauf:** Beim ersten Restoreversuch fehlte der Datenbankname im **temporären** `pgpass`-Eintrag, weshalb die Testanmeldung scheiterte. Nach Korrektur wurde der Restore vollständig und ohne Fehler neu ausgeführt. **Kein Beleg für eine Beschädigung der Quelldaten oder Sicherung.**
+- **Grenzen:** Der Vergleich ist eine Momentaufnahme (Quelle kann später geändert werden). Aktuelle Storage-Tabellen und `vault.secrets` sind leer; Nichtleerfälle dieser Dienste wurden deshalb nicht verifiziert. Postgres-Clusterrollen, Rollenpasswörter und externe Cloud-Konfiguration sind nicht Teil des Inhaltsvergleichs.
+- **Nach wie vor offen:** Die USB mit dem Restic-Repository befindet sich im selben Haus (keine Offsite-Kopie), noch keine festgelegte Aufbewahrung bzw. kontrollierte Tag-Retention; laut Agent **11.8 GB frei**. **Kein unkontrolliertes `forget`/`prune` im gemeinsam genutzten Repository ausführen.** Vor Datenmigration/Livebetrieb Second-Site-Backup und Restore-Verfahren verbindlich festlegen.
+
+**Status:** Echte Backup-Datenintegritätsprüfung **PASS**. Diese Feststellung beruht auf dem konkreten Home-Server-Agent-Abschlussbericht des Nutzers, nicht auf direktem SSH-Zugriff durch ChatGPT. Keine NoLimits-Live-/Wix-/DNS-Veränderung durchgeführt.
