@@ -34,7 +34,7 @@
 2. Stage-Buchung nur an internen Testempfänger; Cal.com empfängt über `info+…@localboost-zs.ch`, Resend an die originale interne Adresse. Nach Test Cal.com `CANCELLED`, Aliaszuordnung gelöscht, Workers.dev wieder **disabled**.
 3. Staging-CI: versteckter Cal-LAB-Typ `7982460`, `NL_ALIAS_STAGING_ONLY=true`, nie die produktiven Event-IDs. Neues ICS nur per `NL_ICS_ENABLED=true`.
 4. Echte Browserprofile und CRM-Funktionen mit zugelassenen internen Testkonten, ohne kundenbezogene Änderungen.
-5. Monitor-/Recovery-Plan, Backup-Strategie, aktuelle Worker-/GitHub-Version und Rollback-Pfade dokumentieren; unterstützte E-Mail-Kalenderdateien mit internen Testempfängern kontrollieren.
+5. Monitor-/Recovery-Plan, Backup-Strategie, aktuelle Worker-/GitHub-Version und Rollback-Pfade dokumentieren. **Kalenderdateien deaktiviert lassen** (`NL_ICS_ENABLED=false`), solange keine echte automatische Kalendersynchronisation mit Anwenderkalendern nachweislich funktioniert.
 6. Ganz am Schluss: Auftraggeber prüft komplette **Mobile-Darstellung** und alle wesentlichen Abläufe auf dem iPhone. Erst danach gegebenenfalls Isen-Termin.
 
 **Stopper:** Fehlgeschlagene Zustellung, falsche Domain, neue ungeklärte Doppelbuchung, offen erreichbarer Stage-Worker, fehlende RLS, unsicherer Alias-Rollback oder falsche Service-IDs → kein Kontakt mit Isen.
@@ -108,3 +108,13 @@ Kurz und ohne technische Implementierungsdetails Website, Terminbuchungsablauf, 
 - Bei externen Ausfällen: Buchungs-CTA mit ehrlicher Meldung und Supportkontakt; kein stilles Annehmen einer nicht bestätigten Buchung.
 
 **Aktueller Status:** Dieses Dokument ist ein Freigabeprotokoll und keine Aufforderung zum sofortigen Produktivwechsel. Isen wird erst nach abgeschlossener Phase 1 kontaktiert. Wix-Abonnement bleibt aktiv.
+
+
+## Ergänzung 20.11.2026 – Backup, Alarm und abschliessende Test-Gates
+- **Backup+Restore echt:** Home-Server `pg_dump` 18.6 → privates Restic-Repository, zwei Snapshots, PostgreSQL-17-Restore in gesondertem `supabase/postgres:17.6.1.136`-Container **0 Fehler**. Aktiver systemd-Timer täglich 14:30 Europe/Zurich. Struktur, Tabellen-/Zeilenanzahlen, Auth und RLS konsistent. [Detaillierte Grenzen](NoLimits_Backup_Restore_20261120.md).
+- **ntfy end-to-end PASS:** synthetischer Fehleralarm kam beim Nutzer auf dem iPhone tatsächlich an.
+- **Dateninhalt nach Restore:** getrennt vom bestandenen Struktur-Restore noch offen. [Privates SHA-256-Skript](tools/NoLimits_RestoreInhaltsvergleich_20261120.mjs) bereits mit synthetischen Positiv-/Negativdaten in CI [PASS](https://github.com/localboostzs/nolimits/actions/runs/44832698968). Echtes Gegenstück auf dem Home Server ausführen lassen.
+- **Backend-Härtung in isoliertem LAB:** realer gefälschter Cal.com-Webhook `401`; anonymes Staff-CRM `401`; LAB `health=200`. Sicherheitsprobe und automatische Worker-Schliessung [PASS](https://github.com/localboostzs/nolimits/actions/runs/44833356012).
+- **Keine automatischen ICS-Anhänge**, weil Anwender-Google-Kalenderimport Umbuchungs-/Storno-Synchronisierung nicht bestanden hat.
+- **Offsite-Kopie:** Backup-USB im selben Haus; vor echtem Produktivbetrieb zweite verschlüsselte Kopie/Recovery-Option planen. Restic-`forget` und `prune` im gemeinsam genutzten Repository vor klarer Retention-Strategie **nicht** einsetzen.
+- [Phase-1-Übersicht](NoLimits_Phase1_Freigabestatus_20261120.md): vor Isens Treffen technische Inhaltsprobe, abschliessender Preflight und zuletzt manuelle iPhone-Abnahme. Wix, DNS, Abonnement und produktiver Worker bleiben unverändert.
