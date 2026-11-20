@@ -31,6 +31,7 @@ jobs:
           node tests/NoLimits_DomainSwitch_Tests_20261120.mjs
           node tests/NoLimits_ProductionCandidate_Tests_20261120.mjs
           node tests/NoLimits_StaffLabBooking_E2E_20261120.mjs
+          node tests/NoLimits_LabCleanup_Tests_20261120.mjs
       - name: Verify required staging deployment secrets exist
         env:
           CF_ACCOUNT_ID: ${{ secrets.NOLIMITS_STAGING_CF_ACCOUNT_ID }}
