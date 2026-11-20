@@ -1,0 +1,90 @@
+name: NoLimits LAB Testfenster (isoliert, automatisch schliessen)
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Nur prüfen oder LAB für 8 Minuten öffnen"
+        required: true
+        default: preflight-only
+        type: choice
+        options:
+          - preflight-only
+          - open-8min
+
+concurrency:
+  group: nolimits-lab-window
+  cancel-in-progress: false
+
+jobs:
+  window:
+    runs-on: ubuntu-latest
+    timeout-minutes: 13
+    permissions:
+      contents: read
+    env:
+      ACCOUNT_ID: ${{ secrets.NOLIMITS_STAGING_CF_ACCOUNT_ID }}
+      CF_API_TOKEN: ${{ secrets.NOLIMITS_STAGING_CF_API_TOKEN }}
+      API_BASE: https://api.cloudflare.com/client/v4
+      SCRIPT: nolimits-alias-staging
+    steps:
+      - name: Check credentials and require staging to be closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ACCOUNT_ID" && test -n "$CF_API_TOKEN" || {
+            echo "::error::Missing isolated Cloudflare API token or account ID."
+            exit 1
+          }
+          URL="$API_BASE/accounts/$ACCOUNT_ID/workers/scripts/$SCRIPT/subdomain"
+          curl --fail --silent --show-error --max-time 15 --retry 2 \
+            -H "Authorization: Bearer $CF_API_TOKEN" "$URL" > /tmp/nl-stage-before.json
+          jq -e '.success == true and .result.enabled == false and .result.previews_enabled == false' \
+            /tmp/nl-stage-before.json >/dev/null || {
+              echo "::error::LAB Worker is not fully closed. Check Cloudflare before proceeding."
+              exit 1
+            }
+          echo "PASS: Only nolimits-alias-staging is targeted and its public route is closed."
+
+      - name: Open ONLY the LAB workers.dev route for the controlled test window
+        if: ${{ inputs.mode == 'open-8min' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="$API_BASE/accounts/$ACCOUNT_ID/workers/scripts/$SCRIPT/subdomain"
+          curl --fail --silent --show-error --max-time 20 --retry 2 -X POST \
+            -H "Authorization: Bearer $CF_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data '{"enabled":true,"previews_enabled":false}' "$URL" \
+            > /tmp/nl-stage-open.json
+          jq -e '.success == true and .result.enabled == true and .result.previews_enabled == false' \
+            /tmp/nl-stage-open.json >/dev/null || {
+              echo "::error::Cloudflare did not confirm an isolated LAB route."
+              exit 1
+            }
+          echo "LAB TEST WINDOW OPEN. Use https://localboostzs.github.io/nolimits/verwaltung-lab/ now."
+          sleep 480
+
+      - name: Always close LAB workers.dev again after the test window
+        if: ${{ always() && inputs.mode == 'open-8min' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="$API_BASE/accounts/$ACCOUNT_ID/workers/scripts/$SCRIPT/subdomain"
+          curl --fail --silent --show-error --max-time 20 --retry 3 -X POST \
+            -H "Authorization: Bearer $CF_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data '{"enabled":false,"previews_enabled":false}' "$URL" \
+            > /tmp/nl-stage-closed.json
+          jq -e '.success == true and .result.enabled == false and .result.previews_enabled == false' \
+            /tmp/nl-stage-closed.json >/dev/null || {
+              echo "::error::LAB close not confirmed. Disable staging workers.dev in Cloudflare manually."
+              exit 1
+            }
+          curl --fail --silent --show-error --max-time 15 --retry 2 \
+            -H "Authorization: Bearer $CF_API_TOKEN" "$URL" \
+            | jq -e '.success == true and .result.enabled == false and .result.previews_enabled == false' >/dev/null
+          echo "PASS: LAB public access and previews disabled again."
+
+# This workflow never deploys code or touches the production Worker, Wix or DNS.
+# If GitHub Actions is forcefully killed, closing cannot be guaranteed:
+# check Cloudflare stage subdomain.enabled=false after a failed/cancelled run.
