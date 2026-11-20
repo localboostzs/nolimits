@@ -2,7 +2,7 @@
 
 **Stand:** 20.11.2026  
 **Projekt:** NoLimits / LocalBoost Zentralschweiz  
-**Status:** Synthetischer Wiederherstellungstest **PASS**. Tatsächliche produktive Supabase-Datenbank ist dadurch **NOCH NICHT** gesichert oder wiederherstellungserprobt.
+**Status (20.11.2026):** **Echtes NoLimits-Datenbankbackup und separater Restore im Supabase-Postgres-Image technisch PASS (gemäss Home-Server-Agent-Bericht).** Strukturen und Zeilenzahlen stimmen; ein zeilenweiser Vergleich der Dateninhalte fehlt noch. Offsite-Kopie und ntfy-Empfangsbestätigung offen. Die früheren synthetischen Tests bleiben als unabhängige CI-Nachweise dokumentiert.
 
 ## 1. Derzeit bestätigte Supabase-Situation
 
@@ -49,3 +49,38 @@ Die Migration wurde dabei ergänzt: `service_role` benötigt neben SELECT/INSERT
 - [Go-live- und Rollback-Plan](NoLimits_GoLive_Rollback_20261119.md)
 
 Die verbleibende echte Backup-Einrichtung ist eine **bewusste Release-Sperre** und darf nicht als bereits abgeschlossen dargestellt werden. Die manuelle Mobile-Abnahme bleibt wie vereinbart ganz am Schluss vor dem Treffen mit Isen.
+
+## 5. Echte Home-Server-Sicherung und Restore mit Supabase-Image (20.11.2026)
+
+**Quelle:** Vom Nutzer übermittelter Abschlussbericht des Home-Server-Claude-Code-Agenten vom 20.11.2026. Der Agent-Bericht liegt lokal unter `/home/leon/nolimits-backup-work/results/Abschlussbericht_20261120.md`; der Chat hat keine direkte Verbindung zum Home Server und konnte den Container/Restic-Snapshot daher **nicht unabhängig öffnen**. Davon zu unterscheiden ist die separate direkte Supabase-SQL-Metadatenprüfung weiter unten.
+
+### Backupbetrieb laut Agent
+
+- Home Server: `pg_dump 18.6`, Supabase-Datenbank PostgreSQL **17.11**, direkte TLS-Verbindung mit `verify-full`.
+- Geschützter, gestreamter Datenbankdump in das bestehende verschlüsselte Restic-Repository `/mnt/backup/restic`. Kein persistenter Klartext-SQL-Dump auf dem Host.
+- **Zwei bestätigte Restic-Snapshots laut Agent:** `d6e62ef9` (manuell) und `b094749f` (systemd-Service), jeweils 322 KiB. `pg_restore --list` zeigt 480 Einträge.
+- Eigenständiger `nolimits-supabase-backup.timer` täglich **14:30 Europe/Zurich**, `Persistent=true`. Bestehende `homeserver-backup`- und `second-brain-backup`-Dienste unangetastet. Kein `forget`, kein `prune`.
+- Eigener ntfy-Fehleralarm; **synthetische Fehlersimulation wurde ausgelöst und Meldung versendet (Agent-Bericht)**. **Empfang auf dem Nutzergerät noch nicht bestätigt**.
+
+### Echte Wiederherstellungsprobe (ohne Änderung der Supabase-Quelldaten)
+
+- Separater, wegwerfbarer Testcontainer `supabase/postgres:17.6.1.136` auf `127.0.0.1` mit `tmpfs`; **0 Restore-Fehler**, `supabase_vault`-Extension vorhanden. Frühere drei Extension-Fehler im einfachen `postgres:17`-Image damit **behoben**.
+- Quelle und Restore laut Agent gleich: **41 Tabellen, 8 RLS-Policies, 30 Tabellen mit aktivem RLS, 13 Trigger, 2 `public`-Funktionen; `auth.users` 2, `auth.identities` 3, gleiche Zeilenzahlen sämtlicher `public`-Tabellen**.
+- `vault.secrets`: 0 Zeilen in Quelle und Restore. Ein nichtleerer Vault wurde deshalb **nicht inhaltsbezogen getestet**.
+- Die Restore-Gegenprobe vergleicht **Strukturen und Zeilenzahlen**, aber **nicht** zeilenweise Inhalte bzw. Hashes; daher kein Anspruch auf vollständig nachgewiesene Datenidentität.
+- Temporärer Container, Klartext-Restore-Dump und Testpasswort wurden laut Agent gelöscht.
+
+### Direkt über Supabase verifiziert (unabhängig vom Home-Server-Bericht)
+
+Read-only-Abfrage von `storage.buckets`, `storage.objects` und `vault.secrets`: **0 Storage-Buckets, 0 Storage-Objekte, 0 Vault-Geheimnisse** im aktuellen NoLimits-Projekt. Damit derzeit keine zusätzlichen externen Supabase-Storage-Dateien zu sichern. **Bei zukünftigem Hochladen von Dateien ist ein eigenständiges Storage-Objektbackup zwingend zu ergänzen**, denn `pg_dump` sichert keine Storage-Dateibytes.
+
+### Noch offene Risiken und sinnvolle Nacharbeiten
+
+1. **ntfy-Push auf dem Nutzergerät bestätigen**; Versandtest allein beweist nicht den Empfang.
+2. **Zweite, verschlüsselte, räumlich getrennte Kopie**: die jetzige USB bleibt im selben Haus, damit bei Brand/Diebstahl ein gemeinsamer Ausfallpunkt. Vor der Produktivfreigabe mit dem Auftraggeber eine realistische Offsite-Strategie definieren.
+3. **Wiederherstellung gegen Dateninhalte testen**, z. B. mit geschützten deterministischen Hashes ausgewählter Testdatensätze/Tabellen auf Quelle und Restore. Keine personenbezogenen Zeilen oder Hashes in öffentliches GitHub, Logs oder Chat exportieren; private Hashvergleiche statt Datenexport bevorzugen.
+4. **Aufbewahrung kontrolliert planen**, bevor die USB voll wird. Agent meldet **11.8 GB frei**; wegen geteilter Restic-Instanz niemals unkontrolliert `forget`/`prune` einsetzen.
+5. **Bei Einführung von Storage-Objekten/Vault-Geheimnissen** Recovery-Plan erweitern und gesondert testen.
+6. Der lokale Agent-Bericht kann nach Bereinigung von Geheimnissen/sensiblen Logzeilen im Feature-Branch zusammengefasst werden. `restore.log` aus dem privaten Home-Server-Verzeichnis **nicht ungeprüft** in das öffentliche Repo kopieren.
+
+**Release-Einstufung:** **Backup+Restore-Schema- und Mengencheck PASS**; **dauerhafter Betrieb eingerichtet (gemäss Agent)**. Offsite-Resilienz, tatsächliche Inhaltsgleichheit und ntfy-Empfang bleiben offen. **Kein** Eingriff in Wix, Produktiv-Worker oder bestehende Termine.
