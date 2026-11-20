@@ -18,7 +18,9 @@ create index if not exists nl_booking_alias_created_at_idx
   on public.nl_booking_email_aliases (created_at);
 alter table public.nl_booking_email_aliases enable row level security;
 revoke all on table public.nl_booking_email_aliases from public, anon, authenticated;
-grant select, insert, update on public.nl_booking_email_aliases to service_role;
+-- A cancelled synthetic LAB test and rejected Cal.com bookings must be deletable.
+-- No DELETE privilege is granted to anon or authenticated roles.
+grant select, insert, update, delete on public.nl_booking_email_aliases to service_role;
 -- Deliberately no RLS policies for anon/authenticated.
 -- Only a server-side Supabase secret key in Cloudflare Workers may access rows.
 commit;
