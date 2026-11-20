@@ -9,6 +9,7 @@ on:
         type: choice
         options:
           - preflight-only
+          - smoke-20s
           - open-8min
 
 concurrency:
@@ -46,7 +47,7 @@ jobs:
           echo "PASS: Only nolimits-alias-staging is targeted and its public route is closed."
 
       - name: Open ONLY the LAB workers.dev route for the controlled test window
-        if: ${{ inputs.mode == 'open-8min' }}
+        if: ${{ inputs.mode == 'open-8min' || inputs.mode == 'smoke-20s' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -62,10 +63,14 @@ jobs:
               exit 1
             }
           echo "LAB TEST WINDOW OPEN. Use https://localboostzs.github.io/nolimits/verwaltung-lab/ now."
-          sleep 480
+          if [ "${{ inputs.mode }}" = "smoke-20s" ]; then
+            sleep 20
+          else
+            sleep 480
+          fi
 
       - name: Always close LAB workers.dev again after the test window
-        if: ${{ always() && inputs.mode == 'open-8min' }}
+        if: ${{ always() && (inputs.mode == 'open-8min' || inputs.mode == 'smoke-20s') }}
         shell: bash
         run: |
           set -euo pipefail
