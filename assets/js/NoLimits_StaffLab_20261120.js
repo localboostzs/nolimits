@@ -151,8 +151,13 @@
           line('WICHTIG: Die automatische Stornierung ist fehlgeschlagen. Der interne LAB-Termin muss geprüft und storniert werden.','error');
         }
       }
-      // Only a server-verified cancellation may delete this one LAB alias.
+      // Cal.com cancellation webhooks can arrive after the API confirms a
+      // cancellation. Give the signed Resend webhook a delivery window BEFORE
+      // removing the alias lookup used for the branded cancellation email.
+      // Local browser CI runs against 127.0.0.1 and does not send real mail.
       if (cancelled && signed && jwt) {
+        line('Stornierung bestätigt. Interne Zustellreserve für die Stornierungsmail läuft.');
+        if (location.hostname !== '127.0.0.1') await delay(45000);
         for (var attempt=0;attempt<4 && !aliasCleaned;attempt++) {
           if (attempt>0) await delay(1500);
           try {
