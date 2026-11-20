@@ -1,0 +1,52 @@
+name: NoLimits Alias-Staging Deploy (isoliert)
+on:
+  # A workflow_dispatch button requires this file on the default branch.
+  # Use a branch-only push to register a safe, rerunnable deploy job without merging.
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/NoLimits_Aliasbuchung_20261119
+    paths:
+      - .github/workflows/NoLimits_Aliasbuchung_Deploy_20261119.yml
+jobs:
+  deploy:
+    # Never deploy from main, or any other branch.
+    if: github.ref == 'refs/heads/feature/NoLimits_Aliasbuchung_20261119'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run alias mock integration and isolation tests
+        run: |
+          node --check worker/src/index.js
+          node tests/NoLimits_Aliasbuchung_Tests_20261119.mjs
+          node tests/NoLimits_AliasStaging_Isolation_20261119.mjs
+          node tests/NoLimits_Kalenderdatei_Tests_20261119.mjs
+          node tests/NoLimits_AliasCleanup_Tests_20261120.mjs
+          node tests/NoLimits_DomainSwitch_Tests_20261120.mjs
+          node tests/NoLimits_ProductionCandidate_Tests_20261120.mjs
+          node tests/NoLimits_StaffLabBooking_E2E_20261120.mjs
+          node tests/NoLimits_LabCleanup_Tests_20261120.mjs
+      - name: Verify required staging deployment secrets exist
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.NOLIMITS_STAGING_CF_ACCOUNT_ID }}
+          CF_TOKEN: ${{ secrets.NOLIMITS_STAGING_CF_API_TOKEN }}
+        run: |
+          test -n "$CF_ACCOUNT_ID" || (echo "Missing NOLIMITS_STAGING_CF_ACCOUNT_ID" && exit 1)
+          test -n "$CF_TOKEN" || (echo "Missing NOLIMITS_STAGING_CF_API_TOKEN" && exit 1)
+      - name: Prove staging URL and unapproved ICS are disabled by default
+        run: |
+          grep -qx 'workers_dev = false' worker/wrangler.alias-staging.toml
+          grep -qx 'NL_ICS_ENABLED = "false"' worker/wrangler.alias-staging.toml
+      - name: Deploy ONLY nolimits-alias-staging
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.NOLIMITS_STAGING_CF_API_TOKEN }}
+          accountId: ${{ secrets.NOLIMITS_STAGING_CF_ACCOUNT_ID }}
+          workingDirectory: ./worker
+          command: deploy -c wrangler.alias-staging.toml

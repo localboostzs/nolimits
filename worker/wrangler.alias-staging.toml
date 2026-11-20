@@ -1,0 +1,34 @@
+# NoLimits internal alias booking staging – never deploy over live Worker
+name = "nolimits-alias-staging"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+# Public workers.dev is intentionally disabled by default. Enable only for a short QA window.
+workers_dev = false
+
+# Wrangler module alias: the isolated staging worker uses only the hidden Cal LAB event.
+[alias]
+"./services.js" = "./src/services.alias-staging.js"
+
+[vars]
+ALLOWED_ORIGINS = "https://localboostzs.github.io"
+NL_ALIAS_MODE = "enabled"
+NL_ALIAS_STAGING_ONLY = "true"
+NL_ALIAS_DOMAIN = "localboost-zs.ch"
+NL_ALIAS_PREFIX = "info"
+NL_ALIAS_SEPARATOR = "+"
+NL_EMAIL_ENABLED = "true"
+# Manual Google Calendar ICS imports created duplicates during real client acceptance.
+# Keep attachments OFF until a proper iTIP invitation/update flow passes real clients.
+NL_ICS_ENABLED = "false"
+NL_SUPABASE_URL = "https://jcctdjjunxmxaphjkrsz.supabase.co"
+
+# Bind only on staging after verification and keep all values as Worker secrets:
+# CAL_API_KEY
+# CAL_WEBHOOK_SECRET  (dedicated staging webhook secret)
+# NL_MANAGE_SECRET   (dedicated staging HMAC key)
+# RESEND_API_KEY     (existing authorized key; test real mailboxes only)
+# NL_SUPABASE_SECRET_KEY (Supabase sb_secret_... key, NEVER publish)
+# NL_SUPABASE_PUBLISHABLE_KEY (only if testing staff authorization and CRM)
+# GOOGLE_OAUTH_CLIENT_SECRET (only if testing login in this staging worker)
+#
+# No production routes, custom domains, or shared rate limiting bindings.

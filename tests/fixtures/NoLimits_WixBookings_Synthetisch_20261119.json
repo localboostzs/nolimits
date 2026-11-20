@@ -1,0 +1,20 @@
+[
+  {
+    "wixId": "WIX-SYNTHETIC-NOT-A-REAL-BOOKING-001",
+    "status": "CONFIRMED",
+    "serviceKey": "haarschnitt",
+    "startIso": "2099-01-09T09:00:00+01:00",
+    "customerName": "Testkontakt Eins",
+    "customerEmail": "test-one@example.invalid",
+    "customerPhone": "+41790000001"
+  },
+  {
+    "wixId": "WIX-SYNTHETIC-NOT-A-REAL-BOOKING-002",
+    "status": "CONFIRMED",
+    "serviceKey": "bartschnitt",
+    "startIso": "2099-01-09T10:00:00+01:00",
+    "customerName": "Testkontakt Zwei",
+    "customerEmail": "test-two@example.invalid",
+    "customerPhone": "+41790000002"
+  }
+]

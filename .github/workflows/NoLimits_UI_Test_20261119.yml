@@ -1,0 +1,75 @@
+name: NoLimits mobile/desktop read-only UI audit
+on:
+  push:
+    branches:
+      - feature/NoLimits_Aliasbuchung_20261119
+    paths:
+      - 'tests/NoLimits_MobileDesktop_UI_20261119.mjs'
+      - 'tests/NoLimits_ManageBrowser_E2E_20261119.mjs'
+      - 'tests/NoLimits_AccountProfile_Browser_20261119.mjs'
+      - 'tests/NoLimits_StaffLab_Browser_20261120.mjs'
+      - 'assets/js/manage.js'
+      - 'assets/js/wix-csv.js'
+      - 'assets/js/admin.js'
+      - 'assets/css/**'
+      - 'verwaltung/**'
+      - 'verwaltung-lab/**'
+      - 'assets/js/NoLimits_StaffLab_20261120.js'
+      - 'booking-test/**'
+      - 'konto/**'
+      - 'termin-verwalten/**'
+      - '.github/workflows/NoLimits_UI_Test_20261119.yml'
+  workflow_dispatch:
+jobs:
+  browser-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright with preinstalled Chrome when available
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          if command -v google-chrome >/dev/null 2>&1; then
+            echo "PLAYWRIGHT_EXECUTABLE_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          elif command -v chromium >/dev/null 2>&1; then
+            echo "PLAYWRIGHT_EXECUTABLE_PATH=$(command -v chromium)" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
+      - name: Serve the exact feature branch locally (never change production)
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/nolimits-ui-preview.log 2>&1 &
+          sleep 2
+          curl --fail --silent http://127.0.0.1:8765/booking-test/ -o /dev/null
+      - name: Read-only mobile and desktop UI audit
+        env:
+          NOLIMITS_UI_BASE: http://127.0.0.1:8765
+        run: node tests/NoLimits_MobileDesktop_UI_20261119.mjs
+      - name: Customer management browser E2E (mock API, no bookings)
+        env:
+          NOLIMITS_UI_BASE: http://127.0.0.1:8765
+        run: node tests/NoLimits_ManageBrowser_E2E_20261119.mjs
+      - name: Customer profile save/reload/logout E2E (fake auth)
+        env:
+          NOLIMITS_UI_BASE: http://127.0.0.1:8765
+        run: node tests/NoLimits_AccountProfile_Browser_20261119.mjs
+      - name: Staff-only LAB full browser E2E (mock API, no real booking)
+        env:
+          NOLIMITS_UI_BASE: http://127.0.0.1:8765
+        run: node tests/NoLimits_StaffLab_Browser_20261120.mjs
+      - name: Save screenshots of public demo pages
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NoLimits_UI_Audit_20261119
+          path: |
+            artifacts/nolimits-ui-20261119/
+            artifacts/nolimits-manage-e2e-20261119/
+            artifacts/nolimits-account-e2e-20261119/
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,0 +1,45 @@
+name: NoLimits Aliasbuchung Staging Test
+on:
+  push:
+    branches:
+      - feature/NoLimits_Aliasbuchung_20261119
+  workflow_dispatch:
+jobs:
+  alias-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: node --check worker/src/index.js
+      - name: Alias booking, webhook, rollback mock tests
+        run: |
+          node tests/NoLimits_Aliasbuchung_Tests_20261119.mjs
+          node tests/NoLimits_AliasStaging_Isolation_20261119.mjs
+          node tests/NoLimits_AliasCRM_Regression_20261119.mjs
+          node tests/NoLimits_StaffLabBooking_E2E_20261120.mjs
+          node tests/NoLimits_LabCleanup_Tests_20261120.mjs
+          node tests/NoLimits_KundenTermin_E2E_20261119.mjs
+          node tests/NoLimits_WixCSV_Probeimport_20261119.mjs
+          node tests/NoLimits_WixBookingPlan_Test_20261119.mjs
+          node tests/NoLimits_Kalenderdatei_Tests_20261119.mjs
+          node tests/NoLimits_AliasCleanup_Tests_20261120.mjs
+          node tests/NoLimits_DomainSwitch_Tests_20261120.mjs
+          node tests/NoLimits_ProductionCandidate_Tests_20261120.mjs
+          node tests/NoLimits_ReadonlyPreflight_Tests_20261119.mjs
+          node tools/NoLimits_WixBookingPlan_20261119.mjs tests/fixtures/NoLimits_WixBookings_Synthetisch_20261119.json | node -e "let s=''; process.stdin.on('data',c=>s+=c).on('end',()=>{const r=JSON.parse(s);if(!r.ready||r.summary.prepared!==2)process.exit(1); console.log('PASS: Wix booking CLI offline readiness with two synthetic appointments')})"
+      - name: Verify Wrangler stage bundle (no Cloudflare deployment)
+        working-directory: worker
+        run: |
+          npx --yes wrangler@4 deploy --dry-run --outdir ../.alias-staging-dry-run -c wrangler.alias-staging.toml
+          npx --yes wrangler@4 deploy --dry-run --outdir ../.alias-production-candidate-dry-run -c wrangler.production-candidate.toml
+          grep -rl 'NoLimits LAB Alias-Test' ../.alias-staging-dry-run >/dev/null
+          if grep -rl '7888953' ../.alias-staging-dry-run; then
+            echo 'ERROR: live Cal.com event type included in staging bundle'
+            exit 1
+          fi

@@ -1,0 +1,27 @@
+name: NoLimits API Read-only Diagnose (ohne Deploy)
+on:
+  push:
+    branches:
+      - feature/NoLimits_Aliasbuchung_20261119
+    paths:
+      - .github/workflows/NoLimits_API_ReadonlyProbe_20261120.yml
+      - tools/NoLimits_ReadonlyPreflight_20261119.mjs
+  workflow_dispatch:
+
+jobs:
+  read-only-monitor-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check existing NoLimits booking Worker without write requests
+        run: |
+          node tools/NoLimits_ReadonlyPreflight_20261119.mjs "https://nolimits-booking-test.broken-haze-6cad.workers.dev"
+
+# Schedule intentionally NOT enabled: prove reachability and alert fidelity first.
+# This workflow has no GitHub, Wix, Cal.com, Resend or Cloudflare write action.

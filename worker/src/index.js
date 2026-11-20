@@ -74,8 +74,9 @@ async function listCalBookings(env, status) {
 }
 async function getContacts(req, env) {
   const grouped = new Map();
-  const names = new Map(Object.entries(SERVICES).concat(Object.entries(ADMIN_SERVICES))
-    .map(([,s]) => [s.eventTypeId, s.name]));
+  const names = new Map(Object.entries(SERVICES).concat(
+    env.NL_ALIAS_STAGING_ONLY === 'true' ? [] : Object.entries(ADMIN_SERVICES)
+  ).map(([,s]) => [s.eventTypeId, s.name]));
   const headings = {
     bookingsWarning: false,
     legacyWarning: false,
@@ -147,6 +148,11 @@ async function getContacts(req, env) {
     try {
       const [upcoming,past] = await Promise.all([
         listCalBookings(env,'upcoming'),listCalBookings(env,'past')]);
+      // Resolve opaque booking aliases back to real customer addresses in the CRM.
+      const controlledBookings = [...upcoming, ...past].filter(b =>
+        names.has(Number(b.eventTypeId || b.eventType?.id)));
+      const resolvedAliases = await lookupBookingAliases(env,
+        controlledBookings.map(b => b.attendees?.[0]?.email));
       for (const [kind,list] of [['upcoming',upcoming],['past',past]]) {
         for (const b of list) {
           const eventTypeId=Number(b.eventTypeId || b.eventType?.id);
@@ -154,7 +160,10 @@ async function getContacts(req, env) {
           // Cal.com-Termine oder deren Teilnehmer in NoLimits anzeigen.
           if (!names.has(eventTypeId)) continue;
           const attendee=b.attendees?.[0]||{};
-          const c=record(attendee.email,attendee.name,attendee.phoneNumber);
+          const customerEmail = isAliasEmail(attendee.email, env)
+            ? resolvedAliases.get(String(attendee.email).toLowerCase()) : attendee.email;
+          if (!customerEmail) { headings.bookingsWarning=true; continue; }
+          const c=record(customerEmail,attendee.name,attendee.phoneNumber);
           if(!c) continue;
           c[kind].push({
             uid:b.uid,start:b.start||b.startTime,end:b.end||b.endTime,
@@ -234,6 +243,113 @@ function fail(code, message, status, req, env) {
 
 const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s + 'T00:00:00Z'));
 const isEmail = (s) => s.length <= 120 && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]{2,}$/.test(s);
+
+// --- NoLimits alias bookings (opt-in only, disabled by default) ---
+// The real email stays in NoLimits Supabase; Cal.com receives an opaque alias.
+// Do not enable on production until email routing, migrations and webhooks are tested.
+function aliasSettings(env) {
+  const domain = String(env.NL_ALIAS_DOMAIN || '').trim().toLowerCase();
+  const prefix = String(env.NL_ALIAS_PREFIX || 'buchung').trim().toLowerCase();
+  const separator = env.NL_ALIAS_SEPARATOR === '+' ? '+' : '-';
+  if (!/^[a-z0-9](?:[a-z0-9.-]{1,90})\.[a-z]{2,}$/.test(domain) ||
+      !/^[a-z][a-z0-9-]{0,19}$/.test(prefix)) return null;
+  return { domain, prefix, separator };
+}
+function isAliasEmail(email, env) {
+  const cfg = aliasSettings(env);
+  if (!cfg) return false;
+  const e = String(email || '').toLowerCase();
+  const start = cfg.prefix + cfg.separator;
+  return e.endsWith('@' + cfg.domain) &&
+    /^[0-9a-f]{32}$/.test(e.slice(start.length, -('@' + cfg.domain).length)) &&
+    e.startsWith(start);
+}
+function aliasApiConfig(env) {
+  const url = String(env.NL_SUPABASE_URL || '');
+  const key = String(env.NL_SUPABASE_SECRET_KEY || '');
+  if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(url) ||
+      !(key.startsWith('sb_secret_') || key.startsWith('eyJ'))) {
+    throw Error('Alias database is not configured');
+  }
+  // New Supabase sb_secret keys must be sent on apikey, NOT Authorization: Bearer.
+  const headers = { apikey: key, 'Content-Type': 'application/json' };
+  if (key.startsWith('eyJ')) headers.Authorization = 'Bearer ' + key;
+  return { url: url + '/rest/v1/nl_booking_email_aliases', headers };
+}
+async function createBookingAlias(env, customerEmail, eventTypeId) {
+  const cfg = aliasSettings(env);
+  if (!cfg) throw Error('Alias domain is not configured');
+  const unique = crypto.randomUUID().replace(/-/g, '');
+  const alias = cfg.prefix + cfg.separator + unique + '@' + cfg.domain;
+  const db = aliasApiConfig(env);
+  const response = await fetch(db.url, {
+    method: 'POST',
+    headers: { ...db.headers, Prefer: 'return=minimal' },
+    body: JSON.stringify({ alias_email: alias, customer_email: customerEmail, event_type_id: eventTypeId }),
+    redirect: 'manual'
+  });
+  if (!response.ok) throw Error('Could not store alias before booking');
+  return alias;
+}
+async function bindBookingAlias(env, alias, uid) {
+  if (!alias || !VALID_UID.test(uid)) return;
+  const db = aliasApiConfig(env);
+  const response = await fetch(db.url + '?alias_email=eq.' + encodeURIComponent(alias), {
+    method: 'PATCH',
+    headers: { ...db.headers, Prefer: 'return=minimal' },
+    body: JSON.stringify({ booking_uid: uid }),
+    redirect: 'manual'
+  });
+  if (!response.ok) throw Error('Alias booking UID update failed');
+}
+// Remove an alias only after Cal.com has DEFINITIVELY rejected its request.
+// Never delete after network timeouts/5xx or ambiguous booking states: a
+// confirmed booking and its later webhook might still need the mapping.
+async function discardRejectedBookingAlias(env, alias) {
+  if (!isAliasEmail(alias, env)) return false;
+  const db = aliasApiConfig(env);
+  const response = await fetch(db.url + '?alias_email=eq.' + encodeURIComponent(alias) +
+    '&booking_uid=is.null', {
+    method: 'DELETE',
+    headers: { ...db.headers, Prefer: 'return=minimal' },
+    redirect: 'manual'
+  });
+  if (!response.ok) throw Error('Unable to remove rejected booking alias');
+  return true;
+}
+
+async function lookupBookingAliases(env, addresses) {
+  const aliases = [...new Set(addresses.map(e => String(e || '').trim().toLowerCase()).filter(e => isAliasEmail(e, env)))];
+  const found = new Map();
+  if (!aliases.length) return found;
+  const db = aliasApiConfig(env);
+  for (let i = 0; i < aliases.length; i += 30) {
+    const batch = aliases.slice(i, i + 30);
+    const query = new URLSearchParams({
+      select: 'alias_email,customer_email',
+      alias_email: 'in.(' + batch.map(a => '"' + a + '"').join(',') + ')'
+    });
+    const response = await fetch(db.url + '?' + query, { headers: db.headers, redirect: 'manual' });
+    if (!response.ok) throw Error('Alias lookup failed');
+    const rows = await response.json();
+    if (!Array.isArray(rows)) throw Error('Invalid alias lookup');
+    for (const row of rows) {
+      if (isAliasEmail(row.alias_email, env) && isEmail(String(row.customer_email || ''))) {
+        found.set(String(row.alias_email).toLowerCase(), String(row.customer_email).toLowerCase());
+      }
+    }
+  }
+  return found;
+}
+async function resolveAttendeeEmail(env, email) {
+  if (!isAliasEmail(email, env)) return email;
+  const map = await lookupBookingAliases(env, [email]);
+  const realEmail = map.get(String(email).toLowerCase());
+  if (!realEmail) throw Error('Unmapped booking alias');
+  return realEmail;
+}
+// --- End NoLimits alias bookings ---
+
 const clean = (s, max) => String(s ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').trim().slice(0, max);
 
 function calHeaders(env, version) {
@@ -297,9 +413,17 @@ async function book(req, env, adminMode = false) {
   if (b.website) return json({ ok: false, error: { code: 'rejected', message: 'Anfrage abgelehnt.' } }, 400, req, env);
   if (typeof b.elapsedMs === 'number' && b.elapsedMs < 3000) return fail('too_fast', 'Bitte Angaben in Ruhe prüfen und erneut senden.', 400, req, env);
 
+  // Staff LAB bookings are allowed only against SERVICES (hidden Cal.com LAB event).
+  // Never fall through to a production-only internal event type from ADMIN_SERVICES.
+  if (adminMode && env.NL_ALIAS_STAGING_ONLY === 'true' && !Object.hasOwn(SERVICES, b.service)) {
+    return fail('staging_admin_disabled','Nur die interne Testleistung ist in dieser Umgebung buchbar.',403,req,env);
+  }
   const service = adminMode ? (ADMIN_SERVICES[b.service] || SERVICES[b.service]) : SERVICES[b.service];
   const name = clean(b.name, 80);
   const email = clean(b.email, 120).toLowerCase();
+  if (env.NL_ALIAS_STAGING_ONLY === 'true' && !/^[a-z0-9._%+-]+@localboost-zs\.ch$/i.test(email)) {
+    return fail('staging_test_email_only', 'In dieser Testumgebung nur interne LocalBoost-Testadressen.', 403, req, env);
+  }
   const phone = clean(b.phone, 30);
   const notes = clean(b.notes, 500);
   const startMs = Date.parse(b.start);
@@ -310,11 +434,21 @@ async function book(req, env, adminMode = false) {
   if (b.accepted !== true) return fail('terms_required', 'Bitte die Stornierungsbedingungen bestätigen.', 400, req, env);
   if (Number.isNaN(startMs) || startMs < Date.now() || startMs > Date.now() + 366 * 86400000) return fail('invalid_start', 'Ungültiger Termin.', 400, req, env);
 
+  // Alias mode is OFF unless explicitly enabled on this Worker deployment.
+  // Store mapping BEFORE contacting Cal.com, so immediate webhooks can resolve it.
+  let bookingAlias = null;
+  if (env.NL_ALIAS_MODE === 'enabled') {
+    try {
+      bookingAlias = await createBookingAlias(env, email, service.eventTypeId);
+    } catch {
+      return fail('alias_unavailable', 'Die Buchung ist momentan nicht verfügbar. Bitte später erneut versuchen.', 503, req, env);
+    }
+  }
   const payload = {
     start: new Date(startMs).toISOString(),
     eventTypeId: service.eventTypeId,
-    attendee: { name, email, timeZone: TIME_ZONE, language: 'de', phoneNumber: phone },
-    bookingFieldsResponses: { ...(adminMode && ADMIN_SERVICES[b.service] ? {} : { stornierungsbedingungen_akzeptiert: true }), ...(notes ? { notes } : {}) },
+    attendee: { name, email: bookingAlias || email, timeZone: TIME_ZONE, language: 'de', phoneNumber: phone },
+    bookingFieldsResponses: { ...((env.NL_ALIAS_STAGING_ONLY === 'true' || (adminMode && ADMIN_SERVICES[b.service])) ? {} : { stornierungsbedingungen_akzeptiert: true }), ...(notes ? { notes } : {}) },
   };
   let res;
   try {
@@ -324,6 +458,13 @@ async function book(req, env, adminMode = false) {
   }
   const out = await res.json().catch(() => null);
   if (!res.ok) {
+    // For definite validation/conflict rejections Cal.com did not create a
+    // booking. Delete only the still-unbound alias to avoid storing unnecessary
+    // customer email addresses indefinitely. On timeouts/5xx keep it for
+    // possible delayed acceptance and webhook delivery.
+    if (bookingAlias && [400, 409, 422].includes(res.status)) {
+      await discardRejectedBookingAlias(env, bookingAlias).catch(() => null);
+    }
     // Keine Kundendaten weiterreichen oder protokollieren; nur eine sinnvolle Fehlerklasse zurückgeben.
     const msg = String(out?.message || out?.error?.message || '').toLowerCase();
     if (/email|mail/.test(msg)) return fail('invalid_email', 'Diese E-Mail-Adresse kann keine Nachrichten empfangen. Bitte eine gültige Adresse angeben.', 400, req, env);
@@ -336,15 +477,30 @@ async function book(req, env, adminMode = false) {
   const d = out?.data;
   // Nur bestätigte Buchungen als Erfolg melden.
   if (!d || d.status !== 'accepted') return fail('not_confirmed', 'Die Buchung wurde nicht bestätigt. Bitte erneut versuchen.', 502, req, env);
+  // UID binding is best-effort: alias->real email was already persisted before Cal.com.
+  // Never return a booking error after Cal.com has accepted it (avoids double bookings).
+  if (bookingAlias) await bindBookingAlias(env, bookingAlias, d.uid).catch(() => null);
   const token = env.CAL_API_KEY ? await managementToken(d.uid, d.start, env) : null;
-  const manageUrl = token ? FRONTEND_BASE + MANAGE_PATH + '?uid=' + encodeURIComponent(d.uid) + '&token=' + encodeURIComponent(token) : null;
+  const manageUrl = customerManageLink(d.uid, token, env);
   return json({ ok: true, booking: { uid: d.uid, status: d.status, start: d.start, end: d.end, service: service.name, manageUrl } }, 201, req, env);
 }
 
 
 /* Customer booking management: stateless signed links, no PII or secret in public repo. */
-const MANAGE_PATH = '/nolimits/termin-verwalten/';
-const FRONTEND_BASE = 'https://localboostzs.github.io';
+// The customer-facing site changes only AFTER Isen approves go-live.
+// Only the approved NoLimits domains are allowed; arbitrary URLs in Worker
+// environment configuration cannot redirect signed management links.
+const DEFAULT_PUBLIC_SITE_BASE = 'https://localboostzs.github.io/nolimits';
+function publicSiteBase(env) {
+  const configured = String(env.NL_PUBLIC_SITE_BASE || '').trim().replace(/\/+$/, '');
+  if (configured === DEFAULT_PUBLIC_SITE_BASE ||
+      /^https:\/\/(?:www\.)?nolimits-barber\.ch$/i.test(configured)) return configured;
+  return DEFAULT_PUBLIC_SITE_BASE;
+}
+function customerManageLink(uid, token, env) {
+  return token ? publicSiteBase(env) + '/termin-verwalten/?uid=' +
+    encodeURIComponent(uid) + '&token=' + encodeURIComponent(token) : null;
+}
 const VALID_UID = /^[A-Za-z0-9_-]{12,120}$/;
 function serviceForCal(eventTypeId) {
   return Object.entries({ ...SERVICES, ...ADMIN_SERVICES })
@@ -390,6 +546,45 @@ async function readCalBooking(uid, env) {
   if (!b || b.uid !== uid || !serviceForCal(b.eventTypeId || b.eventType?.id)) return { response: null, booking: null };
   return { response: res, booking: b };
 }
+// QA-only cleanup: remove the synthetic alias only AFTER Cal.com reports
+// the exact LAB booking as cancelled. Never reachable in the production Worker.
+async function cleanupCancelledLabAlias(req, env) {
+  if (env.NL_ALIAS_STAGING_ONLY !== 'true') {
+    return fail('not_found','Nicht gefunden.',404,req,env);
+  }
+  const staff = await requireStaff(req, env);
+  if (!staff.ok) return fail(staff.code,staff.message,staff.status,req,env);
+  if (Number(req.headers.get('Content-Length') || 0) > 512) {
+    return fail('too_large','Anfrage zu gross.',413,req,env);
+  }
+  const b=await req.json().catch(()=>null);
+  const uid=clean(b?.uid,120);
+  if (!VALID_UID.test(uid)) return fail('invalid_uid','Ungültiger Testtermin.',400,req,env);
+  const service=Object.values(SERVICES).find(s=>Number(s.eventTypeId)===7982460);
+  if (!service) return fail('staging_config_error','LAB-Test ist nicht eingerichtet.',503,req,env);
+  try {
+    const found=await readCalBooking(uid,env);
+    const booking=found.booking;
+    if (!booking || Number(booking.eventTypeId || booking.eventType?.id)!==7982460) {
+      return fail('not_lab_booking','Kein bestätigter LAB-Testtermin.',403,req,env);
+    }
+    if (!['cancelled','canceled'].includes(String(booking.status||'').toLowerCase())) {
+      return fail('not_cancelled','LAB-Testtermin muss zuerst storniert werden.',409,req,env);
+    }
+    const db=aliasApiConfig(env);
+    const q=new URLSearchParams({booking_uid:'eq.'+uid,event_type_id:'eq.7982460'});
+    const response=await fetch(db.url+'?'+q,{
+      method:'DELETE',
+      headers:{...db.headers,Prefer:'return=minimal'},
+      redirect:'manual'
+    });
+    if (!response.ok) throw Error('LAB cleanup not confirmed');
+    return json({ok:true,cleaned:true},200,req,env);
+  } catch {
+    return fail('cleanup_unavailable','LAB-Testdaten konnten nicht bereinigt werden.',503,req,env);
+  }
+}
+
 async function accessManage(req, env, uid, token) {
   if (!env.CAL_API_KEY) return { error: fail('not_configured', 'Die Terminverwaltung wird gerade eingerichtet. Bis dahin bitte den Stornolink aus der Cal.com-E-Mail verwenden.', 503, req, env) };
   if (!(await validManagementToken(uid, token, env))) return { error: fail('invalid_link', 'Dieser Buchungslink ist ungültig oder abgelaufen.', 403, req, env) };
@@ -456,16 +651,82 @@ async function routeManage(req, env, url) {
       if (!r.ok) return fail('upstream_error','Umbuchung nicht bestätigt. Bitte erneut versuchen.',502,req,env);
       const out = await r.json().catch(()=>null), newer = out?.data;
       return json({ok:true,booking:{start:newer?.start||chosen,end:newer?.end||null,status:newer?.status||'accepted',
-        manageUrl: newer?.uid && newer?.start ? FRONTEND_BASE+MANAGE_PATH+'?uid='+encodeURIComponent(newer.uid)+'&token='+encodeURIComponent(await managementToken(newer.uid,newer.start,env)) : null
+        manageUrl: newer?.uid && newer?.start ? customerManageLink(newer.uid,
+          await managementToken(newer.uid, newer.start, env), env) : null
       }},200,req,env);
     } catch { return fail('unavailable','Umbuchung momentan nicht erreichbar.',502,req,env); }
   }
   return fail('not_found','Nicht gefunden.',404,req,env);
 }
+// Optional .ics for real customers: no Cal.com attendee alias or auth token is included.
+// Stable UID comes from the alias UUID, so reschedule/cancel refer to the same entry.
+function calendarEscape(value) {
+  return String(value ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '')
+    .replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,')
+    .replace(/\r\n|\r|\n/g, '\\n');
+}
+function calendarFold(line) {
+  let out = '', count = 0;
+  const encoder = new TextEncoder();
+  for (const char of line) {
+    const bytes = encoder.encode(char).length;
+    if (count + bytes > 75) {
+      out += '\r\n ';
+      count = 1;
+    }
+    out += char;
+    count += bytes;
+  }
+  return out;
+}
+function calendarUTC(time) {
+  const value = new Date(time);
+  if (!Number.isFinite(value.getTime())) throw Error('Invalid calendar time');
+  return value.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+}
+function calendarAttachment(type, p, match, attendeeEmail, env) {
+  if (env.NL_ICS_ENABLED !== 'true' || !isAliasEmail(attendeeEmail, env)) return null;
+  const aliasId = String(attendeeEmail).toLowerCase().match(/(?:\+|-)([0-9a-f]{32})@/)?.[1];
+  if (!aliasId) return null;
+  const begin = Date.parse(p.startTime);
+  if (!Number.isFinite(begin)) return null;
+  const rawEnd = Date.parse(p.endTime || '');
+  const finish = Number.isFinite(rawEnd) && rawEnd > begin
+    ? rawEnd : begin + match[1].minutes * 60000;
+  const cancelled = type === 'BOOKING_CANCELLED';
+  const method = cancelled ? 'CANCEL' : 'PUBLISH';
+  const sequence = cancelled ? 2 : type === 'BOOKING_RESCHEDULED' ? 1 : 0;
+  const properties = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//NoLimits Barbershop//Terminservice//DE',
+    'CALSCALE:GREGORIAN',
+    'METHOD:' + method,
+    'BEGIN:VEVENT',
+    'UID:nolimits-' + aliasId + '@nolimits-barber.ch',
+    'DTSTAMP:' + calendarUTC(Date.now()),
+    'DTSTART:' + calendarUTC(begin),
+    'DTEND:' + calendarUTC(finish),
+    'SEQUENCE:' + sequence,
+    'STATUS:' + (cancelled ? 'CANCELLED' : 'CONFIRMED'),
+    'SUMMARY:' + calendarEscape('NoLimits Barbershop – ' + match[1].name),
+    'LOCATION:' + calendarEscape('Schmiedgasse 94, 6438 Ibach, Schweiz'),
+    'DESCRIPTION:' + calendarEscape('Termin bei NoLimits Barbershop. Änderungen und Absagen über den persönlichen Link aus der Bestätigungs-E-Mail. Bei manueller Kalenderübernahme aktualisieren sich Einträge je nach Kalender-App nicht automatisch.'),
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ];
+  const ics = properties.map(calendarFold).join('\r\n') + '\r\n';
+  return {
+    filename: 'NoLimits_Termin.ics',
+    content: btoa(String.fromCharCode(...new TextEncoder().encode(ics))),
+    content_type: 'text/calendar; charset=utf-8'
+  };
+}
+
 function mailEscape(value) {
   return String(value ?? '').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 }
-function mailHtml(event, p, match, manageUrl) {
+function mailHtml(event, p, match, manageUrl, hasCalendar = false, env = {}) {
   const cancelled = event === 'BOOKING_CANCELLED';
   const title = cancelled ? 'Dein Termin wurde storniert' : event === 'BOOKING_RESCHEDULED' ? 'Dein Termin wurde verschoben' : 'Dein Termin ist bestätigt';
   const intro = cancelled ? 'Dein Termin wurde erfolgreich storniert. Hier findest du die Angaben zur abgesagten Buchung.' : event === 'BOOKING_RESCHEDULED' ? 'Dein Termin wurde erfolgreich verschoben. Hier sind deine neuen Termindetails.' : 'Vielen Dank für deine Buchung. Wir freuen uns auf deinen Besuch bei NoLimits.';
@@ -495,7 +756,7 @@ function mailHtml(event, p, match, manageUrl) {
 <tr><td align="center" style="padding:32px 12px 40px;">
 <table role="presentation" class="email-shell" width="560" border="0" cellspacing="0" cellpadding="0" style="width:560px;max-width:100%;border-collapse:collapse;background-color:#f4efe7;">
 <tr><td align="center" style="background:#0f0f0e;padding:35px 24px 28px;border-top:5px solid #c0974f;">
-<img src="https://localboostzs.github.io/nolimits/assets/img/logo-nolimits.jpg" alt="NoLimits Barbershop" width="78" height="78" style="width:78px;height:78px;object-fit:cover;border:0;display:block;margin:0 auto 17px;">
+<img src="${mailEscape(publicSiteBase(env)+'/assets/img/logo-nolimits.jpg')}" alt="NoLimits Barbershop" width="78" height="78" style="width:78px;height:78px;object-fit:cover;border:0;display:block;margin:0 auto 17px;">
 <div style="font-size:11px;font-weight:700;letter-spacing:3px;line-height:17px;color:#d9b672;text-transform:uppercase;">NOLIMITS BARBERSHOP</div>
 <div style="height:1px;width:72px;background:#c0974f;margin-top:16px;"></div>
 </td></tr>
@@ -512,6 +773,7 @@ ${price}
 <div style="font-size:14px;line-height:1.8;color:#59534a;"><strong style="color:#171715;">Ort:</strong> Schmiedgasse 94, 6438 Ibach</div>
 </td></tr></table>
 ${safeLink}
+${hasCalendar ? '<p style="font-size:13px;line-height:1.8;color:#59534a;margin:20px 0 0;">Eine Kalenderdatei liegt bei. Beim Importieren oder bei Änderungen bitte den bestehenden Kalendereintrag kontrollieren; der Kalender wird nicht automatisch synchronisiert.</p>' : ''}
 <p style="font-size:13px;line-height:1.8;color:#59534a;margin:28px 0 0;">${securityHint}</p>
 <table role="presentation" border="0" cellspacing="0" cellpadding="0" width="100%" style="margin-top:33px;border-collapse:collapse;"><tr><td style="height:1px;background:#ddd4c4;"></td></tr></table>
 <p style="margin:24px 0 0;font-size:12px;line-height:1.7;color:#59534a;">NoLimits Barbershop · Schmiedgasse 94, 6438 Ibach · Bezahlung vor Ort.</p>
@@ -519,7 +781,7 @@ ${safeLink}
 <tr><td class="email-padding" style="background:#171715;padding:27px 45px 29px;">
 <div style="font-size:12px;color:#d9b672;font-weight:bold;letter-spacing:.7px;">NoLimits Barbershop</div>
 <div style="font-size:11px;color:#a8a093;margin-top:8px;line-height:1.8;">Schmiedgasse 94, 6438 Ibach, Schweiz</div>
-<div style="font-size:11px;margin-top:10px;"><a href="https://nolimits-barber.ch" style="color:#d9b672;text-decoration:underline;">Website</a> &nbsp;&nbsp; <a href="https://localboostzs.github.io/nolimits/impressum/" style="color:#d9b672;text-decoration:underline;">Impressum &amp; Datenschutz</a></div>
+<div style="font-size:11px;margin-top:10px;"><a href="${mailEscape(publicSiteBase(env))}" style="color:#d9b672;text-decoration:underline;">Website</a> &nbsp;&nbsp; <a href="${mailEscape(publicSiteBase(env)+'/impressum/')}" style="color:#d9b672;text-decoration:underline;">Impressum &amp; Datenschutz</a></div>
 </td></tr>
 </table>
 </td></tr>
@@ -557,12 +819,30 @@ async function onCalWebhook(req, env) {
     } catch { /* Cal.com unavailable; do not send an unverified email. */ }
   }
   if (!match) return json({ok:true,ignored:true},200,req,env);
-  const customer = (p.attendees || []).find(a=>isEmail(String(a.email||'')));
+  let customer = (p.attendees || []).find(a=>isEmail(String(a.email||'')));
+  // Some cancellation/reschedule webhooks omit attendees; resolve via Cal.com if possible.
+  if (!customer) {
+    try {
+      const lookup = await readCalBooking(uid, env);
+      customer = (lookup.booking?.attendees || []).find(a=>isEmail(String(a.email||'')));
+    } catch { /* no verified attendee: fail safely below */ }
+  }
   if (!customer) return json({ok:true,ignored:true},200,req,env);
+  let destinationEmail;
+  try {
+    destinationEmail = await resolveAttendeeEmail(env, customer.email);
+  } catch {
+    // Do not fall back to sending the branded email to an alias.
+    // A non-2xx response also permits upstream retries where supported.
+    return fail('alias_lookup_failed','Die E-Mail-Zuordnung konnte nicht geprüft werden.',503,req,env);
+  }
   const tok = typ==='BOOKING_CANCELLED'?null:await managementToken(uid,p.startTime,env);
-  const link = tok ? FRONTEND_BASE+MANAGE_PATH+'?uid='+encodeURIComponent(uid)+'&token='+encodeURIComponent(tok) : null;
+  const link = customerManageLink(uid, tok, env);
   const subject = typ==='BOOKING_CANCELLED'?'Dein Termin wurde storniert – NoLimits Barbershop':typ==='BOOKING_RESCHEDULED'?'Dein neuer Termin – NoLimits Barbershop':'Dein Termin ist bestätigt – NoLimits Barbershop';
-  const mail = {from:'NoLimits Barbershop <login@nolimits-barber.ch>',to:[customer.email],subject,html:mailHtml(typ,p,match,link)};
+  const calendar = calendarAttachment(typ, p, match, customer.email, env);
+  const mail = {from:'NoLimits Barbershop <noreply@nolimits-barber.ch>',to:[destinationEmail],subject,
+    html:mailHtml(typ,p,match,link,!!calendar,env)};
+  if (calendar) mail.attachments = [calendar];
   const key = 'nolimits/'+typ+'/'+uid;
   const resp=await fetch('https://api.resend.com/emails',{
     method:'POST',headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json','Idempotency-Key':key},
@@ -667,19 +947,23 @@ export default {
     try {
       if (req.method === 'POST' && url.pathname === '/api/auth/google/exchange') return await exchangeGoogleCode(req, env);
       if (req.method === 'POST' && url.pathname === '/api/webhooks/cal') return await onCalWebhook(req, env);
+      if (req.method === 'POST' && url.pathname === '/api/lab/cleanup') return await cleanupCancelledLabAlias(req, env);
       if ((req.method === 'GET' || req.method === 'POST') && (url.pathname === '/api/manage' || url.pathname.startsWith('/api/manage/'))) return await routeManage(req, env, url);
       if (url.pathname.startsWith('/api/admin/')) {
         const access = await requireStaff(req, env);
         if (!access.ok) return fail(access.code, access.message, access.status, req, env);
         if (req.method === 'GET' && url.pathname === '/api/admin/services') {
-          const list = Object.entries(SERVICES).concat(Object.entries(ADMIN_SERVICES))
-            .map(([key,s]) => ({ key, name:s.name, minutes:s.minutes, price:s.price ?? null, internal:!!ADMIN_SERVICES[key] }));
+          const available = Object.entries(SERVICES).concat(
+            env.NL_ALIAS_STAGING_ONLY === 'true' ? [] : Object.entries(ADMIN_SERVICES));
+          const list = available.map(([key,s]) =>
+            ({ key, name:s.name, minutes:s.minutes, price:s.price ?? null, internal:!!ADMIN_SERVICES[key] }));
           return json({ ok:true, services:list }, 200, req, env);
         }
         if (req.method === 'GET' && url.pathname === '/api/admin/contacts') return await getContacts(req, env);
         if (req.method === 'GET' && url.pathname === '/api/admin/slots') {
           const key = url.searchParams.get('service');
-          const service = SERVICES[key] || ADMIN_SERVICES[key];
+          const service = SERVICES[key] ||
+            (env.NL_ALIAS_STAGING_ONLY === 'true' ? null : ADMIN_SERVICES[key]);
           if (!service) return fail('invalid_service','Unbekannte Leistung.',400,req,env);
           return await getSlots(url, req, env, service);
         }
