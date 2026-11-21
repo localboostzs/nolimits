@@ -1,5 +1,5 @@
 # NoLimits – Produktivfreigabe und Gespräch mit Isen
-**Stand:** 19.11.2026 · **Status:** Entwurf; keine produktive Umschaltung. 
+**Stand:** 21.11.2026 · **Status:** Phase 1 Testsystem technisch vollständig abgenommen; Gespräch mit Isen darf vorbereitet werden. Keine produktive Umschaltung. 
 **Gilt für:** GitHub `localboostzs/nolimits`, PR #3, Feature-Branch `feature/NoLimits_Aliasbuchung_20261119`.
 
 ## VERBINDLICHER Projektablauf (vom Auftraggeber am 19.11.2026 festgelegt)
@@ -50,3 +50,11 @@ Phase 1 soll nach Wunsch **möglichst vor dem 30.11.2026** fertig sein; Qualitä
 - Beabsichtigte Domain-/Buchungsseiten-Umschaltung und gewünschter Go-live-Termin.
 
 **Freigabegrenze:** Ohne Kalendersynchronisation, getesteten Support-/Verwaltungsweg und sicheren Rückfallmechanismus keine unbemerkte Produktivumschaltung.
+
+## Finale Phase-1-Freigabe nach iPhone-Abnahme vom 21.11.2026
+
+- Letzte offene manuelle iPhone-Abnahme vom Auftraggeber ausdrücklich als **PASS** bestätigt. Zuvor automatisierte Responsive-/Konto-/Buchungs-/Mitarbeitertests **PASS**.
+- Echtes Home-Server-Restic-Backup `d91b6a3e`: isolierter Supabase-Postgres-Restore ohne Fehler, SHA-256-Dateninhalt bei **42 Tabellen identisch, 0 Abweichungen**; Backup-Alarm erfolgreich ans iPhone zugestellt.
+- Nach Mobil-Abnahme nochmals read-only geprüft: LAB-Worker ist öffentlich geschlossen, 0 aktive LAB-Buchungen, GitHub Pages Build `built`, Alias-Backend-PR #3 `draft=true`, Mock-/Browsertests grün.
+- **Phase-1-Technikabnahme PASS.** [Besprechung und Agenda mit Isen](NoLimits_Isen_Treffen_Vorbereitung_20261121.md) sind vorbereitet. **Der Assistent hat Isen nicht kontaktiert.**
+- **Keine Produktivfreigabe**: Isens Bestandsdaten/Kalender, endgültiger Datenschutz/Support, zweites verschlüsseltes Offsite-Backup, Backup-Retention und sichere Live-Migration sind nach seiner Zustimmung zu organisieren. Wix-Website, Kalender, Domain, DNS, Abo und Live-Worker bleiben unverändert. `NL_ICS_ENABLED=false` wegen nachgewiesener Doppelterminprobleme.
