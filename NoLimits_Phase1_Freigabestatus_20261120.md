@@ -1,8 +1,8 @@
 # NoLimits – Phase-1-Technikabnahme und Übergabe-Gates
 
 **Projekt:** LocalBoost Zentralschweiz / NoLimits Barbershop  
-**Stand:** 21.11.2026, nach frischem echten NoLimits-Supabase-Backup, isoliertem Inhaltsvergleich und abschliessendem Release-Review.  
-**Status:** Testsystem weitgehend bereit; **keine Freigabe für Isens Termin und keine Produktivumschaltung**, solange die ausdrücklich offenen Phase-1-Punkte nicht erledigt sind.
+**Stand:** 21.11.2026, nach expliziter manueller iPhone-Abnahme des Auftraggebers.  
+**Status: PHASE 1 – TECHNISCH BESTANDEN.** Der Auftraggeber bestätigte die letzte iPhone-Abnahme mit «iPhone-Abnahme PASS». Die Vorbereitung einer Gesprächseinladung mit Isen ist nun möglich, **Kontaktaufnahme nur mit ausdrücklicher Zustimmung des Auftraggebers**. Dies ist **keine Produktivfreigabe**; Wix, Live-Worker und DNS bleiben unverändert.
 
 ## A. Von echten Quellen oder Tests bestätigte Nachweise
 
@@ -19,7 +19,7 @@
 | Backup und technischer Restore | **PASS** | Frischer Snapshot `d91b6a3e`, isolierter Restore im Supabase-Postgres-Image 0 Fehler, **42 Tabellen per SHA-256-Inhaltsvergleich identisch (0 Abweichungen)**; Restic/Timer PASS, laut privatem Home-Server-Agent-Bericht. [Bericht](NoLimits_Backup_Restore_20261120.md) |
 | Backup-Fehlermeldung | **PASS** | Synthetischer systemd-Fehleralarm ausgelöst, Nutzer bestätigt tatsächlichen ntfy-Empfang auf dem iPhone |
 | Synthetischer Inhalts-Fingerprint-Test | **PASS** | Zusätzlich zur echten Restore-Prüfung wurde das Tool gegen manipulierte synthetische Daten in [CI](https://github.com/localboostzs/nolimits/actions/runs/44832698968) erfolgreich getestet |
-| Vollständige Browser-/Mobile-Simulation | **Automatisierte Regression** | [Playwright-Workflow](https://github.com/localboostzs/nolimits/actions/workflows/NoLimits_UI_Test_20261119.yml); **reale iPhone-Abnahme ausdrücklich noch offen** |
+| Vollständige Browser-/Mobile-Simulation | **PASS – AUTOMATION UND IPHONE** | [Playwright-Workflow erfolgreich](https://github.com/localboostzs/nolimits/actions/runs/44833543244); **reale iPhone-Abnahme vom Nutzer am 21.11.2026 ausdrücklich mit «iPhone-Abnahme PASS» bestätigt** [Protokoll](NoLimits_Mobile_Abnahme_20261121.md) |
 
 ## B. Noch VOR dem Treffen mit Isen erledigen
 
@@ -27,9 +27,9 @@
 
 **B2 – Abschliessender Release-/Rollback-Review: PASS für alle ohne Isen und ohne Live-Änderung durchführbaren Punkte (21.11.2026).** Alias-/CRM-/Termin-/Wix-/Domain-Rollback-Mocktests [PASS](https://github.com/localboostzs/nolimits/actions/runs/44833810695), automatisierte Kunden- und Mobile-UI-Tests [PASS](https://github.com/localboostzs/nolimits/actions/runs/44833543244), Live-Produktions-Read-only-Monitor [PASS](https://github.com/localboostzs/nolimits/actions/runs/44834069603), realer isolierter falscher HMAC mit 401 [PASS](https://github.com/localboostzs/nolimits/actions/runs/44833356012). Github-Pages-Build `built`; PR #3 weiterhin **DRAFT**, Worker `nolimits-alias-staging` abgeschaltet; Produktionskandidat zielt auf bestehenden Worker `nolimits-booking-test` mit `NL_ALIAS_MODE=off`, `NL_ICS_ENABLED=false`, korrekten Rate-Limits. **Live-Deployment, realer Alias-Rollback mit produktiven Terminen, Isens echte Kalender-/DNS-Konfiguration und Wix-Datenmigration bleiben nach Freigabe/Termin gesperrt.**
 
-**B3 – Letzte Anwender- und Mobile-Abnahme: OFFEN, jetzt als letzter Phase-1-Schritt durch den Nutzer.** [Konkrete iPhone-Schritt-für-Schritt-Anleitung](NoLimits_Mobile_Abnahme_20261121.md). Nach bestandenem B1 und B2 auf dem iPhone die öffentliche GitHub-Testwebsite `https://localboostzs.github.io/nolimits/`, Konto-/Login und Buchungsablauf visuell kontrollieren. Nur interne Testdaten verwenden; keine echten zahlenden Kunden oder produktiven Wix-Termine buchen. Auf 320–390 px Bildbreite insbesondere Navigation, Preis- und Leistungslisten, Datum/Zeiten, CTA, Überlagerungen und Kundenkonto prüfen. Ergebnisse dokumentieren. Die Testseite ist **nicht** Wix-Live.
+**B3 – Letzte Anwender- und Mobile-Abnahme: PASS (21.11.2026).** Der Auftraggeber bestätigte nach Ausführung der [iPhone-Checkliste](NoLimits_Mobile_Abnahme_20261121.md) ausdrücklich **«iPhone-Abnahme PASS»**. Die zuvor bestandene Playwright-Regression deckt zusätzlich verschiedene Bildschirmgrössen, Kundenkonto und Terminverwaltung ab. Keine echte Buchung oder Wix-Veränderung erforderlich.
 
-**B4 – Abschliessende Freigabeentscheidung für Isens Treffen.** Die technische Abnahmematrix überprüfen: kein unkontrolliert offenes LAB, kein falscher Status `PASS`, keine aktiven synthetischen Testtermine, PR #3 bleibt DRAFT. Nur eindeutig Phase-2/3-abhängige Aufgaben dürfen nach Isens Freigabe erfolgen.
+**B4 – Abschliessende Phase-1-Freigabe: PASS (21.11.2026).** Nach der iPhone-Bestätigung nochmals read-only geprüft: GitHub PR #3 offen und DRAFT, Stage-Worker workers.dev/previews deaktiviert, Cal.com-LAB-Event 7982460 hat 0 zukünftige oder unbestätigte Termine, GitHub Pages Build `built`, Feature-Regressionen [SUCCESS](https://github.com/localboostzs/nolimits/actions/runs/44840663474). **Technische Vorbereitung des Gesprächs mit Isen freigegeben; keine automatische Kontaktaufnahme und kein produktiver Cutover.**
 
 ## C. Mit Isen in Phase 2 und vor Go-live in Phase 3 klären
 
@@ -61,3 +61,10 @@
 - **Supabase Security Advisor – INFO:** `public.nl_booking_email_aliases` hat RLS aktiv, aber keine Policies. Das ist **bewusst** so, weil `anon` und `authenticated` keinerlei Tabellen-CRUD haben; die Aliasauflösung ist ausschliesslich für den privilegierten Worker-Service vorgesehen. Keine automatischen Public-Policies hinzufügen.
 - **Supabase Security Advisor – WARN:** `auth_leaked_password_protection` ist für Supabase Auth derzeit deaktiviert. Vor echtem Live-Kundenbetrieb Verfügbarkeit, Kosten/Plan und Nebenwirkungen prüfen; **nicht** ohne geprüfte Freigabe global an produktiver Auth-Konfiguration ändern. Dieser Warnhinweis ist **kein** Beleg eines bereits kompromittierten Passworts.
 - Weitere gemeldete Advisor-Befunde wurden in diesem Aufruf nicht ausgewiesen. Keine Datenbank- oder Auth-Einstellungen geändert.
+
+## Finale Phase-1-Abnahme auf iPhone (21.11.2026)
+
+- Nutzer: **«iPhone-Abnahme PASS»**. Die manuelle Mobile-Abnahme B3 ist abgeschlossen.
+- B4 Read-only geprüft: Cloudflare LAB-Worker öffentliche und Preview-URLs **deaktiviert**; **0 offene LAB-Buchungen** in Cal.com; GitHub Pages jüngster Build **built**; NoLimits Alias-Feature-PR #3 weiterhin **DRAFT**; aktueller Alias-Testworkflow **SUCCESS** [Run 44840663474](https://github.com/localboostzs/nolimits/actions/runs/44840663474).
+- B1 echter Backup-/Restore-/SHA-256-Inhaltsabgleich und B2 Release-Sicherheitsprüfungen ebenfalls PASS; kein Änderungsbedarf am produktiven Wix-/Cal-/Cloudflare-/DNS-System.
+- **Ergebnis: Phase 1 technische Testsystem-Abnahme abgeschlossen; Isen-Termin darf organisiert werden.** Offen/zulässig erst nach Isens Zustimmung: Wix-Kundendaten- und Terminexport, Cal.com-/Kalenderkonfiguration, Isen-Account, finaler Datenschutz und Support, produktiver Worker und Domain-Cutover. **ICS bleibt deaktiviert.**
