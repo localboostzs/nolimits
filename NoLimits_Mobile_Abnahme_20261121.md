@@ -1,7 +1,7 @@
 # NoLimits – letzte manuelle iPhone-Abnahme (vor dem Termin mit Isen)
 
 **Stand:** 21.11.2026  
-**Status:** Noch vom Auftraggeber auf dem iPhone zu überprüfen. Vorherige Backend-, echte LAB-Mitarbeiter-, Backup-Integritäts-, Browser-Automations- und Release-Preflight-Prüfungen sind dokumentiert und bestanden. **Noch keine Phase-1-Gesamtfreigabe.**
+**Status: PASS – vom Auftraggeber am 21.11.2026 ausdrücklich bestätigt («iPhone-Abnahme PASS»).** Sämtliche vorangegangenen Backend-, realen LAB-Mitarbeiter-, Backup-Inhaltsintegritäts-, automatisierten Browser- und Release-Preflight-Prüfungen sind dokumentiert und bestanden. **Phase 1: technische Testsystem-Abnahme bestanden; keine Produktivfreigabe.**
 
 ## Wichtig vor Beginn
 
@@ -48,3 +48,10 @@ Melde an ChatGPT eine knappe Aussage:
 ## Für Phase 2 mit Isen und Phase 3
 
 Unabhängig von der iPhone-Abnahme bleiben Isens Wix-Bestandskunden, Terminkalender, Dienstleistungs-IDs, Eigentümer-/Staff-Zugänge, Datenschutz- und Supportfreigabe sowie das zukünftige Live-DNS/Worker-Deployment nur **nach seiner Zustimmung** durchzuführen. Vor echtem produktivem Kundendatenbetrieb muss eine **zweite verschlüsselte Offsite-Sicherung** und eine kontrollierte Backup-Aufbewahrung festgelegt werden. Die vorhandene USB im selben Haus ist kein Offsite-Backup.
+
+## Resultat vom 21.11.2026
+
+- Der Auftraggeber hat nach Ausführung der Checkliste **«iPhone-Abnahme PASS»** gemeldet. Diese Erklärung ist der persönliche Anwender-Nachweis, getrennt von den automatisierten [Mobile-/Desktop-Browsertests](https://github.com/localboostzs/nolimits/actions/runs/44833543244), die ebenfalls erfolgreich waren.
+- **Es ist keine erneute mobile Prüfung notwendig**, solange keine relevante UI-Änderung erfolgt.
+- Die Checkliste bleibt als reproduzierbare Regression und Dokumentation erhalten; sie ist nicht mehr als offener Auftrag zu behandeln.
+- Freigabe: Vorbereitung des unverbindlichen Termins mit Isen gemäss [Vorführ- und Übergabeplan](NoLimits_Isen_Treffen_Vorbereitung_20261121.md). Keine technische Umstellung und **keine eigenmächtige Kontaktaufnahme durch die Assistenten**.
