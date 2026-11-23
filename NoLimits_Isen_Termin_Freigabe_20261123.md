@@ -26,6 +26,7 @@
 ## B. Fragen, Freigaben und Entscheidungen (möglichst heute klären)
 
 - [ ] Gefällt Isen das Design und will er die neue Website so einsetzen? Alle Änderungswünsche konkret notieren.
+- [ ] Aktuelle Website-Angaben vor der Produktivschaltung sachlich bestätigen: Anschrift **Schmiedgasse 94, 6438 Ibach**, Telefonnummer **+41 76 801 93 40**, «Seit 2020», Öffnungszeiten (derzeit im strukturierten SEO-Markup nur Dienstag/Samstag angegeben), Social-/Google-Bewertungsangaben (Schema.org behauptet derzeit **5.0 Sterne / 9 Bewertungen**). Falsche/unbelegte Angaben vor Go-live korrigieren oder entfernen.
 - [ ] 9 Dienstleistungen: genaue Namen/Preise/Dauer, weitere Leistungen und interne Mitarbeitertypen? Menü/Preislisten verbindlich freigeben.
 - [ ] Geschäftszeiten, Wochentage, Pausen, Feiertage, Ferien, Last-Minute-Vorlauf, Puffer und Stornofristen festlegen.
 - [ ] Benutzte Kalender (Google/Outlook/Apple/sonstige), Zuständigkeit und Empfang neuer Termine/Stornos klären; einen klaren **Kalender-Owner** festlegen.
