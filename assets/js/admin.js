@@ -159,7 +159,10 @@
   });
   form.addEventListener('submit',async function(ev){
     ev.preventDefault();msg('');
-    if(!confirm('Termin für diesen Kunden jetzt verbindlich eintragen?'))return;
+    var series=form.elements.repeat.checked, weeks=series?Number(form.elements.repeatWeeks.value):1;
+    if(!confirm(series
+      ? 'Jetzt '+weeks+' wöchentliche Termine verbindlich buchen? Es werden zunächst alle freien Zeiten geprüft. Bei Problemen kann eine Teilbuchung entstehen.'
+      : 'Termin für diesen Kunden jetzt verbindlich eintragen?'))return;
     var btn=form.querySelector('[type=submit]');btn.disabled=true;
     try{
       var data={
@@ -171,12 +174,15 @@
         accepted:form.elements.accepted.checked
       };
       if(!data.start)throw new Error('Bitte eine freie Uhrzeit auswählen.');
-      var result=await request('/api/admin/book',{method:'POST',body:JSON.stringify(data)});
-      msg('Termin erfolgreich gebucht: '+fmt(result.booking.start));
+      if(series)data.count=weeks;
+      var result=await request(series?'/api/admin/book-series':'/api/admin/book',{method:'POST',body:JSON.stringify(data)});
+      msg(series?'Serientermin erfolgreich: '+result.count+' Termine ab '+fmt(result.starts[0])+' gebucht.':'Termin erfolgreich gebucht: '+fmt(result.booking.start));
       await loadData();
     }catch(e){msg(e.message,true);}
     finally{btn.disabled=false;}
   });
+  var repeat=document.getElementById('nl-admin-repeat'), repeatSettings=document.getElementById('nl-admin-repeat-settings');
+  repeat.addEventListener('change',function(){repeatSettings.hidden=!repeat.checked;});
   services.addEventListener('change',loadSlots);
   date.addEventListener('change',loadSlots);
   search.addEventListener('input',renderContacts);

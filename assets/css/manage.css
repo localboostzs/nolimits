@@ -35,3 +35,18 @@
 
 /* Management lifecycle: hidden always wins over flex/grid style rules. */
 .nl-manage-wrap [hidden]{display:none!important}
+
+/* Kalender wie im NoLimits-Buchungsprozess statt nativer iOS-Datumsauswahl. */
+.nl-manage-calendar-nav{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:24px 0 14px;max-width:560px}
+.nl-manage-calendar-nav strong{font-weight:700;text-transform:capitalize;text-align:center}
+.nl-manage-month-arrow{display:grid;place-items:center;width:44px;height:44px;border:1px solid var(--line-light);background:var(--paper);font:inherit;font-size:28px;cursor:pointer;color:var(--ink)}
+.nl-manage-month-arrow:disabled{opacity:.3;cursor:not-allowed}
+.nl-manage-weekdays,.nl-manage-calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;max-width:560px}
+.nl-manage-weekdays span{text-align:center;font-size:13px;font-weight:650;color:var(--text-soft);padding:8px 0}
+.nl-manage-day{border:1px solid var(--line-light);background:var(--paper);color:var(--ink);min-height:44px;font:inherit;font-weight:600;cursor:pointer}
+.nl-manage-day:disabled{opacity:.25;cursor:not-allowed}
+.nl-manage-day[aria-pressed="true"]{border-color:var(--gold-deep);background:var(--ink);color:#fff}
+.nl-manage-day:not(:disabled):hover{border-color:var(--gold-deep)}
+.nl-manage-day:focus-visible,.nl-manage-month-arrow:focus-visible{outline:3px solid var(--gold-deep);outline-offset:2px}
+.nl-manage-month-empty{min-height:44px}
+@media(max-width:390px){.nl-manage-weekdays,.nl-manage-calendar{gap:3px}.nl-manage-day{min-height:43px}}

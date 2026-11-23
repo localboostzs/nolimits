@@ -11,5 +11,6 @@ export const SERVICES = {
   'haarschnitt': { eventTypeId: 7888953, name: "Haarschnitt", minutes: 30, price: 30 },
   'jugendliche-10-14': { eventTypeId: 7888957, name: "Jugendliche (von 10 bis 14 Jahre alt)", minutes: 30, price: 25 },
   'bartschnitt': { eventTypeId: 7888955, name: "Bartschnitt", minutes: 15, price: 15 },
+  'gentleman-rasur': { eventTypeId: 7912905, name: 'Gentleman Rasur', minutes: 30, price: 30 },
   'augenbrauen-zupfen': { eventTypeId: 7888946, name: "Augenbrauen zupfen", minutes: 15, price: 15 },
 };

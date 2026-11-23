@@ -7,7 +7,7 @@
     var q = new URLSearchParams(location.search).get('api');
     if (q) API = q.replace(/\/$/, '');
   }
-  var TERMS = 'Ich habe zur Kenntnis genommen, dass Termine bei Nichterscheinen oder bei einer Absage weniger als 24 Stunden vor Terminbeginn trotzdem verrechnet werden.';
+  var TERMS = 'Ich habe zur Kenntnis genommen, dass Online-Stornierungen nur bis spätestens 24 Stunden vor Terminbeginn möglich sind. Bei Nichterscheinen können gemäss den vereinbarten Bedingungen Kosten entstehen.';
   var MAX_MONTHS = 3;
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
@@ -160,6 +160,7 @@
     "haarschnitt": "thumb-haarschnitt-360.webp",
     "jugendliche-10-14": "thumb-jugendliche-360.webp",
     "bartschnitt": "thumb-bartschnitt-360.webp",
+    "gentleman-rasur": "thumb-haarschnitt-bartschnitt-rasieren-360.webp",
     "augenbrauen-zupfen": "thumb-augenbrauen-zupfen-360.webp",
   };
   var serviceDescriptions = {
@@ -171,6 +172,7 @@
   "haarschnitt": "Die perfekte Männer Frisur passend zu deiner Kopfform. Ganz egal ob kurzes, mittellanges oder langes Haar.",
   "jugendliche-10-14": "Haarschnitt für Jugendliche von 10 bis 14 Jahren.",
   "bartschnitt": "Ausführliche Beratung für den passenden Bart, saubere Umsetzung deines neuen Bartstyles sowie Pflege- und Stylingtipps.",
+  "gentleman-rasur": "Bart formen, gefolgt von einer Gesichtsmassage und Heißkompresse",
   "augenbrauen-zupfen": "Pinzette, Fadentechnik oder Heisswachs."
 };
   function renderServices() {

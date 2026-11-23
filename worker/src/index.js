@@ -13,11 +13,10 @@ import { SERVICES, TIME_ZONE, CAL_BASE } from './services.js';
 
 
 
-// Nicht in /api/services veröffentlichen. Dieser Service ist nur für authentifizierte
-// Mitarbeiter-API-Aufrufe vorgesehen. Cal.com "hidden" allein ist KEIN Zugriffsschutz.
-const ADMIN_SERVICES = {
-  'gentleman-rasur': { eventTypeId: 7912905, name: 'Gentleman Rasur', minutes: 30, price: 30 }
-};
+// Keine nur-internen Dienstleistungen mehr: Gentleman Rasur ist öffentlich buchbar.
+// Die Cal.com-Typen bleiben zur Umgehung der unkontrollierten Cal.com-Teilnehmermails
+// auf hidden; öffentlich werden sie ausschliesslich über /api/services angeboten.
+const ADMIN_SERVICES = {};
 
 async function requireStaff(req, env) {
   const url = env.NL_SUPABASE_URL || '';
@@ -189,6 +188,8 @@ async function getContacts(req, env) {
 const DEFAULT_ORIGINS = ['https://localboostzs.github.io'];
 const MAX_BODY = 4096;
 const RANGE_DAYS_MAX = 62;
+const BOOKING_NOTICE_MS = 60 * 60 * 1000;
+const CANCEL_DEADLINE_MS = 24 * 60 * 60 * 1000;
 
 // Begrenzung: bevorzugt Cloudflares Rate-Limiting-Binding (gilt über alle Isolates eines Standorts),
 // sonst Rückfall auf einen einfachen Zähler pro Isolate (best effort, ohne Datenbank).
@@ -393,7 +394,7 @@ async function getSlots(url, req, env, privateService) {
   const days = {};
   const now = Date.now();
   for (const [day, list] of Object.entries(body?.data || {})) {
-    const starts = (Array.isArray(list) ? list : []).map((s) => s.start).filter((s) => typeof s === 'string' && Date.parse(s) > now);
+    const starts = (Array.isArray(list) ? list : []).map((s) => s.start).filter((s) => typeof s === 'string' && Date.parse(s) > now + BOOKING_NOTICE_MS);
     if (starts.length) days[day] = starts;
   }
   return json({ ok: true, timeZone: TIME_ZONE, minutes: service.minutes, days }, 200, req, env, { 'Cache-Control': 'no-store' });
@@ -433,6 +434,7 @@ async function book(req, env, adminMode = false) {
   if (!/^\+?[0-9 ()\/.-]{7,25}$/.test(phone)) return fail('invalid_phone', 'Bitte gültige Telefonnummer angeben.', 400, req, env);
   if (b.accepted !== true) return fail('terms_required', 'Bitte die Stornierungsbedingungen bestätigen.', 400, req, env);
   if (Number.isNaN(startMs) || startMs < Date.now() || startMs > Date.now() + 366 * 86400000) return fail('invalid_start', 'Ungültiger Termin.', 400, req, env);
+  if (startMs <= Date.now() + BOOKING_NOTICE_MS) return fail('too_soon', 'Termine müssen mindestens eine Stunde im Voraus gebucht werden.', 409, req, env);
 
   // Alias mode is OFF unless explicitly enabled on this Worker deployment.
   // Store mapping BEFORE contacting Cal.com, so immediate webhooks can resolve it.
@@ -485,6 +487,100 @@ async function book(req, env, adminMode = false) {
   return json({ ok: true, booking: { uid: d.uid, status: d.status, start: d.start, end: d.end, service: service.name, manageUrl } }, 201, req, env);
 }
 
+
+
+// Staff-only recurring appointments: validate every weekly occurrence against
+// Cal.com's actual availability before writing anything. No automatic rollback
+// of successfully booked appointments in the event of a partial upstream failure.
+// This endpoint must never be exposed to anonymous customer booking requests.
+async function bookStaffSeries(req, env) {
+  if (env.NL_ALIAS_STAGING_ONLY === 'true') return fail('staging_series_disabled', 'Serienbuchungen sind im LAB gesperrt.', 403, req, env);
+  if (!env.CAL_API_KEY) return fail('not_configured', 'Cal.com muss zuerst verbunden werden.', 503, req, env);
+  if (await limited(env, 'RL_BOOK', 'staff-series:' + clientIp(req), 5, 10 * 60_000)) return fail('rate_limited', 'Bitte später erneut versuchen.', 429, req, env);
+  if (Number(req.headers.get('Content-Length') || 0) > MAX_BODY) return fail('too_large', 'Anfrage zu gross.', 413, req, env);
+  const b = await req.json().catch(() => null);
+  if (!b || typeof b !== 'object') return fail('invalid_json', 'Ungültige Anfrage.', 400, req, env);
+  const count = Number(b.count);
+  if (!Number.isInteger(count) || count < 2 || count > 12) return fail('invalid_count', 'Eine Serie muss aus 2 bis 12 Terminen bestehen.', 400, req, env);
+  const service = SERVICES[b.service];
+  const name = clean(b.name, 80);
+  const email = clean(b.email, 120).toLowerCase();
+  const phone = clean(b.phone, 30);
+  const notes = clean(b.notes, 500);
+  const firstMs = Date.parse(b.start);
+  if (!service) return fail('invalid_service', 'Unbekannte Dienstleistung.', 400, req, env);
+  if (name.length < 2 || !isEmail(email) || !/^\+?[0-9 ()\/.-]{7,25}$/.test(phone) || b.accepted !== true) {
+    return fail('invalid_customer', 'Bitte Kundendaten und Einverständnis prüfen.', 400, req, env);
+  }
+  if (!Number.isFinite(firstMs) || firstMs <= Date.now() + BOOKING_NOTICE_MS || firstMs > Date.now() + 275 * 86400000) {
+    return fail('invalid_start', 'Der erste Termin muss mindestens eine Stunde in der Zukunft liegen.', 400, req, env);
+  }
+  // Keep 14:00 Zurich time even across summer-/winter-time changes.
+  const fmt = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TIME_ZONE, year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', hourCycle:'h23'
+  });
+  function local(iso) {
+    const parts = fmt.formatToParts(new Date(iso));
+    const v = (type) => parts.find(x => x.type === type)?.value || '';
+    return { day:v('year')+'-'+v('month')+'-'+v('day'), hm:v('hour')+':'+v('minute') };
+  }
+  const first = local(b.start);
+  const starts = [], conflicts = [];
+  // Preflight ALL occurrences, including the first one. No booking before this completes.
+  for (let i = 0; i < count; i++) {
+    const d = new Date(Date.UTC(
+      Number(first.day.slice(0,4)), Number(first.day.slice(5,7))-1,
+      Number(first.day.slice(8,10))+i*7
+    )).toISOString().slice(0,10);
+    let response;
+    try {
+      const q = new URLSearchParams({eventTypeId:String(service.eventTypeId),start:d,end:d,timeZone:TIME_ZONE});
+      response = await calFetch(CAL_BASE + '/v2/slots?' + q, {headers:calHeaders(env,'2024-09-04')});
+    } catch { return fail('slots_unavailable', 'Verfügbarkeit konnte nicht vollständig geprüft werden; noch keine Termine gebucht.', 502, req, env); }
+    if (!response.ok) return fail('slots_unavailable', 'Verfügbarkeit konnte nicht vollständig geprüft werden; noch keine Termine gebucht.', 502, req, env);
+    const body = await response.json().catch(() => null);
+    const slots = Object.values(body?.data || {}).flatMap(v => Array.isArray(v) ? v : []);
+    const chosen = slots.find(v => typeof v.start === 'string' &&
+      local(v.start).day === d && local(v.start).hm === first.hm &&
+      Date.parse(v.start) > Date.now() + BOOKING_NOTICE_MS);
+    if (!chosen) { conflicts.push(d); continue; }
+    starts.push(chosen.start);
+  }
+  if (conflicts.length) return fail('series_conflict',
+    'Serie nicht gebucht: Für '+conflicts.join(', ')+' ist die gewünschte Uhrzeit nicht frei. Bitte eine andere Serie wählen.', 409, req, env);
+  const booked = [];
+  for (const start of starts) {
+    let bookingAlias = null;
+    if (env.NL_ALIAS_MODE === 'enabled') {
+      try { bookingAlias = await createBookingAlias(env,email,service.eventTypeId); }
+      catch { return fail('series_partial','Nur '+booked.length+' von '+count+' Terminen gebucht. Bitte im CRM prüfen, keine blinde Wiederholung.', 503, req, env); }
+    }
+    const payload = {
+      start, eventTypeId:service.eventTypeId,
+      attendee:{name,email:bookingAlias || email,timeZone:TIME_ZONE,language:'de',phoneNumber:phone},
+      bookingFieldsResponses:{stornierungsbedingungen_akzeptiert:true,...(notes?{notes}:{})}
+    };
+    let response, out;
+    try {
+      response = await calFetch(CAL_BASE+'/v2/bookings',{
+        method:'POST',headers:calHeaders(env,'2024-08-13'),body:JSON.stringify(payload)
+      });
+      out = await response.json().catch(()=>null);
+    } catch {
+      return fail('series_partial','Nur '+booked.length+' von '+count+' Terminen sicher bestätigt. Bitte Cal.com kontrollieren, bevor du die Serie erneut startest.', 502, req, env);
+    }
+    if (!response.ok || out?.data?.status !== 'accepted') {
+      if (bookingAlias && [400,409,422].includes(response.status)) {
+        await discardRejectedBookingAlias(env,bookingAlias).catch(()=>null);
+      }
+      return fail('series_partial','Nur '+booked.length+' von '+count+' Terminen bestätigt. Bitte im CRM prüfen; keine automatische Rückabwicklung.', 409, req, env);
+    }
+    if (bookingAlias) await bindBookingAlias(env,bookingAlias,out.data.uid).catch(()=>null);
+    booked.push({start:out.data.start,uid:out.data.uid});
+  }
+  return json({ok:true,count:booked.length,starts:booked.map(b=>b.start)},201,req,env);
+}
 
 /* Customer booking management: stateless signed links, no PII or secret in public repo. */
 // The customer-facing site changes only AFTER Isen approves go-live.
@@ -610,7 +706,9 @@ async function routeManage(req, env, url) {
       service: matched[1].name, serviceKey: matched[0], eventTypeId: matched[1].eventTypeId,
       minutes: matched[1].minutes, price: matched[1].price,
       start: b.start, end: b.end, status:b.status,
-      canManage:b.status === 'accepted' && startMs > Date.now()
+      canManage:b.status === 'accepted' && startMs > Date.now(),
+      canCancel:b.status === 'accepted' && startMs - Date.now() >= CANCEL_DEADLINE_MS,
+      canReschedule:b.status === 'accepted' && startMs > Date.now()
     } }, 200, req, env);
   }
   if (b.status !== 'accepted' || startMs <= Date.now()) return fail('not_active', 'Dieser Termin kann nicht mehr geändert werden.', 409, req, env);
@@ -619,6 +717,8 @@ async function routeManage(req, env, url) {
     return await getSlots(url, req, env, matched[1]);
   }
   if (post && url.pathname === '/api/manage/cancel') {
+    // Authoritative guard: HTML button visibility is never sufficient.
+    if (startMs - Date.now() < CANCEL_DEADLINE_MS) return fail('cancellation_deadline', 'Online-Stornierungen sind nur bis 24 Stunden vor dem Termin möglich. Bitte kontaktiere NoLimits.', 409, req, env);
     if (data.confirm !== true) return fail('confirmation_required', 'Bitte zuerst die Stornierung bestätigen.',400,req,env);
     const reason = clean(data.reason, 200) || 'Vom Kunden über die NoLimits-Website storniert';
     try {
@@ -633,6 +733,7 @@ async function routeManage(req, env, url) {
     if (data.confirm !== true) return fail('confirmation_required','Bitte die Umbuchung bestätigen.',400,req,env);
     const nextMs = Date.parse(data.start);
     if (!Number.isFinite(nextMs) || nextMs < Date.now() || nextMs > Date.now() + 366 * 86400000) return fail('invalid_start','Ungültiger neuer Termin.',400,req,env);
+    if (nextMs <= Date.now() + BOOKING_NOTICE_MS) return fail('too_soon','Umbuchungen benötigen mindestens eine Stunde Vorlauf.',409,req,env);
     const chosen = new Date(nextMs).toISOString();
     const parts = new Intl.DateTimeFormat('en-GB', {timeZone:TIME_ZONE,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(nextMs));
     const value = (part) => parts.find(p => p.type === part)?.value || '';
@@ -968,6 +1069,7 @@ export default {
           return await getSlots(url, req, env, service);
         }
         if (req.method === 'POST' && url.pathname === '/api/admin/book') return await book(req, env, true);
+        if (req.method === 'POST' && url.pathname === '/api/admin/book-series') return await bookStaffSeries(req, env);
         return fail('not_found','Nicht gefunden.',404,req,env);
       }
       if (req.method === 'GET' && url.pathname === '/api/services') {

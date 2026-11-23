@@ -17,7 +17,7 @@ const movedUid='InternalManageNewUID9999',movedToken='signed_mock_token_two';
 function booking(status='accepted',time=start){
  return {service:'Haarschnitt',serviceKey:'haarschnitt',eventTypeId:7982460,
   minutes:30,price:30,start:time,end:new Date(Date.parse(time)+30*60000).toISOString(),
-  status,canManage:status==='accepted'};
+  status,canManage:status==='accepted',canCancel:status==='accepted',canReschedule:status==='accepted'};
 }
 async function runCase(name,viewport,mode){
  const context=await browser.newContext({viewport,locale:'de-CH',timezoneId:'Europe/Zurich'});
@@ -66,10 +66,19 @@ async function runCase(name,viewport,mode){
      assert.equal(await page.locator('#nl-manage-actions').isVisible(),true);
      assert.ok(!page.url().includes('token='),'personal management token removed from browser URL');
      if(mode==='reschedule'){
-       await page.locator('#nl-manage-show-reschedule').click();
-       await page.locator('#nl-manage-date').fill(day);
-       await page.locator('#nl-manage-date').dispatchEvent('change');
-       const slot=page.locator('.nl-manage-slot');
+        await Promise.all([
+          page.waitForResponse(r=>r.url().includes('/api/manage/slots')),
+          page.locator('#nl-manage-show-reschedule').click()
+        ]);
+        assert.equal(await page.locator('input[type=date]').count(),0,'no native iOS date input');
+        if(!(await page.locator('.nl-manage-day:not([disabled])').count())){
+          await Promise.all([
+            page.waitForResponse(r=>r.url().includes('/api/manage/slots')),
+            page.locator('#nl-manage-next').click()
+          ]);
+        }
+        await page.locator('.nl-manage-day:not([disabled])').first().click();
+        const slot=page.locator('.nl-manage-slot');
        await slot.first().waitFor({state:'visible',timeout:10000});
        await slot.first().click();
        await page.locator('#nl-manage-confirm-reschedule').check();
