@@ -32,6 +32,11 @@ await assert.rejects(()=>checkReadiness('http://nolimits.example.invalid'),/HTTP
 await assert.rejects(()=>checkReadiness('https://user:pass@nolimits.example.invalid'),/Unexpected URL/);
 await assert.rejects(()=>checkReadiness('https://nolimits.example.invalid/?secret=abc'),/Unexpected URL/);
 await assert.rejects(()=>checkReadiness('https://nolimits.example.invalid',{client:fake(['gentleman-rasur']).client}),/unexpected services/);
+const candidate=await checkReadiness('https://nolimits.example.invalid',{client:fake(['gentleman-rasur']).client,baseline:'candidate'});
+assert.equal(candidate.services,10);
+await assert.rejects(()=>checkReadiness('https://nolimits.example.invalid',{client:fake().client,baseline:'candidate'}),/unexpected services/);
+await assert.rejects(()=>checkReadiness('https://nolimits.example.invalid',{client:fake(['gentleman-rasur','unknown']).client,baseline:'candidate'}),/unexpected services/);
+await assert.rejects(()=>checkReadiness('https://nolimits.example.invalid',{client:fake().client,baseline:'typo'}),/Unknown service baseline/);
 const badPrice=fake();
 const normalClient=badPrice.client;
 badPrice.client=async(url,opts)=>{
@@ -48,4 +53,4 @@ await assert.rejects(()=>checkReadiness('https://nolimits.example.invalid',{clie
 await assert.rejects(()=>checkReadiness('https://nolimits.example.invalid',{client:fake([], '',503).client}),/staff contacts must require/);
 await assert.rejects(()=>checkReadiness('https://nolimits.example.invalid',{client:fake([],'/api/health').client}),/READONLY_FAIL/);
 await assert.rejects(()=>checkReadiness('https://nolimits.example.invalid',{client:fake([],'/api/services').client}),/READONLY_FAIL/);
-console.log('PASS: read-only release smoke checker enforces HTTPS, nine public services, no staff services and no mutations');
+console.log('PASS: read-only release smoke checker enforces HTTPS, explicit nine/ten-service baselines, no unapproved services and no mutations');

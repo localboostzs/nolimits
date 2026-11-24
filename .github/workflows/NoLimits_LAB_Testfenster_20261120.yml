@@ -1,0 +1,133 @@
+name: NoLimits LAB Testfenster (isoliert, automatisch schliessen)
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Nur prüfen oder LAB für 8 Minuten öffnen"
+        required: true
+        default: preflight-only
+        type: choice
+        options:
+          - preflight-only
+          - smoke-20s
+          - open-8min
+
+concurrency:
+  group: nolimits-lab-window
+  cancel-in-progress: false
+
+jobs:
+  window:
+    runs-on: ubuntu-latest
+    timeout-minutes: 13
+    permissions:
+      contents: read
+    env:
+      ACCOUNT_ID: ${{ secrets.NOLIMITS_STAGING_CF_ACCOUNT_ID }}
+      CF_API_TOKEN: ${{ secrets.NOLIMITS_STAGING_CF_API_TOKEN }}
+      API_BASE: https://api.cloudflare.com/client/v4
+      SCRIPT: nolimits-alias-staging
+    steps:
+      - name: Check credentials and require staging to be closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ACCOUNT_ID" && test -n "$CF_API_TOKEN" || {
+            echo "::error::Missing isolated Cloudflare API token or account ID."
+            exit 1
+          }
+          URL="$API_BASE/accounts/$ACCOUNT_ID/workers/scripts/$SCRIPT/subdomain"
+          curl --fail --silent --show-error --max-time 15 --retry 2 \
+            -H "Authorization: Bearer $CF_API_TOKEN" "$URL" > /tmp/nl-stage-before.json
+          jq -e '.success == true and .result.enabled == false and .result.previews_enabled == false' \
+            /tmp/nl-stage-before.json >/dev/null || {
+              echo "::error::LAB Worker is not fully closed. Check Cloudflare before proceeding."
+              exit 1
+            }
+          echo "PASS: Only nolimits-alias-staging is targeted and its public route is closed."
+
+      - name: Open ONLY the LAB workers.dev route for the controlled test window
+        if: ${{ inputs.mode == 'open-8min' || inputs.mode == 'smoke-20s' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="$API_BASE/accounts/$ACCOUNT_ID/workers/scripts/$SCRIPT/subdomain"
+          curl --fail --silent --show-error --max-time 20 --retry 2 -X POST \
+            -H "Authorization: Bearer $CF_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data '{"enabled":true,"previews_enabled":false}' "$URL" \
+            > /tmp/nl-stage-open.json
+          jq -e '.success == true and .result.enabled == true and .result.previews_enabled == false' \
+            /tmp/nl-stage-open.json >/dev/null || {
+              echo "::error::Cloudflare did not confirm an isolated LAB route."
+              exit 1
+            }
+          echo "LAB TEST WINDOW OPEN. Use https://localboostzs.github.io/nolimits/verwaltung-lab/ now."
+          if [ "${{ inputs.mode }}" = "smoke-20s" ]; then
+            # Negative security probes: no customer, no real booking, no secrets in the payload.
+            # Only the hidden LAB workers.dev route is temporarily enabled.
+            LAB="https://nolimits-alias-staging.broken-haze-6cad.workers.dev"
+            # Cloudflare workers.dev DNS/route may take several seconds to propagate
+            # after the API confirms enabled=true. Do not treat the first 404 as a
+            # backend failure; always close the route even if readiness never appears.
+            LAB_READY=0
+            for attempt in $(seq 1 12); do
+              HEALTH_STATUS="$(curl --silent --show-error --max-time 10 \
+                -o /tmp/nl-stage-health.json -w '%{http_code}' "$LAB/api/health")"
+              if [ "$HEALTH_STATUS" = "200" ] && \
+                 jq -e '.ok == true' /tmp/nl-stage-health.json >/dev/null 2>&1; then
+                LAB_READY=1
+                break
+              fi
+              sleep 2
+            done
+            test "$LAB_READY" -eq 1 || {
+              echo "::error::NoLimits LAB health did not become available within controlled window."
+              exit 1
+            }
+            GUEST_STATUS="$(curl --silent --show-error --max-time 15 \
+              -o /dev/null -w '%{http_code}' "$LAB/api/admin/contacts")"
+            test "$GUEST_STATUS" = "401" || {
+              echo "::error::LAB anonymous staff CRM access was not rejected."
+              exit 1
+            }
+            FAKE_WEBHOOK_STATUS="$(curl --silent --show-error --max-time 15 \
+              -o /dev/null -w '%{http_code}' \
+              -X POST "$LAB/api/webhooks/cal" \
+              -H 'Content-Type: application/json' \
+              -H 'X-Cal-Signature-256: sha256=0000000000000000000000000000000000000000000000000000000000000000' \
+              --data '{"triggerEvent":"BOOKING_CREATED","payload":{"uid":"FakeLABSignatureTest12345"}}')"
+            test "$FAKE_WEBHOOK_STATUS" = "401" || {
+              echo "::error::LAB accepted a fabricated unsigned/incorrectly signed Cal.com webhook."
+              exit 1
+            }
+            echo "PASS: LAB live health=200, anonymous CRM=401, forged Cal webhook=401 (no booking writes)."
+            sleep 20
+          else
+            sleep 480
+          fi
+
+      - name: Always close LAB workers.dev again after the test window
+        if: ${{ always() && (inputs.mode == 'open-8min' || inputs.mode == 'smoke-20s') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="$API_BASE/accounts/$ACCOUNT_ID/workers/scripts/$SCRIPT/subdomain"
+          curl --fail --silent --show-error --max-time 20 --retry 3 -X POST \
+            -H "Authorization: Bearer $CF_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data '{"enabled":false,"previews_enabled":false}' "$URL" \
+            > /tmp/nl-stage-closed.json
+          jq -e '.success == true and .result.enabled == false and .result.previews_enabled == false' \
+            /tmp/nl-stage-closed.json >/dev/null || {
+              echo "::error::LAB close not confirmed. Disable staging workers.dev in Cloudflare manually."
+              exit 1
+            }
+          curl --fail --silent --show-error --max-time 15 --retry 2 \
+            -H "Authorization: Bearer $CF_API_TOKEN" "$URL" \
+            | jq -e '.success == true and .result.enabled == false and .result.previews_enabled == false' >/dev/null
+          echo "PASS: LAB public access and previews disabled again."
+
+# This workflow never deploys code or touches the production Worker, Wix or DNS.
+# If GitHub Actions is forcefully killed, closing cannot be guaranteed:
+# check Cloudflare stage subdomain.enabled=false after a failed/cancelled run.

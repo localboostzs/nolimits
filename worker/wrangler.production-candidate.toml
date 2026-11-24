@@ -17,8 +17,9 @@ NL_ICS_ENABLED = "false"
 # - After authorised new site activation, set NL_PUBLIC_SITE_BASE to
 #   "https://nolimits-barber.ch" (or the confirmed canonical www hostname).
 # - Add the confirmed live site origin to ALLOWED_ORIGINS.
-# - Replace Cal.com test eventTypeIds with Isen's 9 verified service IDs,
-#   plus the internal service, matching correct calendars and staff.
+# - Retain all ten existing approved NoLimits eventTypeIds if the existing
+#   Cal.com account is retained; verify Isen's destination/conflict calendar.
+# - Keep the separate LAB event isolated. Do not expose its ID in SERVICES.
 # - Verify existing secret NAMES remain present after Wrangler deployment.
 # - Add NL_SUPABASE_SECRET_KEY server-side; protect natively with Supabase RLS.
 # - Only after separate E2E and approval set NL_ALIAS_MODE="enabled".
