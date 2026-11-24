@@ -61,6 +61,7 @@
 <li class="price-row reveal"><div class="price-thumb"><img src="../assets/img/thumb-haarschnitt-360.webp" width="360" height="360" alt="Mann mit grauem Haar und Dreitagebart" decoding="async" loading="lazy"></div><h2 class="price-name">Haarschnitt</h2><p class="price-desc">Die perfekte Männer Frisur passend zu deiner Kopfform. Ganz egal ob kurzes, mittellanges oder langes Haar.</p><p class="price">CHF 30</p><a class="btn btn-ink btn-sm" href="https://localboostzs.github.io/nolimits/booking-test/" data-booking aria-label="Haarschnitt buchen">Buchen</a></li>
 <li class="price-row reveal"><div class="price-thumb"><img src="../assets/img/thumb-jugendliche-360.webp" width="360" height="360" alt="Junge mit frisch geschnittenen Haaren im Frisierumhang" decoding="async" loading="lazy"></div><h2 class="price-name">Jugendliche (von 10 bis 14 Jahre alt)</h2><p class="price-desc">Haarschnitt für Jugendliche von 10 bis 14 Jahren.</p><p class="price">CHF 25</p><a class="btn btn-ink btn-sm" href="https://localboostzs.github.io/nolimits/booking-test/" data-booking aria-label="Jugendliche (von 10 bis 14 Jahre alt) buchen">Buchen</a></li>
 <li class="price-row reveal"><div class="price-thumb"><img src="../assets/img/thumb-bartschnitt-360.webp" width="360" height="360" alt="Mann mit langem, gepflegtem Bart in Schwarzweiss" decoding="async" loading="lazy"></div><h2 class="price-name">Bartschnitt</h2><p class="price-desc">Ausführliche Beratung für den passenden Bart, saubere Umsetzung deines neuen Bartstyles sowie Pflege- und Stylingtipps.</p><p class="price">CHF 15</p><a class="btn btn-ink btn-sm" href="https://localboostzs.github.io/nolimits/booking-test/" data-booking aria-label="Bartschnitt buchen">Buchen</a></li>
+<li class="price-row reveal"><div class="price-thumb"><img src="../assets/img/thumb-haarschnitt-bartschnitt-rasieren-360.webp" width="360" height="360" alt="Rasierpinsel bei einer Bartpflege" decoding="async" loading="lazy"></div><h2 class="price-name">Gentleman Rasur</h2><p class="price-desc">Bart formen, gefolgt von einer Gesichtsmassage und Heißkompresse</p><p class="price">30 Min · CHF 30</p><a class="btn btn-ink btn-sm" id="nl-gentleman-book" aria-disabled="true" style="opacity:.65;cursor:default" aria-label="Gentleman Rasur – Online-Buchung folgt">Bald buchbar</a></li>
 <li class="price-row reveal"><div class="price-thumb"><img src="../assets/img/thumb-augenbrauen-zupfen-360.webp" width="360" height="360" alt="Kamm, Schere und Rasiermesser auf einem Handtuch" decoding="async" loading="lazy"></div><h2 class="price-name">Augenbrauen zupfen</h2><p class="price-desc">Pinzette, Fadentechnik oder Heisswachs.</p><p class="price">CHF 15</p><a class="btn btn-ink btn-sm" href="https://localboostzs.github.io/nolimits/booking-test/" data-booking aria-label="Augenbrauen zupfen buchen">Buchen</a></li>
 </ul>
 </div>
@@ -93,5 +94,25 @@
 </div>
 </div>
 </footer>
+<script src="../assets/js/booking-config.js"></script>
+<script>
+(function(){
+  'use strict';
+  var link=document.getElementById('nl-gentleman-book');
+  var cfg=window.NOLIMITS_BOOKING||{};
+  if(!link||!cfg.API_BASE)return;
+  fetch(cfg.API_BASE.replace(/\/$/,'')+'/api/services',{cache:'no-store'})
+    .then(function(res){if(!res.ok)throw new Error('Service list unavailable');return res.json();})
+    .then(function(data){
+      if(!data||!Array.isArray(data.services))return;
+      if(!data.services.some(function(s){return s.key==='gentleman-rasur';}))return;
+      link.href='../booking-test/?service=gentleman-rasur';
+      link.removeAttribute('aria-disabled');
+      link.removeAttribute('style');
+      link.setAttribute('aria-label','Gentleman Rasur buchen');
+      link.textContent='Buchen';
+    }).catch(function(){/* fail closed until public booking is available */});
+})();
+</script>
 </body>
 </html>
