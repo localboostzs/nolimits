@@ -152,6 +152,10 @@
 <script>
 (function(){
   'use strict';
+  // Approved design (24.11.2026). Keep disabled until the final Go-live phase.
+  // Re-enable deliberately after the website and booking system have passed acceptance.
+  var priceNoticeEnabled=false;
+  if(!priceNoticeEnabled)return;
   // Preview only: no automatic popup on the future custom production domain.
   if(location.hostname!=='localboostzs.github.io')return;
   var dialog=document.getElementById('nl-price-notice');
