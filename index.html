@@ -28,6 +28,20 @@
 <script src="assets/js/config.js"></script>
 <script src="assets/js/main.js"></script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": ["BarberShop", "HairSalon"], "@id": "https://www.nolimits-barber.ch/#barbershop", "name": "NoLimits Barbershop", "url": "https://www.nolimits-barber.ch/", "image": "https://www.nolimits-barber.ch/assets/img/logo-nolimits.jpg", "logo": "https://www.nolimits-barber.ch/assets/img/logo-nolimits.jpg", "description": "Klassischer Herrenschnitt, sauberer Bartschnitt, ehrliche Handwerkskunst. Seit 2020 in Ibach.", "telephone": "+41768019340", "priceRange": "CHF 15 - CHF 60", "address": {"@type": "PostalAddress", "streetAddress": "Schmiedgasse 94", "postalCode": "6438", "addressLocality": "Ibach", "addressRegion": "SZ", "addressCountry": "CH"}, "geo": {"@type": "GeoCoordinates", "latitude": 47.0108483, "longitude": 8.6438469}, "openingHoursSpecification": [{"@type": "OpeningHoursSpecification", "dayOfWeek": "Tuesday", "opens": "09:00", "closes": "12:00"}, {"@type": "OpeningHoursSpecification", "dayOfWeek": "Tuesday", "opens": "13:00", "closes": "19:00"}, {"@type": "OpeningHoursSpecification", "dayOfWeek": "Saturday", "opens": "08:00", "closes": "12:00"}, {"@type": "OpeningHoursSpecification", "dayOfWeek": "Saturday", "opens": "13:00", "closes": "17:00"}], "aggregateRating": {"@type": "AggregateRating", "ratingValue": "5.0", "bestRating": "5", "reviewCount": "9"}}</script>
+<style>
+/* Temporary NoLimits price notice preview – homepage only. */
+#nl-price-notice{position:fixed;inset:0;margin:auto;width:min(440px,calc(100% - 32px));max-width:none;max-height:calc(100% - 32px);overflow:auto;padding:0;border:1px solid rgba(217,182,114,.48);border-radius:12px;background:var(--ink-2,#171715);color:var(--on-dark,#f4efe7);box-shadow:0 26px 100px rgba(0,0,0,.55);text-align:center}
+#nl-price-notice::backdrop{background:rgba(15,15,14,.72);backdrop-filter:blur(4px)}
+#nl-price-notice .nl-notice-content{padding:clamp(28px,7vw,46px) clamp(22px,6vw,38px) 32px}
+#nl-price-notice .nl-notice-close{position:absolute;top:8px;right:8px;display:grid;place-items:center;width:44px;height:44px;background:transparent;border:0;color:var(--gold-light,#d9b672);font:400 28px/1 var(--font-body);cursor:pointer}
+#nl-price-notice .nl-notice-brand{color:var(--gold-light,#d9b672);font-size:.67rem;font-weight:600;letter-spacing:.23em;margin:7px 0 18px;text-transform:uppercase}
+#nl-price-notice h2{font:700 clamp(1.7rem,6vw,2.2rem)/1.14 var(--font-head,Georgia,serif);letter-spacing:-.02em;text-wrap:balance}
+#nl-price-notice .nl-notice-rule{width:44px;height:1px;background:var(--gold-light,#d9b672);margin:21px auto}
+#nl-price-notice .nl-notice-text{font-size:1rem;line-height:1.65;margin:0 0 14px;text-wrap:pretty}
+#nl-price-notice .nl-notice-text strong{font-weight:700;color:var(--gold-light,#d9b672)}
+#nl-price-notice .nl-notice-thanks{font-size:.94rem;line-height:1.6;color:var(--on-dark-soft,#a8a093)}
+#nl-price-notice .nl-notice-ok{width:100%;margin-top:28px;min-height:48px}
+</style>
 </head>
 <body id="top">
 <a class="skip" href="#main">Weiter zum Hauptinhalt</a>
@@ -124,5 +138,34 @@
 </div>
 </div>
 </footer>
+<dialog id="nl-price-notice" aria-labelledby="nl-price-title" aria-describedby="nl-price-description">
+  <div class="nl-notice-content">
+    <button class="nl-notice-close" type="button" aria-label="Hinweis schliessen">×</button>
+    <p class="nl-notice-brand">NoLimits Barbershop</p>
+    <h2 id="nl-price-title">INFO – PREISANPASSUNG</h2>
+    <div class="nl-notice-rule" aria-hidden="true"></div>
+    <p class="nl-notice-text" id="nl-price-description">Ab dem <strong>01.01.2027</strong> erhöht sich der Preis jeder Dienstleistung um <strong>CHF 5.–</strong>.</p>
+    <p class="nl-notice-thanks">Vielen Dank für euer Verständnis!</p>
+    <button class="btn btn-gold nl-notice-ok" type="button" autofocus>Verstanden</button>
+  </div>
+</dialog>
+<script>
+(function(){
+  'use strict';
+  // Preview only: no automatic popup on the future custom production domain.
+  if(location.hostname!=='localboostzs.github.io')return;
+  var dialog=document.getElementById('nl-price-notice');
+  if(!dialog||typeof dialog.showModal!=='function')return;
+  var key='nolimits-price-notice-preview-20261124';
+  var force=new URLSearchParams(location.search).get('preisvorschau')==='1';
+  try{if(!force&&sessionStorage.getItem(key)==='seen')return;}catch(e){}
+  function close(){dialog.close();}
+  dialog.querySelector('.nl-notice-close').addEventListener('click',close);
+  dialog.querySelector('.nl-notice-ok').addEventListener('click',close);
+  dialog.addEventListener('click',function(e){if(e.target===dialog)close();});
+  dialog.addEventListener('close',function(){try{sessionStorage.setItem(key,'seen');}catch(e){}});
+  dialog.showModal();
+})();
+</script>
 </body>
 </html>
