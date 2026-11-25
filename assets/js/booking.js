@@ -8,6 +8,8 @@
     if (q) API = q.replace(/\/$/, '');
   }
   var TERMS = 'Ich habe zur Kenntnis genommen, dass Online-Stornierungen nur bis spätestens 24 Stunden vor Terminbeginn möglich sind. Bei Nichterscheinen können gemäss den vereinbarten Bedingungen Kosten entstehen.';
+  // Bei jeder Aenderung des Textes oben neue Kennung vergeben und im Worker (TERMS_VERSIONS) ergaenzen.
+  var TERMS_VERSION = '2026-11-23-online-24h';
   var MAX_MONTHS = 3;
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
@@ -288,7 +290,7 @@
     if (!validate()) { var bad = $('#bk-form [aria-invalid="true"]'); if (bad) bad.focus(); return; }
     var f = ev.target; var btn = $('#bk-submit'); state.busy = true; btn.disabled = true; var old = btn.textContent; btn.textContent = 'Wird gebucht …';
     try {
-      var r = await api('/api/book', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ service: state.service.key, start: state.slot, name: f.name.value, email: f.email.value, phone: f.phone.value, notes: ('Adresse: ' + f.address.value.trim() + (f.notes.value.trim() ? '\nNotiz: ' + f.notes.value.trim() : '')).slice(0, 500), accepted: $('#f-terms').checked, website: f.website.value, elapsedMs: Date.now() - state.formShown }) });
+      var r = await api('/api/book', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ service: state.service.key, start: state.slot, name: f.name.value, email: f.email.value, phone: f.phone.value, notes: ('Adresse: ' + f.address.value.trim() + (f.notes.value.trim() ? '\nNotiz: ' + f.notes.value.trim() : '')).slice(0, 500), accepted: $('#f-terms').checked, termsVersion: TERMS_VERSION, website: f.website.value, elapsedMs: Date.now() - state.formShown }) });
       showSuccess(r.booking);
     } catch (e) {
       if (e.code === 'slot_unavailable') {

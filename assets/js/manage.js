@@ -47,8 +47,10 @@
     $('nl-manage-duration').textContent=b.minutes+' Minuten';
     $('nl-manage-price').textContent=b.price==null?'Vor Ort':('CHF '+b.price+' · vor Ort');
     $('nl-manage-actions').hidden=!b.canManage;
-    $('nl-manage-show-cancel').hidden=!b.canCancel;
-    $('nl-manage-show-reschedule').hidden=!b.canReschedule;
+    // Nur ausblenden, wenn der Worker ausdruecklich false meldet. Der fruehere Worker (Rollback)
+    // liefert diese Felder nicht; dort entscheidet canManage und der Server prueft selbst.
+    $('nl-manage-show-cancel').hidden=b.canCancel===false;
+    $('nl-manage-show-reschedule').hidden=b.canReschedule===false;
     $('nl-manage-result').hidden=true;
     if(!b.canManage)setMessage('Dieser Termin kann nicht mehr online geändert werden. Bei Fragen kontaktiere bitte NoLimits.',false);
   }

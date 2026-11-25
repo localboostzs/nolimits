@@ -9,6 +9,11 @@ on:
       - 'tests/NoLimits_AccountProfile_Browser_20261119.mjs'
       - 'tests/NoLimits_StaffLab_Browser_20261120.mjs'
       - 'assets/js/manage.js'
+      - 'assets/js/booking.js'
+      - 'worker/**'
+      - 'leistungen/**'
+      - 'tests/NoLimits_FrontendKompatibilitaet_E2E_20261125.mjs'
+      - 'tests/NoLimits_MockBackend_20261125.mjs'
       - 'assets/js/wix-csv.js'
       - 'assets/js/admin.js'
       - 'assets/css/**'
@@ -62,6 +67,11 @@ jobs:
         env:
           NOLIMITS_UI_BASE: http://127.0.0.1:8765
         run: node tests/NoLimits_StaffLab_Browser_20261120.mjs
+      - name: Frontend/Worker compatibility matrix, main and feature (mock backends)
+        run: |
+          git fetch --depth=1 origin main
+          mkdir -p /tmp/nl-main && git archive FETCH_HEAD | tar -x -C /tmp/nl-main
+          NOLIMITS_MAIN_DIR=/tmp/nl-main node tests/NoLimits_FrontendKompatibilitaet_E2E_20261125.mjs
       - name: Save screenshots of public demo pages
         if: always()
         uses: actions/upload-artifact@v4

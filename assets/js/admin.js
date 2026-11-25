@@ -176,8 +176,9 @@
       if(!data.start)throw new Error('Bitte eine freie Uhrzeit auswählen.');
       if(series)data.count=weeks;
       var result=await request(series?'/api/admin/book-series':'/api/admin/book',{method:'POST',body:JSON.stringify(data)});
-      msg(series?'Serientermin erfolgreich: '+result.count+' Termine ab '+fmt(result.starts[0])+' gebucht.':'Termin erfolgreich gebucht: '+fmt(result.booking.start));
+      // loadData() leert die Meldung: zuerst aktualisieren, dann den Erfolg anzeigen.
       await loadData();
+      msg(series?'Serientermin erfolgreich: '+result.count+' Termine ab '+fmt(result.starts[0])+' gebucht.':'Termin erfolgreich gebucht: '+fmt(result.booking.start));
     }catch(e){msg(e.message,true);}
     finally{btn.disabled=false;}
   });

@@ -188,6 +188,17 @@ async function getContacts(req, env) {
 const DEFAULT_ORIGINS = ['https://localboostzs.github.io'];
 const MAX_BODY = 4096;
 const RANGE_DAYS_MAX = 62;
+// Nachweis zu den Stornierungsbedingungen: nur bekannte Textfassungen werden protokolliert.
+// 'customer_checkbox' = Zustimmung im oeffentlichen Buchungsformular.
+// 'staff_attestation' = Mitarbeiter bestaetigt, den Kunden informiert zu haben (KEINE Kundenzustimmung).
+const TERMS_VERSIONS = new Set(['2026-11-23-online-24h']);
+function termsEvidence(source, version) {
+  return {
+    nlTermsSource: source,
+    nlTermsVersion: TERMS_VERSIONS.has(version) ? version : 'nicht_uebermittelt',
+    nlTermsRecordedAt: new Date().toISOString(),
+  };
+}
 const BOOKING_NOTICE_MS = 60 * 60 * 1000;
 const CANCEL_DEADLINE_MS = 24 * 60 * 60 * 1000;
 
@@ -451,6 +462,7 @@ async function book(req, env, adminMode = false) {
     eventTypeId: service.eventTypeId,
     attendee: { name, email: bookingAlias || email, timeZone: TIME_ZONE, language: 'de', phoneNumber: phone },
     bookingFieldsResponses: { ...((env.NL_ALIAS_STAGING_ONLY === 'true' || (adminMode && ADMIN_SERVICES[b.service])) ? {} : { stornierungsbedingungen_akzeptiert: true }), ...(notes ? { notes } : {}) },
+    metadata: termsEvidence(adminMode ? 'staff_attestation' : 'customer_checkbox', adminMode ? null : b.termsVersion),
   };
   let res;
   try {
@@ -559,7 +571,8 @@ async function bookStaffSeries(req, env) {
     const payload = {
       start, eventTypeId:service.eventTypeId,
       attendee:{name,email:bookingAlias || email,timeZone:TIME_ZONE,language:'de',phoneNumber:phone},
-      bookingFieldsResponses:{stornierungsbedingungen_akzeptiert:true,...(notes?{notes}:{})}
+      bookingFieldsResponses:{stornierungsbedingungen_akzeptiert:true,...(notes?{notes}:{})},
+      metadata:termsEvidence('staff_attestation',null)
     };
     let response, out;
     try {
