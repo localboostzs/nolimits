@@ -6,10 +6,14 @@ Status: **zum Push vorbereitet, keine Produktionsfreigabe.** Kein Deployment des
 
 | Nr. | Versions-ID | Bedeutung | Verwenden? |
 |---|---|---|---|
-| 39 | `95a07dfc-6611-4879-be7d-50b1251069f4` | früherer Kandidat (Stand `5740668`), Alias `off`; neueste hochgeladene Version | nein, neu hochladen |
-| 38 | `18cf4a49-a4a1-494a-bdfe-f65132b56eed` | früherer Alias-Fallback (Stand `5740668`) | nur Rollback nach Alias-Aktivierung, bis ein neuer Fallback hochgeladen ist |
+| 41 | `889c21bb-3802-4455-b764-4d5d6415ea6d` | **neuer Kandidat** (Commit `45aa9a6`), Alias `enabled`; neueste Version; nicht deployt | nur nach DEPLOYMENT-Freigabe |
+| 40 | `26011d9f-2712-4f2b-82ce-cbc0e4285a17` | **neuer Fallback** (Commit `45aa9a6`), Alias `disabled`; nicht deployt | Rollback nach Alias-Aktivierung |
+| 39 | `95a07dfc-6611-4879-be7d-50b1251069f4` | früherer Kandidat (Stand `5740668`), Alias `off` | nein |
+| 38 | `18cf4a49-a4a1-494a-bdfe-f65132b56eed` | früherer Fallback (Stand `5740668`) | nur falls 40 ausfällt |
 | 37 | `da2c8307-6aa8-41e5-8c37-e9a4ad282407` | **live, 100 %** (Deployment `b85afd54-5ec1-4a71-9a82-d09fbbe062ef`) | Rollback nur vor Alias-Aktivierung |
 | 1–21 | – | ältere Versionen ohne Webhook-Prüfung | nicht aktivieren |
+
+**Upload 25.11.2026, 22:09 UTC (ohne Deployment):** 40 und 41 über die Cloudflare-API aus Commit `45aa9a6` erzeugt. Nur lesend geprüft: je 9 Secret-Bindings (von Version 39 geerbt, Werte nicht lesbar), beide Rate-Limits, Variablen wie in den `wrangler`-Dateien, Code per Git-Hash gleich dem Commit; Preview-URLs aus; Version 37 unverändert aktiv.
 
 **Bereinigung 25.11.2026 (abgeschlossen):** Das Webhook-Signatur-Secret wurde erneuert, die Zustellung mit einer internen Testbuchung (Buchung, Umbuchung, Stornierung) bestätigt. Anschliessend wurden die Versionen 22–36 und der abgelöste Cal.com-Webhook gelöscht. Nachprüfung (nur lesend): 24 Versionen vorhanden (1–21, 37–39), Version 37 zu 100 % aktiv. Die Löschung des Webhooks ist durch die Ausgabe des Werkzeugs belegt (HTTP 200).
 
@@ -30,7 +34,7 @@ Bis zum Go-live im Cloudflare-Dashboard keine Secrets oder Variablen mit «Deplo
 | Wrangler-Dry-Run Kandidat, Fallback, Staging | bestanden; Staging-Bundle ohne produktive Event-ID |
 | Cal.com-Mailschutz (`NoLimits_KeineCalMails_Tests_20261125.mjs`) | bestanden; schlägt mit Alias `off` fehl |
 
-GitHub Actions für diesen Stand laufen erst nach dem Push.
+GitHub Actions auf Commit `45aa9a6` erfolgreich: [Offline-Tests](https://github.com/localboostzs/nolimits/actions/runs/45709191148) 32/32, [Browsertests](https://github.com/localboostzs/nolimits/actions/runs/45709191845) 5/5, [Live-Systemtest nur lesend](https://github.com/localboostzs/nolimits/actions/runs/45709191204) 18/18 gegen Version 37.
 
 ## 4. Keine Cal.com-Mails an Kunden
 Cal.com lässt Teilnehmermails im Einzelkonto nicht abschalten (Versuch im LAB: HTTP 400, Organisation nötig). Deshalb erhält Cal.com im Kandidaten statt der Kundenadresse einen Alias `info+…@localboost-zs.ch`:
@@ -58,13 +62,13 @@ Nur lesend bestätigt (25.11.): Tabelle `nl_booking_email_aliases` vorhanden, 0 
 - Speicherung von `metadata` in Cal.com ist nach Dokumentation angenommen; Version 37 sendet keinen Nachweis.
 
 ## 7. Ablauf und Rollback (jeder Schritt nur nach ausdrücklicher Freigabe)
-1. Push auf den Feature-Branch; CI abwarten.
-2. Aus dem geprüften Commit **ohne Deployment** hochladen, Fallback zuerst, Kandidat zuletzt; Bindings prüfen (je 9 Secrets, beide Limits) und IDs hier eintragen.
+1. Erledigt: Push, CI erfolgreich.
+2. Erledigt: Versionen 40 und 41 hochgeladen und geprüft.
 3. LAB erneuern und testen.
-4. Kandidat deployen, Preflight, zeitnah das Frontend veröffentlichen.
+4. Kandidat 41 deployen, Preflight, zeitnah das Frontend veröffentlichen.
 
 ```
-npx wrangler versions deploy <neue-Kandidaten-ID>@100% --name nolimits-booking-test
+npx wrangler versions deploy 889c21bb-3802-4455-b764-4d5d6415ea6d@100% --name nolimits-booking-test
 node tools/NoLimits_ReadonlyPreflight_20261119.mjs https://nolimits-booking-test.broken-haze-6cad.workers.dev candidate
 ```
 Erst bei Erfolg `NOLIMITS_MONITOR_BASELINE=candidate` setzen. Danach sofort eine interne Testbuchung: Alias in Cal.com, genau eine NoLimits-Mail, keine Cal.com-Mail an die Testadresse.
@@ -75,7 +79,7 @@ npx wrangler versions deploy da2c8307-6aa8-41e5-8c37-e9a4ad282407@100% --name no
 ```
 Folgen: keine 24-Stunden-Sperre, keine Härtung, keine Serien, keine Mitarbeiter-Verwaltung; Cal.com-Mails gehen wieder an Kunden.
 
-**Rollback B – es gibt Alias-Buchungen:** nur ein Fallback (neu aus Schritt 2, sonst `18cf4a49-a4a1-494a-bdfe-f65132b56eed` ohne die Neuerungen). **Nie 37 oder 39:** Sie kennen die Aliasse nicht und würden NoLimits-Mails an den Alias senden. Im Fallback nutzen **neue** Buchungen wieder die echte Adresse; Cal.com-Mails erreichen diese Kunden. Bei Bedarf Buchungen pausieren. Tabelle, Secret-Key, Mailweiterleitung und Webhook behalten.
+**Rollback B – es gibt Alias-Buchungen:** Fallback 40 `26011d9f-2712-4f2b-82ce-cbc0e4285a17` (nur falls dieser ausfällt 38, ohne die Neuerungen). **Nie 37 oder 39:** Sie kennen die Aliasse nicht und würden NoLimits-Mails an den Alias senden. Im Fallback nutzen **neue** Buchungen wieder die echte Adresse; Cal.com-Mails erreichen diese Kunden. Bei Bedarf Buchungen pausieren. Tabelle, Secret-Key, Mailweiterleitung und Webhook behalten.
 
 Beide Konfigurationen gelten für die Demo-Domain. Vor einem Domainwechsel `ALLOWED_ORIGINS` und `NL_PUBLIC_SITE_BASE` anpassen.
 
