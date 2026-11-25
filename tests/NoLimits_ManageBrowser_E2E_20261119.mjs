@@ -34,7 +34,7 @@ async function runCase(name,viewport,mode){
      if(mode==='invalid'){status=403;response={ok:false,error:{message:'Dieser Buchungslink ist ungültig oder abgelaufen.'}};}
      else response={ok:true,booking:booking()};
    }else if(path==='/api/manage/slots'&&req.method()==='GET'){
-     response={ok:true,days:{[day]:[next]}};
+     response={ok:true,days:day>=url.searchParams.get('start')&&day<=url.searchParams.get('end')?{[day.slice(0,8)+'01']:[],[day]:[next]}:{}};
    }else if(path==='/api/manage/reschedule'&&req.method()==='POST'){
      const data=JSON.parse(req.postData()||'{}');
      assert.equal(data.confirm,true);
@@ -71,17 +71,26 @@ async function runCase(name,viewport,mode){
           page.locator('#nl-manage-show-reschedule').click()
         ]);
         assert.equal(await page.locator('input[type=date]').count(),0,'no native iOS date input');
+        await page.locator('#nl-manage-calendar[aria-busy=false]').waitFor();
         if(!(await page.locator('.nl-manage-day:not([disabled])').count())){
           await Promise.all([
             page.waitForResponse(r=>r.url().includes('/api/manage/slots')),
             page.locator('#nl-manage-next').click()
           ]);
+          await page.locator('#nl-manage-calendar[aria-busy=false]').waitFor();
         }
+        await page.locator('.nl-manage-day:not([disabled])').first().waitFor({state:'visible'});
+        assert.equal(await page.locator('.nl-manage-day:not([disabled])').count(),1,'only nonempty available dates are enabled');
+        assert.ok(await page.locator('.nl-manage-day.bk-day:disabled').count()>0);
+        assert.equal(await page.locator('#nl-manage-reschedule-submit').isDisabled(),true);
+        assert.equal(await page.locator('#nl-manage-slots').isVisible(),false);
         await page.locator('.nl-manage-day:not([disabled])').first().click();
-        const slot=page.locator('.nl-manage-slot');
+        const slot=page.locator('.nl-manage-slot.bk-slot');
        await slot.first().waitFor({state:'visible',timeout:10000});
        await slot.first().click();
+       assert.equal(await page.locator('#nl-manage-reschedule-submit').isDisabled(),true);
        await page.locator('#nl-manage-confirm-reschedule').check();
+       assert.equal(await page.locator('#nl-manage-reschedule-submit').isEnabled(),true);
        await page.locator('#nl-manage-reschedule-submit').click();
        await page.locator('#nl-manage-result').waitFor({state:'visible',timeout:10000});
        assert.ok((await page.locator('#nl-manage-result-title').textContent()).includes('verschoben'));
