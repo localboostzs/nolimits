@@ -20,6 +20,7 @@ jobs:
       - name: Alias booking, webhook, rollback mock tests
         run: |
           node tests/NoLimits_Aliasbuchung_Tests_20261119.mjs
+          node tests/NoLimits_WebhookRotation_Tests_20261125.mjs
           node tests/NoLimits_AliasFallback_Tests_20261125.mjs
           node tests/NoLimits_AuthRateLimit_Tests_20261115.mjs
           node tests/NoLimits_Buchungsverwaltung_Tests_20261116.mjs
