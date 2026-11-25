@@ -166,7 +166,8 @@ async function getContacts(req, env) {
           if(!c) continue;
           c[kind].push({
             uid:b.uid,start:b.start||b.startTime,end:b.end||b.endTime,
-            status:b.status,service:names.get(eventTypeId)
+            status:b.status,service:names.get(eventTypeId),
+            serviceKey:serviceForCal(eventTypeId)?.[0]
           });
         }
       }
@@ -191,16 +192,24 @@ const RANGE_DAYS_MAX = 62;
 // Nachweis zu den Stornierungsbedingungen: nur bekannte Textfassungen werden protokolliert.
 // 'customer_checkbox' = Zustimmung im oeffentlichen Buchungsformular.
 // 'staff_attestation' = Mitarbeiter bestaetigt, den Kunden informiert zu haben (KEINE Kundenzustimmung).
-const TERMS_VERSIONS = new Set(['2026-11-23-online-24h']);
-function termsEvidence(source, version) {
+const TERMS_VERSIONS = {
+  customer_checkbox: new Set(['2026-11-23-online-24h', '2026-11-25-online-24h-storno-umbuchung']),
+  staff_attestation: new Set(['staff-2026-11-25-informiert']),
+};
+// staffId: Supabase-Benutzer-ID der geprueften Mitarbeiterperson (serverseitig, nie vom Client).
+function termsEvidence(source, version, staffId) {
   return {
     nlTermsSource: source,
-    nlTermsVersion: TERMS_VERSIONS.has(version) ? version : 'nicht_uebermittelt',
+    nlTermsVersion: TERMS_VERSIONS[source].has(version) ? version : 'nicht_uebermittelt',
     nlTermsRecordedAt: new Date().toISOString(),
+    ...(staffId ? { nlTermsStaffId: staffId } : {}),
   };
 }
 const BOOKING_NOTICE_MS = 60 * 60 * 1000;
 const CANCEL_DEADLINE_MS = 24 * 60 * 60 * 1000;
+// Kunden: Stornieren und Umbuchen nur bis mindestens 24 Stunden vor Beginn.
+// Autorisierte Mitarbeiter nutzen /api/admin/cancel und /api/admin/reschedule ohne diese Frist.
+const customerMayChange = (startMs) => startMs - Date.now() >= CANCEL_DEADLINE_MS;
 
 // Begrenzung: bevorzugt Cloudflares Rate-Limiting-Binding (gilt über alle Isolates eines Standorts),
 // sonst Rückfall auf einen einfachen Zähler pro Isolate (best effort, ohne Datenbank).
@@ -411,7 +420,7 @@ async function getSlots(url, req, env, privateService) {
   return json({ ok: true, timeZone: TIME_ZONE, minutes: service.minutes, days }, 200, req, env, { 'Cache-Control': 'no-store' });
 }
 
-async function book(req, env, adminMode = false) {
+async function book(req, env, adminMode = false, staffId = null) {
   if (await limited(env, 'RL_BOOK', 'b:' + clientIp(req), 5, 10 * 60_000)) return fail('rate_limited', 'Zu viele Buchungsversuche. Bitte später erneut versuchen.', 429, req, env);
   const len = Number(req.headers.get('Content-Length') || 0);
   if (len > MAX_BODY) return fail('too_large', 'Anfrage zu gross.', 413, req, env);
@@ -462,7 +471,7 @@ async function book(req, env, adminMode = false) {
     eventTypeId: service.eventTypeId,
     attendee: { name, email: bookingAlias || email, timeZone: TIME_ZONE, language: 'de', phoneNumber: phone },
     bookingFieldsResponses: { ...((env.NL_ALIAS_STAGING_ONLY === 'true' || (adminMode && ADMIN_SERVICES[b.service])) ? {} : { stornierungsbedingungen_akzeptiert: true }), ...(notes ? { notes } : {}) },
-    metadata: termsEvidence(adminMode ? 'staff_attestation' : 'customer_checkbox', adminMode ? null : b.termsVersion),
+    metadata: termsEvidence(adminMode ? 'staff_attestation' : 'customer_checkbox', b.termsVersion, adminMode ? staffId : null),
   };
   let res;
   try {
@@ -505,7 +514,7 @@ async function book(req, env, adminMode = false) {
 // Cal.com's actual availability before writing anything. No automatic rollback
 // of successfully booked appointments in the event of a partial upstream failure.
 // This endpoint must never be exposed to anonymous customer booking requests.
-async function bookStaffSeries(req, env) {
+async function bookStaffSeries(req, env, staffId) {
   if (env.NL_ALIAS_STAGING_ONLY === 'true') return fail('staging_series_disabled', 'Serienbuchungen sind im LAB gesperrt.', 403, req, env);
   if (!env.CAL_API_KEY) return fail('not_configured', 'Cal.com muss zuerst verbunden werden.', 503, req, env);
   if (await limited(env, 'RL_BOOK', 'staff-series:' + clientIp(req), 5, 10 * 60_000)) return fail('rate_limited', 'Bitte später erneut versuchen.', 429, req, env);
@@ -572,7 +581,7 @@ async function bookStaffSeries(req, env) {
       start, eventTypeId:service.eventTypeId,
       attendee:{name,email:bookingAlias || email,timeZone:TIME_ZONE,language:'de',phoneNumber:phone},
       bookingFieldsResponses:{stornierungsbedingungen_akzeptiert:true,...(notes?{notes}:{})},
-      metadata:termsEvidence('staff_attestation',null)
+      metadata:termsEvidence('staff_attestation',b.termsVersion,staffId)
     };
     let response, out;
     try {
@@ -593,6 +602,61 @@ async function bookStaffSeries(req, env) {
     booked.push({start:out.data.start,uid:out.data.uid});
   }
   return json({ok:true,count:booked.length,starts:booked.map(b=>b.start)},201,req,env);
+}
+
+async function cancelCalBooking(req, env, uid, reason) {
+  try {
+    const r = await calFetch(CAL_BASE + '/v2/bookings/' + encodeURIComponent(uid) + '/cancel', {
+      method:'POST', headers:calHeaders(env,'2026-02-25'), body:JSON.stringify({cancellationReason:reason})
+    });
+    if (!r.ok) return fail('upstream_error','Die Stornierung wurde nicht bestätigt. Bitte versuche es erneut.',502,req,env);
+    return json({ok:true,status:'cancelled'},200,req,env);
+  } catch { return fail('unavailable', 'Stornierung momentan nicht erreichbar.',502,req,env); }
+}
+async function rescheduleCalBooking(req, env, uid, matched, requested, reason, withCustomerLink) {
+  const nextMs = Date.parse(requested);
+  if (!Number.isFinite(nextMs) || nextMs < Date.now() || nextMs > Date.now() + 366 * 86400000) return fail('invalid_start','Ungültiger neuer Termin.',400,req,env);
+  if (nextMs <= Date.now() + BOOKING_NOTICE_MS) return fail('too_soon','Umbuchungen benötigen mindestens eine Stunde Vorlauf.',409,req,env);
+  const chosen = new Date(nextMs).toISOString();
+  const parts = new Intl.DateTimeFormat('en-GB', {timeZone:TIME_ZONE,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(nextMs));
+  const value = (part) => parts.find(p => p.type === part)?.value || '';
+  const dateKey = value('year')+'-'+value('month')+'-'+value('day');
+  try {
+    const q = new URLSearchParams({eventTypeId:String(matched[1].eventTypeId),start:dateKey,end:dateKey,timeZone:TIME_ZONE});
+    const slots = await calFetch(CAL_BASE+'/v2/slots?'+q,{headers:calHeaders(env,'2024-09-04')});
+    if (!slots.ok) return fail('unavailable','Verfügbarkeit konnte nicht geprüft werden.',502,req,env);
+    const available = await slots.json().catch(()=>null);
+    const all = Object.values(available?.data||{}).flatMap(v=>Array.isArray(v)?v:[]);
+    if (!all.some(x=>Date.parse(x.start) === nextMs)) return fail('slot_unavailable','Dieser Zeitpunkt ist nicht mehr verfügbar.',409,req,env);
+    const r = await calFetch(CAL_BASE+'/v2/bookings/'+encodeURIComponent(uid)+'/reschedule',{
+      method:'POST',headers:calHeaders(env,'2026-02-25'),
+      body:JSON.stringify({start:chosen,reschedulingReason:reason})
+    });
+    if (!r.ok) return fail('upstream_error','Umbuchung nicht bestätigt. Bitte erneut versuchen.',502,req,env);
+    const out = await r.json().catch(()=>null), newer = out?.data;
+    return json({ok:true,booking:{start:newer?.start||chosen,end:newer?.end||null,status:newer?.status||'accepted',
+      ...(withCustomerLink ? {manageUrl: newer?.uid && newer?.start ? customerManageLink(newer.uid,
+        await managementToken(newer.uid, newer.start, env), env) : null} : {})
+    }},200,req,env);
+  } catch { return fail('unavailable','Umbuchung momentan nicht erreichbar.',502,req,env); }
+}
+// Nur nach requireStaff() erreichbar. Keine 24-Stunden-Frist; der Termin darf noch nicht begonnen haben.
+async function staffChange(req, env, action) {
+  if (!env.CAL_API_KEY) return fail('not_configured', 'Cal.com muss zuerst verbunden werden.', 503, req, env);
+  if (await limited(env, 'RL_SLOTS', 'staff-manage:' + clientIp(req), 40, 60000)) return fail('rate_limited', 'Bitte später erneut versuchen.', 429, req, env);
+  if (Number(req.headers.get('Content-Length') || 0) > 2048) return fail('too_large', 'Anfrage zu gross.', 413, req, env);
+  const data = await req.json().catch(() => null);
+  const uid = clean(data?.uid, 120);
+  if (!data || !VALID_UID.test(uid)) return fail('invalid_booking', 'Ungültiger Termin.', 400, req, env);
+  if (data.confirm !== true) return fail('confirmation_required', 'Bitte zuerst bestätigen.', 400, req, env);
+  let found;
+  try { found = await readCalBooking(uid, env); }
+  catch { return fail('unavailable', 'Cal.com ist derzeit nicht erreichbar.', 502, req, env); }
+  if (!found.booking) return fail('not_found', 'Termin nicht gefunden.', 404, req, env);
+  const b = found.booking;
+  if (b.status !== 'accepted' || !(Date.parse(b.start) > Date.now())) return fail('not_active', 'Dieser Termin kann nicht mehr geändert werden.', 409, req, env);
+  if (action === 'cancel') return await cancelCalBooking(req, env, uid, clean(data.reason, 200) || 'Durch NoLimits storniert');
+  return await rescheduleCalBooking(req, env, uid, serviceForCal(b.eventTypeId || b.eventType?.id), data.start, 'Durch NoLimits umgebucht', false);
 }
 
 /* Customer booking management: stateless signed links, no PII or secret in public repo. */
@@ -719,56 +783,28 @@ async function routeManage(req, env, url) {
       service: matched[1].name, serviceKey: matched[0], eventTypeId: matched[1].eventTypeId,
       minutes: matched[1].minutes, price: matched[1].price,
       start: b.start, end: b.end, status:b.status,
-      canManage:b.status === 'accepted' && startMs > Date.now(),
-      canCancel:b.status === 'accepted' && startMs - Date.now() >= CANCEL_DEADLINE_MS,
-      canReschedule:b.status === 'accepted' && startMs > Date.now()
+      canManage:b.status === 'accepted' && customerMayChange(startMs),
+      canCancel:b.status === 'accepted' && customerMayChange(startMs),
+      canReschedule:b.status === 'accepted' && customerMayChange(startMs)
     } }, 200, req, env);
   }
   if (b.status !== 'accepted' || startMs <= Date.now()) return fail('not_active', 'Dieser Termin kann nicht mehr geändert werden.', 409, req, env);
+  // Massgebend ist der Beginn des BISHERIGEN Termins; genau 24 Stunden vorher ist noch erlaubt.
+  const rescheduling = url.pathname === '/api/manage/slots' || url.pathname === '/api/manage/reschedule';
+  if (rescheduling && !customerMayChange(startMs)) return fail('reschedule_deadline', 'Online-Umbuchungen sind nur bis 24 Stunden vor dem Termin möglich. Bitte kontaktiere NoLimits.', 409, req, env);
   if (!post && url.pathname === '/api/manage/slots') {
     if (url.searchParams.get('service') !== matched[0]) return fail('invalid_service','Diese Dienstleistung darf nicht geändert werden.',400,req,env);
     return await getSlots(url, req, env, matched[1]);
   }
   if (post && url.pathname === '/api/manage/cancel') {
     // Authoritative guard: HTML button visibility is never sufficient.
-    if (startMs - Date.now() < CANCEL_DEADLINE_MS) return fail('cancellation_deadline', 'Online-Stornierungen sind nur bis 24 Stunden vor dem Termin möglich. Bitte kontaktiere NoLimits.', 409, req, env);
+    if (!customerMayChange(startMs)) return fail('cancellation_deadline', 'Online-Stornierungen sind nur bis 24 Stunden vor dem Termin möglich. Bitte kontaktiere NoLimits.', 409, req, env);
     if (data.confirm !== true) return fail('confirmation_required', 'Bitte zuerst die Stornierung bestätigen.',400,req,env);
-    const reason = clean(data.reason, 200) || 'Vom Kunden über die NoLimits-Website storniert';
-    try {
-      const r = await calFetch(CAL_BASE + '/v2/bookings/' + encodeURIComponent(uid) + '/cancel', {
-        method:'POST', headers:calHeaders(env,'2026-02-25'), body:JSON.stringify({cancellationReason:reason})
-      });
-      if (!r.ok) return fail('upstream_error','Die Stornierung wurde nicht bestätigt. Bitte versuche es erneut.',502,req,env);
-      return json({ok:true,status:'cancelled'},200,req,env);
-    } catch { return fail('unavailable', 'Stornierung momentan nicht erreichbar.',502,req,env); }
+    return await cancelCalBooking(req, env, uid, clean(data.reason, 200) || 'Vom Kunden über die NoLimits-Website storniert');
   }
   if (post && url.pathname === '/api/manage/reschedule') {
     if (data.confirm !== true) return fail('confirmation_required','Bitte die Umbuchung bestätigen.',400,req,env);
-    const nextMs = Date.parse(data.start);
-    if (!Number.isFinite(nextMs) || nextMs < Date.now() || nextMs > Date.now() + 366 * 86400000) return fail('invalid_start','Ungültiger neuer Termin.',400,req,env);
-    if (nextMs <= Date.now() + BOOKING_NOTICE_MS) return fail('too_soon','Umbuchungen benötigen mindestens eine Stunde Vorlauf.',409,req,env);
-    const chosen = new Date(nextMs).toISOString();
-    const parts = new Intl.DateTimeFormat('en-GB', {timeZone:TIME_ZONE,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(nextMs));
-    const value = (part) => parts.find(p => p.type === part)?.value || '';
-    const dateKey = value('year')+'-'+value('month')+'-'+value('day');
-    try {
-      const q = new URLSearchParams({eventTypeId:String(matched[1].eventTypeId),start:dateKey,end:dateKey,timeZone:TIME_ZONE});
-      const slots = await calFetch(CAL_BASE+'/v2/slots?'+q,{headers:calHeaders(env,'2024-09-04')});
-      if (!slots.ok) return fail('unavailable','Verfügbarkeit konnte nicht geprüft werden.',502,req,env);
-      const available = await slots.json().catch(()=>null);
-      const all = Object.values(available?.data||{}).flatMap(v=>Array.isArray(v)?v:[]);
-      if (!all.some(x=>Date.parse(x.start) === nextMs)) return fail('slot_unavailable','Dieser Zeitpunkt ist nicht mehr verfügbar.',409,req,env);
-      const r = await calFetch(CAL_BASE+'/v2/bookings/'+encodeURIComponent(uid)+'/reschedule',{
-        method:'POST',headers:calHeaders(env,'2026-02-25'),
-        body:JSON.stringify({start:chosen,reschedulingReason:'Durch Kunden auf der NoLimits-Website umgebucht'})
-      });
-      if (!r.ok) return fail('upstream_error','Umbuchung nicht bestätigt. Bitte erneut versuchen.',502,req,env);
-      const out = await r.json().catch(()=>null), newer = out?.data;
-      return json({ok:true,booking:{start:newer?.start||chosen,end:newer?.end||null,status:newer?.status||'accepted',
-        manageUrl: newer?.uid && newer?.start ? customerManageLink(newer.uid,
-          await managementToken(newer.uid, newer.start, env), env) : null
-      }},200,req,env);
-    } catch { return fail('unavailable','Umbuchung momentan nicht erreichbar.',502,req,env); }
+    return await rescheduleCalBooking(req, env, uid, matched, data.start, 'Durch Kunden auf der NoLimits-Website umgebucht', true);
   }
   return fail('not_found','Nicht gefunden.',404,req,env);
 }
@@ -904,6 +940,27 @@ ${hasCalendar ? '<p style="font-size:13px;line-height:1.8;color:#59534a;margin:2
 </html>
 `;
 }
+const WEBHOOK_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+const WEBHOOK_CLOCK_SKEW_MS = 5 * 60 * 1000;
+// Liest die Buchung serverseitig und prueft, ob ihr Zustand zum gemeldeten Ereignis passt.
+// Cal.com kann die Meldung kurz vor der Zustandsaenderung ausliefern, deshalb wenige Wiederholungen.
+async function verifiedBooking(env, uid, typ) {
+  for (let attempt = 0; ; attempt++) {
+    let lookup;
+    try { lookup = await readCalBooking(uid, env); } catch { return { unavailable: true }; }
+    if (lookup.response && !lookup.response.ok && lookup.response.status !== 404) return { unavailable: true };
+    const b = lookup.booking;
+    if (!b) return {};
+    const status = String(b.status || '').toLowerCase();
+    // The replaced booking of a reschedule is cancelled in Cal.com: no cancellation mail.
+    if (typ === 'BOOKING_CANCELLED' && (b.rescheduledToUid || b.rescheduled === true)) return {};
+    const fits = typ === 'BOOKING_CANCELLED' ? ['cancelled', 'canceled'].includes(status)
+      : status === 'accepted' && (typ !== 'BOOKING_RESCHEDULED' || !!b.rescheduledFromUid);
+    if (fits) return { booking: b };
+    if (attempt >= 2) return { mismatch: true };
+    await new Promise((resolve) => setTimeout(resolve, 700));
+  }
+}
 async function onCalWebhook(req, env) {
   if (!env.CAL_WEBHOOK_SECRET) return json({ok:false},503,req,env);
   if (Number(req.headers.get('Content-Length') || 0) > 40000) return fail('too_large','Zu grosse Nachricht.',413,req,env);
@@ -914,34 +971,33 @@ async function onCalWebhook(req, env) {
   if (!bytes || !(await crypto.subtle.verify('HMAC',await hmacKey(env.CAL_WEBHOOK_SECRET),bytes,new TextEncoder().encode(raw)))) {
     return fail('invalid_signature','Ungültige Signatur.',401,req,env);
   }
-  const event = JSON.parse(raw);
+  let event;
+  try { event = JSON.parse(raw); } catch { return fail('invalid_json','Ungültige Nachricht.',400,req,env); }
   const typ = String(event?.triggerEvent||'');
   if (!['BOOKING_CREATED','BOOKING_CONFIRMED','BOOKING_CANCELLED','BOOKING_RESCHEDULED'].includes(typ)) return json({ok:true,ignored:true},200,req,env);
-  const p = event.payload||event;
-  const uid = String(p.uid||'');
-  if (!VALID_UID.test(uid) || !Number.isFinite(Date.parse(p.startTime))) return json({ok:true,ignored:true},200,req,env);
+  const hint = event.payload||event;
+  const uid = String(hint.uid||'');
+  if (!VALID_UID.test(uid)) return json({ok:true,ignored:true},200,req,env);
+  // Replayed old messages are dropped. The window is shorter than Resend's idempotency period.
+  if (event.createdAt !== undefined) {
+    const age = Date.now() - Date.parse(event.createdAt);
+    if (!(age <= WEBHOOK_MAX_AGE_MS && age >= -WEBHOOK_CLOCK_SKEW_MS)) return json({ok:true,ignored:'stale'},200,req,env);
+  }
   // Cal.com can emit a cancellation for the old booking when rescheduling.
-  if (typ==='BOOKING_CANCELLED' && (p.rescheduledToUid || p.rescheduleUid)) return json({ok:true,ignored:true},200,req,env);
+  if (typ==='BOOKING_CANCELLED' && (hint.rescheduledToUid || hint.rescheduleUid)) return json({ok:true,ignored:true},200,req,env);
   if (env.NL_EMAIL_ENABLED !== 'true' || !env.RESEND_API_KEY || !env.CAL_API_KEY || !env.NL_MANAGE_SECRET) return json({ok:true,skipped:'mail_not_enabled'},200,req,env);
-  let match = serviceForWebhook(p);
-  // Some BOOKING_CANCELLED webhooks omit eventTypeId/type. Resolve the UID
-  // with the server-side Cal.com token; never trust arbitrary webhook titles.
-  if (!match) {
-    try {
-      const lookup = await readCalBooking(uid, env);
-      if (lookup.booking) match = serviceForCal(lookup.booking.eventTypeId || lookup.booking.eventType?.id);
-    } catch { /* Cal.com unavailable; do not send an unverified email. */ }
-  }
-  if (!match) return json({ok:true,ignored:true},200,req,env);
-  let customer = (p.attendees || []).find(a=>isEmail(String(a.email||'')));
-  // Some cancellation/reschedule webhooks omit attendees; resolve via Cal.com if possible.
-  if (!customer) {
-    try {
-      const lookup = await readCalBooking(uid, env);
-      customer = (lookup.booking?.attendees || []).find(a=>isEmail(String(a.email||'')));
-    } catch { /* no verified attendee: fail safely below */ }
-  }
-  if (!customer) return json({ok:true,ignored:true},200,req,env);
+  // From here on only data read from Cal.com with the server key is used.
+  const checked = await verifiedBooking(env, uid, typ);
+  if (checked.unavailable) return fail('verification_unavailable','Die Buchung konnte nicht geprüft werden.',503,req,env);
+  if (checked.mismatch) return fail('state_mismatch','Die Meldung passt nicht zum Stand der Buchung.',409,req,env);
+  if (!checked.booking) return json({ok:true,ignored:true},200,req,env);
+  const booking = checked.booking;
+  const match = serviceForCal(booking.eventTypeId || booking.eventType?.id);
+  const customer = (booking.attendees || [])[0];
+  const begins = Date.parse(booking.start);
+  if (!match || !isEmail(String(customer?.email||'')) || !Number.isFinite(begins)) return json({ok:true,ignored:true},200,req,env);
+  if (typ!=='BOOKING_CANCELLED' && begins <= Date.now()) return json({ok:true,ignored:true},200,req,env);
+  const p = { uid, startTime: booking.start, endTime: booking.end };
   let destinationEmail;
   try {
     destinationEmail = await resolveAttendeeEmail(env, customer.email);
@@ -1081,8 +1137,10 @@ export default {
           if (!service) return fail('invalid_service','Unbekannte Leistung.',400,req,env);
           return await getSlots(url, req, env, service);
         }
-        if (req.method === 'POST' && url.pathname === '/api/admin/book') return await book(req, env, true);
-        if (req.method === 'POST' && url.pathname === '/api/admin/book-series') return await bookStaffSeries(req, env);
+        if (req.method === 'POST' && url.pathname === '/api/admin/book') return await book(req, env, true, access.userId);
+        if (req.method === 'POST' && url.pathname === '/api/admin/book-series') return await bookStaffSeries(req, env, access.userId);
+        if (req.method === 'POST' && url.pathname === '/api/admin/cancel') return await staffChange(req, env, 'cancel');
+        if (req.method === 'POST' && url.pathname === '/api/admin/reschedule') return await staffChange(req, env, 'reschedule');
         return fail('not_found','Nicht gefunden.',404,req,env);
       }
       if (req.method === 'GET' && url.pathname === '/api/services') {

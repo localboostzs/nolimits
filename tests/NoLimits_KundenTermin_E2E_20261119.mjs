@@ -80,7 +80,7 @@ globalThis.fetch=async (value,init={})=>{
     assert.equal(calBooking.status,'accepted');
     const old=calBooking;
     const next=JSON.parse(init.body).start;
-    calBooking=buildBooking(uid(),next,old.attendees[0].email);
+    calBooking={...buildBooking(uid(),next,old.attendees[0].email),rescheduledFromUid:old.uid};
     return Response.json({data:calBooking});
   }
   if(u.pathname.endsWith('/v2/bookings/'+calBooking?.uid+'/cancel') && m==='POST'){

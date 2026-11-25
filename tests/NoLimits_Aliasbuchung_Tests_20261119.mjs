@@ -11,6 +11,7 @@ const future=new Date(Date.now()+9*86400000).toISOString();
 const aliasTable=new Map();
 const requests=[];const sent=[];
 let uid='AliasSmokeBooking12345';
+let server={status:'accepted'};
 globalThis.fetch=async(url,options={})=>{
   url=String(url);requests.push({url,method:options.method||'GET'});
   if(url.includes('/rest/v1/nl_booking_email_aliases')) {
@@ -34,7 +35,7 @@ globalThis.fetch=async(url,options={})=>{
     return Response.json({data:{uid,status:'accepted',start:future,end:future}});
   }
   if(url==='https://api.resend.com/emails'){sent.push(JSON.parse(options.body));return Response.json({id:'email_test'});}
-  if(url.endsWith('/v2/bookings/'+uid))return Response.json({data:{uid,eventTypeId:7888953,status:'accepted',start:future,end:future,attendees:[{email:[...aliasTable.keys()][0]}]}});
+  if(url.endsWith('/v2/bookings/'+uid))return Response.json({data:{uid,eventTypeId:7888953,...server,start:future,end:future,attendees:[{email:[...aliasTable.keys()][0]||alias}]}});
   throw Error('Unexpected fetch '+url);
 };
 const base='https://stage.example.workers.dev';
@@ -66,6 +67,7 @@ assert.equal(manageBad.status,403);
 const manageMismatch=await app.fetch(new Request(base+'/api/manage?uid=DifferentBookingUid123&token='+signedManageLink.searchParams.get('token')),env);
 assert.equal(manageMismatch.status,403);
 for(const typ of ['BOOKING_CREATED','BOOKING_RESCHEDULED','BOOKING_CANCELLED']){
+  server=typ==='BOOKING_CANCELLED'?{status:'cancelled'}:typ==='BOOKING_RESCHEDULED'?{status:'accepted',rescheduledFromUid:'PreviousBookingUid01'}:{status:'accepted'};
   const p=JSON.stringify({triggerEvent:typ,payload:{uid,eventTypeId:7888953,startTime:future,attendees:[{email:alias,name:'Test Kunde'}]}});
   const sig=crypto.createHmac('sha256',env.CAL_WEBHOOK_SECRET).update(p).digest('hex');
   const res=await app.fetch(new Request(base+'/api/webhooks/cal',{method:'POST',headers:{'X-Cal-Signature-256':sig},body:p}),env);
@@ -73,6 +75,7 @@ for(const typ of ['BOOKING_CREATED','BOOKING_RESCHEDULED','BOOKING_CANCELLED']){
 }
 assert.equal(sent.length,3);
 for(const mail of sent){assert.deepEqual(mail.to,['real-customer@example.org']);assert.equal(mail.from,'NoLimits Barbershop <noreply@nolimits-barber.ch>');assert.ok(mail.html.includes('NOLIMITS'));}
+server={status:'accepted'};
 env.NL_ALIAS_MODE='off';
 const p=JSON.stringify({triggerEvent:'BOOKING_CREATED',payload:{uid,eventTypeId:7888953,startTime:future,attendees:[{email:alias,name:'Test Kunde'}]}});
 const sig=crypto.createHmac('sha256',env.CAL_WEBHOOK_SECRET).update(p).digest('hex');

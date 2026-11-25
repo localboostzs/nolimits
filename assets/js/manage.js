@@ -52,7 +52,7 @@
     $('nl-manage-show-cancel').hidden=b.canCancel===false;
     $('nl-manage-show-reschedule').hidden=b.canReschedule===false;
     $('nl-manage-result').hidden=true;
-    if(!b.canManage)setMessage('Dieser Termin kann nicht mehr online geändert werden. Bei Fragen kontaktiere bitte NoLimits.',false);
+    if(!b.canManage)setMessage('Dieser Termin kann nicht mehr online geändert werden (Stornieren und Umbuchen nur bis 24 Stunden vor Beginn). Bitte kontaktiere NoLimits.',false);
   }
   async function load(){
     setMessage('');

@@ -17,36 +17,12 @@ jobs:
           node-version: '22'
       - name: Syntax check
         run: node --check worker/src/index.js
-      - name: Alias booking, webhook, rollback mock tests
+      # Offline only: the runner blocks every connection that leaves the machine.
+      # Live checks are in NoLimits_Live_Systemtest_20261125.yml.
+      - name: Offline tests (mock backends, no network)
         run: |
-          node tests/NoLimits_Aliasbuchung_Tests_20261119.mjs
-          node tests/NoLimits_WebhookRotation_Tests_20261125.mjs
-          node tests/NoLimits_AliasFallback_Tests_20261125.mjs
-          node tests/NoLimits_AuthRateLimit_Tests_20261115.mjs
-          node tests/NoLimits_Buchungsverwaltung_Tests_20261116.mjs
-          node tests/NoLimits_CRM_Regression_20261116.mjs
-          node tests/NoLimits_CookieBanner_Tests_20261115.mjs
-          node tests/NoLimits_GoogleIDToken_Test_20261117.cjs
-          node tests/NoLimits_GoogleLoginIntegration_20261117.cjs
-          node tests/NoLimits_LoginSicherheit_Tests_20261125.mjs
-          node tests/NoLimits_MeetingEntscheide_20261123.mjs
-          node tests/NoLimits_Stornobedingungen_Tests_20261125.mjs
-          node tests/NoLimits_Systemtest_20261115.mjs
-          node tests/NoLimits_WebhookRobustheit_Tests_20261116.mjs
-          node tests/NoLimits_AliasStaging_Isolation_20261119.mjs
-          node tests/NoLimits_AliasCRM_Regression_20261119.mjs
-          node tests/NoLimits_StaffLabBooking_E2E_20261120.mjs
-          node tests/NoLimits_LabCleanup_Tests_20261120.mjs
-          node tests/NoLimits_KundenTermin_E2E_20261119.mjs
-          node tests/NoLimits_WixCSV_Probeimport_20261119.mjs
-          node tests/NoLimits_WixBookingPlan_Test_20261119.mjs
-          node tests/NoLimits_Kalenderdatei_Tests_20261119.mjs
-          node tests/NoLimits_AliasCleanup_Tests_20261120.mjs
-          node tests/NoLimits_DomainSwitch_Tests_20261120.mjs
-          node tests/NoLimits_DomainFrontend_Config_20261123.mjs
-          node tests/NoLimits_ProductionCandidate_Tests_20261120.mjs
-          node tests/NoLimits_ReadonlyPreflight_Tests_20261119.mjs
-          node tools/NoLimits_WixBookingPlan_20261119.mjs tests/fixtures/NoLimits_WixBookings_Synthetisch_20261119.json | node -e "let s=''; process.stdin.on('data',c=>s+=c).on('end',()=>{const r=JSON.parse(s);if(!r.ready||r.summary.prepared!==2)process.exit(1); console.log('PASS: Wix booking CLI offline readiness with two synthetic appointments')})"
+          git fetch --depth=1 origin main:refs/remotes/origin/main
+          node tests/run-offline.mjs node
       - name: Verify Wrangler stage bundle (no Cloudflare deployment)
         working-directory: worker
         run: |

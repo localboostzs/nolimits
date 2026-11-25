@@ -7,9 +7,9 @@
     var q = new URLSearchParams(location.search).get('api');
     if (q) API = q.replace(/\/$/, '');
   }
-  var TERMS = 'Ich habe zur Kenntnis genommen, dass Online-Stornierungen nur bis spätestens 24 Stunden vor Terminbeginn möglich sind. Bei Nichterscheinen können gemäss den vereinbarten Bedingungen Kosten entstehen.';
+  var TERMS = 'Ich habe zur Kenntnis genommen, dass Online-Stornierungen und Online-Umbuchungen nur bis spätestens 24 Stunden vor Terminbeginn möglich sind. Bei Nichterscheinen können gemäss den vereinbarten Bedingungen Kosten entstehen.';
   // Bei jeder Aenderung des Textes oben neue Kennung vergeben und im Worker (TERMS_VERSIONS) ergaenzen.
-  var TERMS_VERSION = '2026-11-23-online-24h';
+  var TERMS_VERSION = '2026-11-25-online-24h-storno-umbuchung';
   var MAX_MONTHS = 3;
 
   var $ = function (s, r) { return (r || document).querySelector(s); };

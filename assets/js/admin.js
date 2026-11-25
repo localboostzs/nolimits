@@ -25,7 +25,41 @@
   function makeAppt(b){
     var p=el('div','nl-appt'),s=el('strong',null,(b.service||'Termin'));
     var small=el('small',null,fmt(b.start)+' · '+(b.status||''));
-    p.append(s,small);return p;
+    p.append(s,small);
+    if(b.uid&&b.serviceKey&&b.status==='accepted'&&Date.parse(b.start)>Date.now())p.appendChild(staffActions(b));
+    return p;
+  }
+  // Mitarbeiter duerfen auch kurzfristig absagen und verschieben; der Server prueft die Berechtigung.
+  function staffActions(b){
+    var box=el('div','nl-account-actions nl-appt-actions'),panel=el('div','nl-appt-move');panel.hidden=true;
+    function button(text,cls,onClick){var x=el('button',cls,text);x.type='button';x.addEventListener('click',onClick);return x;}
+    async function send(path,data,done){
+      box.querySelectorAll('button').forEach(function(x){x.disabled=true;});
+      try{await request(path,{method:'POST',body:JSON.stringify(data)});await loadData();msg(done);}
+      catch(e){msg(e.message,true);box.querySelectorAll('button').forEach(function(x){x.disabled=false;});}
+    }
+    var day=el('input');day.type='date';day.setAttribute('aria-label','Neues Datum');
+    var time=el('select');time.setAttribute('aria-label','Neue Uhrzeit');time.appendChild(new Option('Zuerst Datum wählen',''));
+    day.addEventListener('change',async function(){
+      time.replaceChildren(new Option('Uhrzeit auswählen',''));
+      if(!day.value)return;
+      try{
+        var r=await request('/api/admin/slots?service='+encodeURIComponent(b.serviceKey)+'&start='+day.value+'&end='+day.value);
+        (r.days&&r.days[day.value]||[]).forEach(function(s){time.appendChild(new Option(fmt(s).split(', ').pop(),s));});
+        if(time.options.length===1)msg('Für diesen Tag sind keine freien Zeiten vorhanden.');
+      }catch(e){msg(e.message,true);}
+    });
+    panel.append(day,time,button('Neue Zeit speichern','btn btn-gold btn-sm nl-appt-save',function(){
+      if(!time.value){msg('Bitte eine freie Uhrzeit auswählen.',true);return;}
+      if(!confirm('Termin vom '+fmt(b.start)+' auf '+fmt(time.value)+' verschieben?'))return;
+      send('/api/admin/reschedule',{uid:b.uid,start:time.value,confirm:true},'Termin erfolgreich verschoben.');
+    }));
+    box.append(button('Verschieben','nl-plain-button nl-appt-reschedule',function(){panel.hidden=!panel.hidden;}),
+      button('Absagen','nl-plain-button nl-appt-cancel',function(){
+        if(!confirm('Termin vom '+fmt(b.start)+' wirklich absagen?'))return;
+        send('/api/admin/cancel',{uid:b.uid,confirm:true},'Termin erfolgreich abgesagt.');
+      }),panel);
+    return box;
   }
   function displayContact(c){
     selected=c;info.replaceChildren();
@@ -171,7 +205,9 @@
         email:form.elements.email.value.trim(),
         phone:form.elements.phone.value.trim(),
         notes:form.elements.notes.value.trim(),
-        accepted:form.elements.accepted.checked
+        accepted:form.elements.accepted.checked,
+        // Kennung des Bestaetigungstextes in verwaltung/index.html
+        termsVersion:'staff-2026-11-25-informiert'
       };
       if(!data.start)throw new Error('Bitte eine freie Uhrzeit auswählen.');
       if(series)data.count=weeks;

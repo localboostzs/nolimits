@@ -30,6 +30,7 @@ globalThis.fetch=async(url,init={})=>{
  if(u==='https://api.cal.com/v2/bookings'&&init.method==='POST'){
    return Response.json({data:{uid,status:'accepted',start:future,end:new Date(Date.parse(future)+900000).toISOString()}});
  }
+ if(u==='https://api.cal.com/v2/bookings/'+uid)return Response.json({data:{uid,eventTypeId:7982460,status:'accepted',start:future,attendees:[{email:alias}]}});
  if(u==='https://api.resend.com/emails'){const mail=JSON.parse(init.body);sent.push(mail);return Response.json({id:'qa-mock'});}
  throw Error('Unexpected network '+u);
 };

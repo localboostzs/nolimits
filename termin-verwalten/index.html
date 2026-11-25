@@ -12,7 +12,7 @@
 <script src="../assets/js/config.js"></script>
 <script src="../assets/js/booking-config.js"></script>
 <script defer src="../assets/js/privacy.js?v=20261115-privacy1"></script>
-<script defer src="../assets/js/manage.js?v=20261125-rollback1"></script>
+<script defer src="../assets/js/manage.js?v=20261125-deadline1"></script>
 </head><body id="top">
 <a class="skip" href="#main">Zum Inhalt springen</a>
 <header class="site-header"><div class="wrap header-in">
@@ -33,7 +33,7 @@
   <span class="nl-manage-tag" id="nl-manage-status">Termin</span>
   <h2 id="nl-manage-service"></h2>
   <dl class="nl-manage-facts"><div><dt>Datum &amp; Uhrzeit</dt><dd id="nl-manage-time"></dd></div><div><dt>Dauer</dt><dd id="nl-manage-duration"></dd></div><div><dt>Preis</dt><dd id="nl-manage-price"></dd></div><div><dt>Ort</dt><dd>Schmiedgasse 94, 6438 Ibach</dd></div></dl>
-  <p class="nl-manage-hint">Online-Stornierungen sind nur bis spätestens 24 Stunden vor Terminbeginn möglich. Danach kontaktiere bitte NoLimits. Eine Umbuchung ist bis zum Terminbeginn möglich, sofern ein neuer freier Termin mindestens eine Stunde in der Zukunft liegt.</p>
+  <p class="nl-manage-hint">Online-Stornierungen und Online-Umbuchungen sind nur bis spätestens 24 Stunden vor Terminbeginn möglich. Danach kontaktiere bitte NoLimits.</p>
   <div id="nl-manage-actions" class="nl-manage-actions">
     <button type="button" id="nl-manage-show-reschedule" class="btn btn-gold">Termin verschieben</button>
     <button type="button" id="nl-manage-show-cancel" class="nl-manage-outline">Termin stornieren</button>
@@ -52,7 +52,7 @@
     <div class="nl-manage-weekdays" aria-hidden="true"><span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span></div>
     <div id="nl-manage-calendar" class="nl-manage-calendar" role="group" aria-label="Freies Datum auswählen"></div>
     <div id="nl-manage-slots" aria-live="polite"></div><input id="nl-manage-selected-start" type="hidden">
-    <label class="nl-manage-check"><input id="nl-manage-confirm-reschedule" type="checkbox" required> Ich bestätige die Umbuchung und habe den Hinweis zu möglichen Kosten gelesen.</label>
+    <label class="nl-manage-check"><input id="nl-manage-confirm-reschedule" type="checkbox" required> Ich bestätige die Umbuchung (mindestens 24 Stunden vor Beginn des bisherigen Termins) und habe den Hinweis zu möglichen Kosten gelesen.</label>
     <div class="nl-manage-actions"><button type="submit" class="btn btn-gold" id="nl-manage-reschedule-submit">Neuen Termin bestätigen</button><button type="button" class="nl-manage-outline" data-dismiss>Zurück</button></div>
   </form>
   <div id="nl-manage-result" hidden><h2 id="nl-manage-result-title"></h2><p id="nl-manage-result-message"></p><a class="btn btn-gold" href="../booking-test/">Weitere Buchung</a></div>

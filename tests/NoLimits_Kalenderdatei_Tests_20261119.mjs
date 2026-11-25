@@ -15,15 +15,19 @@ const env={NL_ALIAS_MODE:'enabled',NL_ALIAS_DOMAIN:'localboost-zs.ch',NL_ALIAS_P
  CAL_API_KEY:'cal_mock',CAL_WEBHOOK_SECRET:'cal_mock_secret_long'.repeat(3),
  NL_MANAGE_SECRET:'mgmt_mock'.repeat(7),NL_EMAIL_ENABLED:'true',RESEND_API_KEY:'re_mock'};
 const sent=[];
+let booking=null;
 globalThis.fetch=async(url,opts={})=>{
  const x=String(url);
  if(x.includes('/rest/v1/nl_booking_email_aliases?'))return Response.json([{alias_email:alias,customer_email:real}]);
+ if(x==='https://api.cal.com/v2/bookings/'+uid)return Response.json({data:booking});
  if(x==='https://api.resend.com/emails'){sent.push(JSON.parse(opts.body));return Response.json({id:'test_email'});}
  throw Error('Unexpected URL '+x);
 };
 async function fire(typ,when){
  const payload={uid,eventTypeId:7982460,startTime:when,
     attendees:[{name:'Testperson',email:alias}]};
+ booking={uid,eventTypeId:7982460,start:when,status:typ==='BOOKING_CANCELLED'?'cancelled':'accepted',
+   ...(typ==='BOOKING_RESCHEDULED'?{rescheduledFromUid:'PreviousBookingUid01'}:{}),attendees:payload.attendees};
  const body=JSON.stringify({triggerEvent:typ,payload});
  const sig=crypto.createHmac('sha256',env.CAL_WEBHOOK_SECRET).update(body).digest('hex');
  const response=await worker.fetch(new Request('https://stage.example.workers.dev/api/webhooks/cal',{

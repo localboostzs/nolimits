@@ -18,7 +18,9 @@ export const zurichDay = (iso) => new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Europe/Zurich', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
 
 export function createMock() {
-  const state = { bookings: new Map(), aliases: new Map(), mails: [], calPosts: [], seq: 0 };
+  const state = { bookings: new Map(), aliases: new Map(), mails: [], calPosts: [], seq: 0,
+    requiredTerms: new Set([7912905]),
+    staffRows: [{ role: 'staff', active: true }] };
   const newUid = () => 'MockBookingUid' + String(++state.seq).padStart(6, '0');
   state.addBooking = ({ eventTypeId, start, email, name = 'Testkunde' }) => {
     const uid = newUid();
@@ -45,9 +47,9 @@ export function createMock() {
       const [, , , uid, action] = u.pathname.split('/');
       if (!uid && method === 'POST') {
         state.calPosts.push(body);
-        // As configured in Cal.com on 25.11.2026: Gentleman Rasur has a REQUIRED boolean terms field.
+        // Configured in Cal.com on 25.11.2026 for Gentleman Rasur (7912905); tests may add more ids.
         // Rejection of a missing value is assumed from that setting; it was not tried against Cal.com.
-        if (body.eventTypeId === 7912905 && body.bookingFieldsResponses?.stornierungsbedingungen_akzeptiert !== true) {
+        if (state.requiredTerms.has(body.eventTypeId) && body.bookingFieldsResponses?.stornierungsbedingungen_akzeptiert !== true) {
           return Response.json({ message: 'required booking field missing' }, { status: 400 });
         }
         const b = state.addBooking({ eventTypeId: body.eventTypeId, start: body.start, email: body.attendee.email, name: body.attendee.name });
@@ -66,12 +68,13 @@ export function createMock() {
         booking.status = 'cancelled';
         const next = state.addBooking({ eventTypeId: booking.eventTypeId, start: body.start, email: booking.attendees[0].email, name: booking.attendees[0].name });
         booking.rescheduledToUid = next.uid;
+        next.rescheduledFromUid = booking.uid;
         return Response.json({ data: next });
       }
     }
     if (u.origin === SUPABASE) {
       if (u.pathname === '/auth/v1/user') return Response.json({ id: '11111111-1111-4111-8111-111111111111' });
-      if (u.pathname === '/rest/v1/nl_staff') return Response.json([{ role: 'staff', active: true }]);
+      if (u.pathname === '/rest/v1/nl_staff') return Response.json(state.staffRows);
       if (['/rest/v1/nl_customer_profiles', '/rest/v1/nl_legacy_contacts'].includes(u.pathname)) return Response.json([]);
       if (u.pathname === '/rest/v1/nl_booking_email_aliases') {
         if (opts.headers.apikey !== secrets.NL_SUPABASE_SECRET_KEY) return Response.json({}, { status: 401 });

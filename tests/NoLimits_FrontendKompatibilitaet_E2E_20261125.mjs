@@ -106,7 +106,7 @@ async function customerFlow(fe, wk, viewport) {
   assert.strictEqual(post.bookingFieldsResponses.stornierungsbedingungen_akzeptiert, true);
   if (newWorker) {
     assert.equal(post.metadata.nlTermsSource, 'customer_checkbox');
-    assert.equal(post.metadata.nlTermsVersion, fe === 'feature' ? '2026-11-23-online-24h' : 'nicht_uebermittelt');
+    assert.equal(post.metadata.nlTermsVersion, fe === 'feature' ? '2026-11-25-online-24h-storno-umbuchung' : 'nicht_uebermittelt');
   } else assert.equal(post.metadata, undefined);
   const manage = await page.locator('#bk-manage-link').getAttribute('href');
 
@@ -144,18 +144,17 @@ async function customerFlow(fe, wk, viewport) {
   await t.go('/termin-verwalten/?uid=' + soon.uid + '&token=' + token);
   await page.locator('#nl-manage-details').waitFor({ state: 'visible' });
   const cancelShown = await page.locator('#nl-manage-show-cancel').isVisible();
-  assert.equal(cancelShown, !(newWorker && fe === 'feature'), 'cancel button within 24h');
-  let late = 'Knopf ausgeblendet';
-  if (cancelShown) {
+  const moveShown = await page.locator('#nl-manage-show-reschedule').isVisible();
+  assert.deepEqual([cancelShown, moveShown], newWorker ? [false, false] : [true, true], 'buttons within 24h');
+  let late = 'Stornieren und Umbuchen ausgeblendet';
+  if (newWorker) {
+    assert.match(await page.locator('#nl-manage-msg').innerText(), /nicht mehr online/);
+  } else {
     await page.locator('#nl-manage-show-cancel').click();
     await page.locator('#nl-manage-confirm-cancel').check();
     await page.locator('#nl-manage-cancel [type=submit]').click();
     await page.waitForTimeout(500);
-    if (newWorker) {
-      assert.equal(soon.status, 'accepted');
-      assert.match(await page.locator('#nl-manage-msg').innerText(), /24 Stunden/);
-      late = 'Knopf sichtbar, Server lehnt mit Meldung ab';
-    } else { assert.equal(soon.status, 'cancelled'); late = 'Storno wird ausgefuehrt (live ohne 24h-Sperre)'; }
+    assert.equal(soon.status, 'cancelled'); late = 'Storno wird ausgefuehrt (live ohne 24h-Sperre)';
   }
   assert.deepEqual(t.errors, []);
   results.push({ fe, wk, late });
@@ -203,6 +202,29 @@ async function staffFlow(fe, wk) {
   } else {
     assert.strictEqual(post.bookingFieldsResponses.stornierungsbedingungen_akzeptiert, true);
     assert.equal(post.metadata.nlTermsSource, 'staff_attestation');
+    assert.equal(post.metadata.nlTermsVersion, fe === 'feature' ? 'staff-2026-11-25-informiert' : 'nicht_uebermittelt');
+  }
+  // Short-notice appointment in the CRM: staff may move and cancel it (feature frontend, new Worker).
+  mock.bookings.clear();
+  const near = mock.addBooking({ eventTypeId: 7888953, start: new Date(Date.now() + 3 * 3600000).toISOString(), email: 'nah@example.test', name: 'Kurzfristig' });
+  const openContact = async () => { await page.locator('#nl-contacts button', { hasText: 'Kurzfristig' }).click(); };
+  await t.go('/verwaltung/');
+  await openContact();
+  const actions = fe === 'feature' && wk !== 'live';
+  assert.equal(await page.locator('.nl-appt-cancel').count(), actions ? 1 : 0, 'staff actions');
+  if (actions) {
+    await page.locator('.nl-appt-reschedule').click();
+    const target = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+    await page.locator('.nl-appt-move input[type=date]').fill(target);
+    await page.locator('.nl-appt-move input[type=date]').dispatchEvent('change');
+    await page.locator('.nl-appt-move select option').nth(1).waitFor({ state: 'attached' });
+    await page.locator('.nl-appt-move select').selectOption({ index: 1 });
+    await page.locator('.nl-appt-save').click();
+    await page.waitForFunction(() => /verschoben/.test(document.getElementById('nl-admin-notice').textContent));
+    assert.equal(near.status, 'cancelled'); assert.ok(near.rescheduledToUid);
+    await page.locator('.nl-appt-cancel').first().click();
+    await page.waitForFunction(() => /abgesagt/.test(document.getElementById('nl-admin-notice').textContent));
+    assert.equal(mock.bookings.get(near.rescheduledToUid).status, 'cancelled');
   }
   if (series) {
     mock.calPosts.length = 0;

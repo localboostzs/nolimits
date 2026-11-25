@@ -1,0 +1,36 @@
+name: NoLimits LIVE Systemtest (nur lesend)
+# Reads the published site, the live Worker and Supabase with GET/OPTIONS only.
+# Deliberately not part of the offline tests. After a Worker deployment of the release
+# candidate set the repository variable NOLIMITS_MONITOR_BASELINE to "candidate".
+on:
+  workflow_dispatch:
+    inputs:
+      baseline:
+        description: 'Expected service contract (legacy = 9; candidate = 10)'
+        required: true
+        default: legacy
+        type: choice
+        options:
+          - legacy
+          - candidate
+  push:
+    branches:
+      - feature/NoLimits_Aliasbuchung_20261119
+    paths:
+      - .github/workflows/NoLimits_Live_Systemtest_20261125.yml
+      - tests/live/**
+jobs:
+  live-readonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Live system test (read-only)
+        env:
+          NOLIMITS_BASELINE: ${{ inputs.baseline || vars.NOLIMITS_MONITOR_BASELINE || 'legacy' }}
+        run: node tests/live/NoLimits_Systemtest_Live_20261115.mjs "$NOLIMITS_BASELINE"

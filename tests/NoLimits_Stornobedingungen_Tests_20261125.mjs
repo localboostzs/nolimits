@@ -1,5 +1,4 @@
-// Offline: server validation and evidence for the cancellation terms, plus a
-// record of CURRENT behaviour around the 24h limit (no new business rule).
+// Offline: server validation and evidence for the booking terms.
 import assert from 'node:assert/strict';
 import { createMock, secrets, tomlVars, call } from './NoLimits_MockBackend_20261125.mjs';
 const { default: worker } = await import('../worker/src/index.js');
@@ -37,30 +36,21 @@ const [forged] = await book('/api/book', {}, { metadata: { nlTermsSource: 'x' },
 assert.equal(forged.metadata.nlTermsSource, 'customer_checkbox');
 assert.deepEqual(Object.keys(forged.metadata).sort(), ['nlTermsRecordedAt', 'nlTermsSource', 'nlTermsVersion']);
 for (const [k, v] of Object.entries(forged.metadata)) assert.ok(k.length <= 40 && typeof v === 'string' && v.length <= 500, 'Cal.com metadata limits');
-// Staff bookings, single and series, are marked as staff attestation even if a version is sent.
-const [single] = await book('/api/admin/book', staff, { termsVersion: '2026-11-23-online-24h' });
-assert.equal(single.metadata.nlTermsSource, 'staff_attestation');
-assert.equal(single.metadata.nlTermsVersion, 'nicht_uebermittelt');
-assert.strictEqual(single.bookingFieldsResponses.stornierungsbedingungen_akzeptiert, true);
-const series = await book('/api/admin/book-series', staff, { count: 4 });
+// Staff bookings, single and series: staff attestation with the server-side staff id.
+const STAFF = '11111111-1111-4111-8111-111111111111';
+for (const [sent, stored] of [['staff-2026-11-25-informiert', 'staff-2026-11-25-informiert'], [undefined, 'nicht_uebermittelt'], ['2026-11-23-online-24h', 'nicht_uebermittelt']]) {
+  const [single] = await book('/api/admin/book', staff, { termsVersion: sent, nlTermsStaffId: 'forged', metadata: { nlTermsSource: 'x' } });
+  assert.equal(single.metadata.nlTermsSource, 'staff_attestation');
+  assert.equal(single.metadata.nlTermsVersion, stored);
+  assert.equal(single.metadata.nlTermsStaffId, STAFF);
+  assert.strictEqual(single.bookingFieldsResponses.stornierungsbedingungen_akzeptiert, true);
+}
+const series = await book('/api/admin/book-series', staff, { count: 4, termsVersion: 'staff-2026-11-25-informiert' });
 assert.equal(series.length, 4);
 for (const p of series) {
   assert.equal(p.metadata.nlTermsSource, 'staff_attestation');
+  assert.equal(p.metadata.nlTermsVersion, 'staff-2026-11-25-informiert');
+  assert.equal(p.metadata.nlTermsStaffId, STAFF);
   assert.strictEqual(p.bookingFieldsResponses.stornierungsbedingungen_akzeptiert, true);
 }
-
-// BEFUND (current behaviour): the 24h limit blocks cancel, but not reschedule.
-const soon = mock.addBooking({ eventTypeId: 7888953, start: new Date(Date.now() + 3 * 3600000).toISOString(), email: 'k@example.test' });
-const exp = Math.floor(Date.parse(soon.start) / 1000) + 7 * 86400;
-const { createHmac } = await import('node:crypto');
-const token = exp + '.' + createHmac('sha256', env.NL_MANAGE_SECRET).update(soon.uid + ':' + exp).digest('base64url');
-const direct = await call(worker, env, '/api/manage/cancel', { uid: soon.uid, token, confirm: true });
-assert.equal(direct.data.error.code, 'cancellation_deadline');
-const later = inDays(5);
-const moved = await call(worker, env, '/api/manage/reschedule', { uid: soon.uid, token, confirm: true, start: later });
-assert.equal(moved.status, 200);
-const link = new URL(moved.data.booking.manageUrl).searchParams;
-const after = await call(worker, env, '/api/manage/cancel', { uid: link.get('uid'), token: link.get('token'), confirm: true });
-assert.equal(after.status, 200);
-console.log('BEFUND bestaetigt: 3h vor Termin ist Storno gesperrt, nach Umbuchung auf spaeter jedoch moeglich (keine Regel geaendert)');
 console.log('PASS: strict terms validation, evidence metadata for customer, staff and series bookings');

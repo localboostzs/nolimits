@@ -41,10 +41,10 @@ async function scenario(name,{authorized=true,crmFound=true,badLink=false,crmAli
      crmCalls++;
      body={ok:true,contacts:crmFound?[{email:customerEmail,upcoming:[{uid:fakeUid}],past:[]},
        ...(crmAliasLeak?[{email:'info+'+'a'.repeat(32)+'@localboost-zs.ch',upcoming:[]}]:[])]:[]};
-   }else if(path==='/api/manage/cancel'&&method==='POST'){
+   }else if(path==='/api/admin/cancel'&&method==='POST'){
      cancelled++;const p=req.postDataJSON();
      assert.equal(p.uid,fakeUid);
-     assert.equal(p.token,fakeToken);
+     assert.match(req.headers().authorization,/^Bearer /);
      assert.equal(p.confirm,true);
      body={ok:true,status:'cancelled'};
    }else if(path==='/api/lab/cleanup'&&method==='POST'){

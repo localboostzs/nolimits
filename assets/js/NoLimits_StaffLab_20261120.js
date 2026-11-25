@@ -139,8 +139,8 @@
       }
       if (created && signed) {
         try {
-          var result = await request('POST','/api/manage/cancel',null,{
-            uid:signed.uid,token:signed.token,confirm:true,
+          var result = await request('POST','/api/admin/cancel',jwt,{
+            uid:signed.uid,confirm:true,
             reason:'Interner Mitarbeiter-LAB-Test erfolgreich beendet'
           });
           cancelled = result.status === 'cancelled' || result.status === 'canceled';

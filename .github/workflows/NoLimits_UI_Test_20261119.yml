@@ -14,6 +14,8 @@ on:
       - 'leistungen/**'
       - 'tests/NoLimits_FrontendKompatibilitaet_E2E_20261125.mjs'
       - 'tests/NoLimits_MockBackend_20261125.mjs'
+      - 'tests/run-offline.mjs'
+      - 'tests/NoLimits_OfflineGuard.mjs'
       - 'assets/js/wix-csv.js'
       - 'assets/js/admin.js'
       - 'assets/css/**'
@@ -46,32 +48,11 @@ jobs:
           else
             npx playwright install --with-deps chromium
           fi
-      - name: Serve the exact feature branch locally (never change production)
+      # The runner serves the checkout locally and blocks every other connection.
+      - name: Offline browser tests (mock backends, no network, no bookings)
         run: |
-          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/nolimits-ui-preview.log 2>&1 &
-          sleep 2
-          curl --fail --silent http://127.0.0.1:8765/booking-test/ -o /dev/null
-      - name: Read-only mobile and desktop UI audit
-        env:
-          NOLIMITS_UI_BASE: http://127.0.0.1:8765
-        run: node tests/NoLimits_MobileDesktop_UI_20261119.mjs
-      - name: Customer management browser E2E (mock API, no bookings)
-        env:
-          NOLIMITS_UI_BASE: http://127.0.0.1:8765
-        run: node tests/NoLimits_ManageBrowser_E2E_20261119.mjs
-      - name: Customer profile save/reload/logout E2E (fake auth)
-        env:
-          NOLIMITS_UI_BASE: http://127.0.0.1:8765
-        run: node tests/NoLimits_AccountProfile_Browser_20261119.mjs
-      - name: Staff-only LAB full browser E2E (mock API, no real booking)
-        env:
-          NOLIMITS_UI_BASE: http://127.0.0.1:8765
-        run: node tests/NoLimits_StaffLab_Browser_20261120.mjs
-      - name: Frontend/Worker compatibility matrix, main and feature (mock backends)
-        run: |
-          git fetch --depth=1 origin main
-          mkdir -p /tmp/nl-main && git archive FETCH_HEAD | tar -x -C /tmp/nl-main
-          NOLIMITS_MAIN_DIR=/tmp/nl-main node tests/NoLimits_FrontendKompatibilitaet_E2E_20261125.mjs
+          git fetch --depth=1 origin main:refs/remotes/origin/main
+          node tests/run-offline.mjs browser
       - name: Save screenshots of public demo pages
         if: always()
         uses: actions/upload-artifact@v4

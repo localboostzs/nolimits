@@ -2,12 +2,13 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
-const code=fs.readFileSync(process.argv[2] || 'worker/dist/worker.js','utf8');
+const readText=(p)=>fs.readFileSync(p,'utf8').replace(/\r\n/g,'\n');
+const code=(()=>{const services=readText('worker/src/services.js').replace(/^export /gm,'');return readText('worker/src/index.js').replace("import { SERVICES, TIME_ZONE, CAL_BASE } from './services.js';",services);})();
 const {default:app}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
 const serviceId=7888954, uid='testBookingUIDqyz1234';
 let state='accepted';let deliveries=[];let cancels=0,reschedules=0;
 const when=new Date(Date.now()+10*86400000).toISOString(), end=new Date(Date.parse(when)+60*60000).toISOString();
-let booking={uid,eventTypeId:serviceId,start:when,end,status:state};
+let booking={uid,eventTypeId:serviceId,start:when,end,status:state,attendees:[{name:'A',email:'qa@example.test'}]};
 let slot=new Date(Date.parse(when)+86400000).toISOString();
 globalThis.fetch=async(url,opts={})=>{
  url=String(url);
@@ -49,7 +50,7 @@ const payload=JSON.stringify(webhook);
 const signature=crypto.createHmac('sha256',env.CAL_WEBHOOK_SECRET).update(payload).digest('hex');
 const fakeSig=await doReq('/api/webhooks/cal',{method:'POST',headers:{'X-Cal-Signature-256':'sha256='+'0'.repeat(64)},body:payload});
 assert.equal(fakeSig.status,401);
-env.NL_EMAIL_ENABLED='true';env.RESEND_API_KEY='re_test_mock';
+env.NL_EMAIL_ENABLED='true';env.RESEND_API_KEY='re_test_mock';state='accepted';
 const ok=await doReq('/api/webhooks/cal',{method:'POST',headers:{'X-Cal-Signature-256':'sha256='+signature},body:payload});
 assert.equal(ok.status,200);assert.equal(deliveries.length,1);
 assert.ok(deliveries[0].html.includes('NOLIMITS'));assert.ok(deliveries[0].html.includes('Termin verwalten'));
