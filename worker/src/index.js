@@ -759,7 +759,7 @@ async function cleanupCancelledLabAlias(req, env) {
 }
 
 async function accessManage(req, env, uid, token) {
-  if (!env.CAL_API_KEY) return { error: fail('not_configured', 'Die Terminverwaltung wird gerade eingerichtet. Bis dahin bitte den Stornolink aus der Cal.com-E-Mail verwenden.', 503, req, env) };
+  if (!env.CAL_API_KEY) return { error: fail('not_configured', 'Die Terminverwaltung ist gerade nicht verfügbar. Bitte kontaktiere NoLimits.', 503, req, env) };
   if (!(await validManagementToken(uid, token, env))) return { error: fail('invalid_link', 'Dieser Buchungslink ist ungültig oder abgelaufen.', 403, req, env) };
   try {
     const found = await readCalBooking(uid, env);

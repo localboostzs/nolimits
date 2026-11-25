@@ -142,13 +142,9 @@ for (const config of ['production-candidate', 'alias-fallback']) {
   // Alias booking: resolved from the server-side attendee only.
   const hidden = add(86400000 * 5, alias);
   const resolved = (await hook('BOOKING_CREATED', { uid: hidden.uid, attendees: [{ email: 'outsider@example.test' }] })).to;
-  if (config === 'alias-fallback') {
-    assert.deepEqual(resolved, ['alias-kunde@example.test']);
-    mock.aliases.clear(); await silent('BOOKING_CREATED', { uid: hidden.uid }, 503);
-  } else {
-    // Documented limit: the candidate has no alias domain and must not be used after activation.
-    assert.deepEqual(resolved, [alias]);
-  }
+  // Both configurations resolve the alias; an unmapped alias gets no mail at all.
+  assert.deepEqual(resolved, ['alias-kunde@example.test']);
+  mock.aliases.clear(); await silent('BOOKING_CREATED', { uid: hidden.uid }, 503);
 
   // ---------- Duplicate delivery ----------
   delivered.clear(); sent.length = 0;

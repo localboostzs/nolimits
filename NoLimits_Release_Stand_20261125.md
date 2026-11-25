@@ -1,101 +1,83 @@
 # NoLimits – Release-Stand, Testbericht und Rollback (25.11.2026)
 
-Status: **Vorbereitung, keine Produktionsfreigabe.** Kein Deployment, kein Merge in `main`, keine echten Buchungen, keine Änderung an Wix oder DNS. Dieses Dokument ersetzt die Versions- und Rollback-Angaben in den Dokumenten vom 19.–24.11.
+Status: **zum Push vorbereitet, keine Produktionsfreigabe.** Kein Deployment des neuen Stands, kein Merge in `main`, keine Änderung an Wix oder DNS. Dieses Dokument ersetzt die Versions-, Rollback- und Alias-Vorgaben in den Dokumenten vom 19.–24.11. (dort steht noch Alias `off`).
 
 ## 1. Versionen (Worker `nolimits-booking-test`)
 
-Stand 25.11.2026 nach Erneuerung des Webhook-Signatur-Secrets. Die Versionen 37–39 haben denselben Code wie 32, 35 und 36.
-
 | Nr. | Versions-ID | Bedeutung | Verwenden? |
 |---|---|---|---|
-| 39 | `95a07dfc-6611-4879-be7d-50b1251069f4` | Kandidat Stand `5740668`, Alias `off`, ICS `false`, Demo-Domain; neueste Version | nein: ohne die Änderungen aus Abschnitt 9, vorher neu hochladen |
-| 38 | `18cf4a49-a4a1-494a-bdfe-f65132b56eed` | Alias-Fallback Stand `5740668` | nur Rollback nach Alias-Aktivierung |
-| 37 | `da2c8307-6aa8-41e5-8c37-e9a4ad282407` | **aktuell live, 100 %** (Deployment `b85afd54-5ec1-4a71-9a82-d09fbbe062ef`) | Rollback vor Alias-Aktivierung |
-| 22–36 | – | frühere Versionen | **nicht mehr aktivieren** |
+| 39 | `95a07dfc-6611-4879-be7d-50b1251069f4` | früherer Kandidat (Stand `5740668`), Alias `off`; neueste hochgeladene Version | nein, neu hochladen |
+| 38 | `18cf4a49-a4a1-494a-bdfe-f65132b56eed` | früherer Alias-Fallback (Stand `5740668`) | nur Rollback nach Alias-Aktivierung, bis ein neuer Fallback hochgeladen ist |
+| 37 | `da2c8307-6aa8-41e5-8c37-e9a4ad282407` | **live, 100 %** (Deployment `b85afd54-5ec1-4a71-9a82-d09fbbe062ef`) | Rollback nur vor Alias-Aktivierung |
+| 1–21 | – | ältere Versionen ohne Webhook-Prüfung | nicht aktivieren |
 
-Git: `main` `c70fc168c2e5778cd7f8496732117d83deed8558`, Draft-PR #3. workers.dev aktiv, Preview-URLs aus.
+**Bereinigung 25.11.2026 (abgeschlossen):** Das Webhook-Signatur-Secret wurde erneuert, die Zustellung mit einer internen Testbuchung (Buchung, Umbuchung, Stornierung) bestätigt. Anschliessend wurden die Versionen 22–36 und der abgelöste Cal.com-Webhook gelöscht. Nachprüfung (nur lesend): 24 Versionen vorhanden (1–21, 37–39), Version 37 zu 100 % aktiv. Die Löschung des Webhooks ist durch die Ausgabe des Werkzeugs belegt (HTTP 200).
 
-**Warnung:** Bis zum Go-live im Cloudflare-Dashboard keine Secrets oder Variablen mit «Deploy» ändern – das könnte die neueste Version live schalten. Versionen vor 37 auch nicht über das Dashboard zurückrollen.
+Bis zum Go-live im Cloudflare-Dashboard keine Secrets oder Variablen mit «Deploy» ändern – das könnte die neueste Version live schalten.
 
-## 2. Änderungen in diesem Stand
-1. **Rollback-Fehler behoben:** Die neue Terminverwaltungsseite blendete mit dem alten Worker Umbuchen **und** Stornieren aus (Felder `canCancel`/`canReschedule` fehlen dort). Jetzt wird nur bei ausdrücklichem `false` ausgeblendet.
-2. **Mitarbeiter-Verwaltung:** Die Erfolgsmeldung nach einer Buchung wurde sofort gelöscht (auch auf `main`; Risiko doppelter Buchungen). Im Feature-Stand behoben.
-3. **Nachweis Stornierungsbedingungen:** Cal.com-`metadata` mit Quelle, Textfassung und Serverzeit (Abschnitt 5).
-4. **Fallback-Konfiguration** `worker/wrangler.alias-fallback.toml`.
-5. **Login-Test** an die tatsächliche Meldung angepasst; neue Tests; alle Tests in der CI.
+## 2. Inhalt dieses Stands
+- **24-Stunden-Regel:** Kunden stornieren **und** buchen nur bis mindestens 24 Stunden vor Beginn um (serverseitig geprüft). Mitarbeiter verschieben und stornieren auch kurzfristig.
+- **Härtung:** Buchungsbenachrichtigungen verwenden serverseitig aus Cal.com gelesene Daten; veraltete Meldungen werden verworfen.
+- **Umbuchungskalender** im Design der Erstbuchung (Commit `a6a4cc2`): nur freie Tage wählbar, Auswahl wird beim Monatswechsel verworfen, Bestätigen erst mit Uhrzeit und Häkchen.
+- **Alias-Buchungen im Kandidaten eingeschaltet** (Abschnitt 4).
+- **Nachweis Stornierungsbedingungen** in Cal.com-`metadata`; bei Mitarbeiterbuchungen mit Mitarbeiter-ID.
+- **Betrieb:** Offline-Testlauf ohne Netzwerk, Live-Prüfung getrennt (`tests/live/`), Werkzeuge für Webhook-Erneuerung (Löschen auf eine feste Versionsliste begrenzt, mit Dry-Run `plan`) und LAB.
 
-## 3. Testergebnisse (lokal, Node 24, Chrome)
+## 3. Testergebnisse (lokal, Node 24, Chrome, ohne Netzwerk)
 | Prüfung | Ergebnis |
 |---|---|
-| Syntaxprüfung | bestanden |
-| Offline-Testdateien | 26/26 |
-| Browsertests inklusive Kompatibilitätsmatrix | 5/5 |
-| Wix-Plan-CLI (synthetisch) | bestanden |
-| Wrangler-Dry-Run Kandidat, Fallback, Staging | bestanden; Staging ohne produktive Event-ID 7888953 |
-| Live-API nur lesend | Health ok, 9 Dienste, anonymes CRM abgewiesen |
+| `node tests/run-offline.mjs all` | **37/37** (31 Node-Suiten, 5 Browsersuiten, 1 CLI) |
+| Wrangler-Dry-Run Kandidat, Fallback, Staging | bestanden; Staging-Bundle ohne produktive Event-ID |
+| Cal.com-Mailschutz (`NoLimits_KeineCalMails_Tests_20261125.mjs`) | bestanden; schlägt mit Alias `off` fehl |
 
-CI (Node 22) auf Commit `5740668`: [alias-tests](https://github.com/localboostzs/nolimits/actions/runs/45574777426) und [browser-audit](https://github.com/localboostzs/nolimits/actions/runs/45574777757) erfolgreich.
+GitHub Actions für diesen Stand laufen erst nach dem Push.
 
-Login: Erfolgsmeldung verrät kein Konto, 10 s Sperre, Server-Wartezeit bis 120 s, keine Rohfehler. Bei erreichtem Mail-Kontingent gibt es keine lokale Sperre; Schutz leistet Supabase serverseitig (dessen Limits waren nicht auslesbar). Der alte Testtext war seit 16.11. überholt.
+## 4. Keine Cal.com-Mails an Kunden
+Cal.com lässt Teilnehmermails im Einzelkonto nicht abschalten (Versuch im LAB: HTTP 400, Organisation nötig). Deshalb erhält Cal.com im Kandidaten statt der Kundenadresse einen Alias `info+…@localboost-zs.ch`:
+- Cal.com-Mails samt Cal.com-eigenen Storno-/Umbuchungslinks und Kalendereinladungen gehen an das LocalBoost-Postfach, nicht an Kunden. **Wer dieses Postfach liest, kann diese Links benutzen; für sie gilt die 24-Stunden-Frist nicht.**
+- Kunden erhalten ausschliesslich NoLimits-Mails mit NoLimits-Verwaltungslink.
+- Ohne speicherbaren Alias wird die Buchung abgelehnt (HTTP 503); die echte Adresse geht nicht ersatzweise an Cal.com.
+- Es gilt nur für Buchungen, die der neue Kandidat anlegt. Ältere Buchungen mit echter Adresse behalten sie; vor dem Deployment darf keine solche offen sein (25.11.: 0 offene Buchungen).
+- Direkt in Cal.com oder durch einen Import angelegte Termine sind nicht geschützt. Das gilt auch für den Wix-Import.
+- Telefonnummer und Name gehen weiterhin an Cal.com. SMS-Abläufe in Cal.com wurden nicht geprüft.
+- Der Kunde erhält keine Kalendereinladung (`NL_ICS_ENABLED=false`).
 
-### Kompatibilitätsmatrix (echte Frontend- und Worker-Dateien, simulierte Dienste; Desktop und Mobile)
-| Frontend / Worker | Buchen, Umbuchen, Stornieren | Storno-Knopf < 24 h | Mitarbeiterbuchung |
+Nur lesend bestätigt (25.11.): Tabelle `nl_booking_email_aliases` vorhanden, 0 Zeilen, RLS aktiv, `anon`/`authenticated` ohne Lesezugriff, `service_role` darf schreiben; Secret-Bindings `NL_SUPABASE_SECRET_KEY` und `NL_SUPABASE_URL` in Version 39 vorhanden. Mit der Produktivkonfiguration noch nicht live erprobt.
+
+## 5. Kompatibilität Frontend / Worker (offline, simulierte Dienste)
+| Frontend / Worker | Buchen, Umbuchen, Stornieren | < 24 h | Mitarbeiterbuchung |
 |---|---|---|---|
 | main / live | ok | Storno wird ausgeführt | Gentleman Rasur scheitert am Pflichtfeld (angenommen) |
 | main / Kandidat, Fallback | ok | sichtbar, Server lehnt mit Meldung ab | ok, Erfolgsmeldung verschwindet |
-| Feature / live | ok | Storno wird ausgeführt | Gentleman Rasur scheitert (angenommen); Serien: «nicht gefunden», nichts gebucht |
-| Feature / Kandidat, Fallback | ok | ausgeblendet | ok, inklusive 4er-Serie |
+| Feature / live | ok | Storno wird ausgeführt | Gentleman Rasur scheitert (angenommen); Serien: «nicht gefunden» |
+| Feature / Kandidat, Fallback | ok | ausgeblendet | ok, inklusive Serie |
 
-Mit `main`-Frontend fehlt im Nachweis die Textfassung (`nicht_uebermittelt`); dort steht zudem ein anderer Stornotext.
+## 6. Buchungsfeld `stornierungsbedingungen_akzeptiert`
+- In Cal.com nur bei **Gentleman Rasur (7912905)** als Pflichtfeld angelegt; die übrigen neun Leistungen haben es nicht.
+- Bei Mitarbeiter- und Serienterminen ist `true` eine Mitarbeiterangabe, keine Kundenzustimmung.
+- Speicherung von `metadata` in Cal.com ist nach Dokumentation angenommen; Version 37 sendet keinen Nachweis.
 
-## 4. Alias-Fallback
-Offline geprüft (`tests/NoLimits_AliasFallback_Tests_20261125.mjs`): Buchungen aus der Zeit mit aktivem Alias – Bestätigung, Verwaltungslink, Umbuchung, Storno, Webhooks ohne Teilnehmerangaben, CRM – laufen mit der Fallback-Konfiguration; Mails gehen an die echte Adresse. Neue Buchungen nutzen die echte Adresse. Ohne Secret-Key: HTTP 503, kein Versand. Ohne `NL_ALIAS_DOMAIN`: Mail an den Alias.
-
-Nur lesend bestätigt: Tabelle `nl_booking_email_aliases` vorhanden (0 Zeilen), RLS aktiv, `service_role` darf lesen/schreiben/löschen, `anon`/`authenticated` nicht lesen; Cal.com-Webhook aktiv auf diesen Worker (created, cancelled, rescheduled); Resend-Domain `nolimits-barber.ch` verifiziert.
-
-**Nicht beweisbar ohne echte Buchung:** tatsächliche Mailzustellung, Gültigkeit und Übereinstimmung der Secret-Werte. Schlägt die Alias-Abfrage fehl, antwortet der Worker mit 503; ob Cal.com den Webhook wiederholt, ist ungeprüft.
-
-## 5. Buchungsfeld `stornierungsbedingungen_akzeptiert`
-- Cal.com: Bei **Gentleman Rasur (7912905)** ist das Feld jetzt als **Boolean, Pflicht, sichtbar** konfiguriert (Label «Ich akzeptiere die Stornierungsbedingungen.»). Die übrigen neun Leistungen haben es nicht.
-- Worker: akzeptiert nur das boolesche `accepted: true` (Kunde, Mitarbeiter, Serie); sendet das Feld als `true`.
-- `metadata`: `nlTermsSource` = `customer_checkbox` oder `staff_attestation`, `nlTermsVersion` (Feature-Frontend: `2026-11-23-online-24h`), `nlTermsRecordedAt`. Der Client kann Quelle und Zeit nicht setzen.
-- Textfassung `2026-11-23-online-24h`: «Ich habe zur Kenntnis genommen, dass Online-Stornierungen nur bis spätestens 24 Stunden vor Terminbeginn möglich sind. Bei Nichterscheinen können gemäss den vereinbarten Bedingungen Kosten entstehen.»
-- **Grenzen:** Bei Mitarbeiter- und Serienterminen steht das Feld wie bisher auf `true`, ist aber **keine Kundenzustimmung**, sondern eine Mitarbeiterangabe. Der Nachweis belegt die übermittelte Zustimmung, nicht die Identität der Person. Speicherung von `metadata` in Cal.com und Verhalten beim Umbuchen sind nur nach Dokumentation angenommen, nicht live geprüft.
-- **Offen (Entscheidung):** Genügt für Mitarbeitertermine die Mitarbeiterangabe? Soll das Feld bei den anderen Leistungen ergänzt werden? Das LAB-Event ohne Feld lassen (der LAB-Pfad sendet es nicht).
-- **Wirkt schon jetzt:** Der Live-Worker lässt das Feld bei Mitarbeiterbuchungen für Gentleman Rasur weg. Solche Buchungen dürfte Cal.com bis zum Deployment (und nach einem Rollback auf 32) ablehnen.
-
-## 6. Befund 24-Stunden-Frist (keine Regel geändert)
-1. **Bestätigt (offline):** Kandidat sperrt das Storno 3 h vor dem Termin, erlaubt aber das Umbuchen auf einen späteren Tag; danach ist das Storno möglich.
-2. **Aus der Konfiguration abgeleitet, nicht ausprobiert:** Alle zehn Cal.com-Leistungen erlauben Storno und Umbuchung. Bei Alias `off` kann Cal.com Teilnehmermails mit eigenen Links an Kunden senden; für diese gilt die Worker-Frist nicht.
-3. Der Live-Worker (32) hat gar keine 24-Stunden-Sperre.
-
-Mit Isen zu klären: Soll die Frist auch für Umbuchungen gelten, und wie sollen die Cal.com-eigenen Wege behandelt werden?
-
-## 7. Ablauf und Rollback (nur nach ausdrücklicher Freigabe)
-1. Neuen Fallback und danach neuen Kandidaten aus dem geprüften Commit **ohne Deployment** hochladen; Bindings prüfen (je 9 Secrets, beide Limits) und die IDs hier eintragen.
-2. Kandidat deployen, zeitnah das Frontend veröffentlichen.
+## 7. Ablauf und Rollback (jeder Schritt nur nach ausdrücklicher Freigabe)
+1. Push auf den Feature-Branch; CI abwarten.
+2. Aus dem geprüften Commit **ohne Deployment** hochladen, Fallback zuerst, Kandidat zuletzt; Bindings prüfen (je 9 Secrets, beide Limits) und IDs hier eintragen.
+3. LAB erneuern und testen.
+4. Kandidat deployen, Preflight, zeitnah das Frontend veröffentlichen.
 
 ```
 npx wrangler versions deploy <neue-Kandidaten-ID>@100% --name nolimits-booking-test
 node tools/NoLimits_ReadonlyPreflight_20261119.mjs https://nolimits-booking-test.broken-haze-6cad.workers.dev candidate
 ```
-Erst bei Erfolg `NOLIMITS_MONITOR_BASELINE=candidate` setzen.
+Erst bei Erfolg `NOLIMITS_MONITOR_BASELINE=candidate` setzen. Danach sofort eine interne Testbuchung: Alias in Cal.com, genau eine NoLimits-Mail, keine Cal.com-Mail an die Testadresse.
 
-**Rollback A – Alias nie aktiviert:**
+**Rollback A – noch keine Buchung mit dem neuen Kandidaten:**
 ```
 npx wrangler versions deploy da2c8307-6aa8-41e5-8c37-e9a4ad282407@100% --name nolimits-booking-test
 ```
-Preflight `legacy`, Monitor zurücksetzen. Folgen: keine Serien, keine 24-h-Sperre, keine Mitarbeiter-Verwaltung, Gentleman Rasur nicht öffentlich (bereits gebuchte Termine prüfen).
+Folgen: keine 24-Stunden-Sperre, keine Härtung, keine Serien, keine Mitarbeiter-Verwaltung; Cal.com-Mails gehen wieder an Kunden.
 
-**Rollback B – Alias war aktiv:** den neuen Fallback aus Schritt 1 deployen (bis dahin `18cf4a49-a4a1-494a-bdfe-f65132b56eed`, ohne die Änderungen aus Abschnitt 9). Tabelle, Secret-Key, Mailweiterleitung und Webhook behalten.
+**Rollback B – es gibt Alias-Buchungen:** nur ein Fallback (neu aus Schritt 2, sonst `18cf4a49-a4a1-494a-bdfe-f65132b56eed` ohne die Neuerungen). **Nie 37 oder 39:** Sie kennen die Aliasse nicht und würden NoLimits-Mails an den Alias senden. Im Fallback nutzen **neue** Buchungen wieder die echte Adresse; Cal.com-Mails erreichen diese Kunden. Bei Bedarf Buchungen pausieren. Tabelle, Secret-Key, Mailweiterleitung und Webhook behalten.
 
-Der Fallback gilt nur für die **Demo-Domain**. Vor einem Domainwechsel `ALLOWED_ORIGINS` und `NL_PUBLIC_SITE_BASE` anpassen und neu hochladen. Die Rollbacks sind offline getestet, nicht durch ein echtes Umschalten.
+Beide Konfigurationen gelten für die Demo-Domain. Vor einem Domainwechsel `ALLOWED_ORIGINS` und `NL_PUBLIC_SITE_BASE` anpassen.
 
 ## 8. Offene Punkte vor Go-live
-Interne End-to-End-Buchung mit Mailprüfung (nur mit Freigabe); Entscheidungen aus Abschnitt 5 und 6; Isens Kalender und Mitarbeiter-Login; Wix-Export; Offsite-Backup; Datenschutz; Domain und Auth-Redirects.
-
-## 9. Nachtrag: im Code vorbereitet, noch nicht deployt
-- Kunden können nur bis mindestens 24 Stunden vor Beginn stornieren **und** umbuchen. Damit ist die Entscheidung zu Abschnitt 6 getroffen; die Cal.com-eigenen Wege bleiben zu klären.
-- Mitarbeiter verschieben und stornieren in der Verwaltung auch kurzfristig; bei Mitarbeiterbuchungen wird die Information des Kunden bestätigt und mit der Mitarbeiter-ID protokolliert.
-- Buchungsbenachrichtigungen verwenden serverseitig gelesene Buchungsdaten.
-- Tests: `node tests/run-offline.mjs` (ohne Netzwerk); Live-Prüfung getrennt unter `tests/live/`.
+Isens Mitarbeiter-Login; Isens Kalender; interne End-to-End-Buchung mit dem neuen Kandidaten; Zugriff und Aufbewahrung im Postfach der Aliasmails (Datenschutz); Preise ab 01.01.2027 (nicht umgesetzt); neun Cal.com-Pflichtfelder; Wix-Import über einen Alias-fähigen Weg; Offsite-Backup; Domain und Auth-Redirects.
