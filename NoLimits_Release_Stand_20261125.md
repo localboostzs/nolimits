@@ -4,20 +4,18 @@ Status: **Vorbereitung, keine Produktionsfreigabe.** Kein Deployment, kein Merge
 
 ## 1. Versionen (Worker `nolimits-booking-test`)
 
+Stand 25.11.2026 nach Erneuerung des Webhook-Signatur-Secrets. Die Versionen 37–39 haben denselben Code wie 32, 35 und 36.
+
 | Nr. | Versions-ID | Bedeutung | Verwenden? |
 |---|---|---|---|
-| 36 | `ed522b6a-d9b8-4de8-a208-91e49e6cb746` | **Release-Kandidat** (Commit `5740668`), Alias `off`, ICS `false`, Demo-Domain; zugleich neueste Version | ja, nach Freigabe |
-| 35 | `65d9b7d8-3e0c-431b-923b-7edfde9c4553` | **Alias-Fallback** (Commit `5740668`), Alias `disabled` mit `localboost-zs.ch` / `info` / `+` | nur Rollback nach Alias-Aktivierung |
-| 34 | `7d6401e0-392d-4679-a597-d48818e9a3ad` | früherer Kandidat (`8ed4c8b`) | überholt, nicht deployen |
-| 33 | `93b39a98-45d8-4c3a-a625-3b7c95c010b2` | alter Code plus `NL_SUPABASE_SECRET_KEY` | nicht deployen |
-| 32 | `2ed271b7-812f-489b-81a8-535644d837cc` | **aktuell live, 100 %** (Deployment `7c4e3a55-d3c4-406b-b464-4c756b80a865`) | Rollback vor Alias-Aktivierung |
-| 31 | `561f51bf-0f76-4b92-a151-6d7a49fd4588` | Vorgänger, gleicher Code wie 32 | – |
+| 39 | `95a07dfc-6611-4879-be7d-50b1251069f4` | Kandidat Stand `5740668`, Alias `off`, ICS `false`, Demo-Domain; neueste Version | nein: ohne die Änderungen aus Abschnitt 9, vorher neu hochladen |
+| 38 | `18cf4a49-a4a1-494a-bdfe-f65132b56eed` | Alias-Fallback Stand `5740668` | nur Rollback nach Alias-Aktivierung |
+| 37 | `da2c8307-6aa8-41e5-8c37-e9a4ad282407` | **aktuell live, 100 %** (Deployment `b85afd54-5ec1-4a71-9a82-d09fbbe062ef`) | Rollback vor Alias-Aktivierung |
+| 22–36 | – | frühere Versionen | **nicht mehr aktivieren** |
 
-Git: Code-Stand `57406688bcbaf611dd17458d6e90b97d90b03853`, vorher `8ed4c8b928e9aea45da9eb40f1b7d70c255f2908`, `main` `c70fc168c2e5778cd7f8496732117d83deed8558`, Draft-PR #3.
+Git: `main` `c70fc168c2e5778cd7f8496732117d83deed8558`, Draft-PR #3. workers.dev aktiv, Preview-URLs aus.
 
-Versionen 35 und 36: je 9 Secret-Bindings, `RL_BOOK` (1001, 5/60 s), `RL_SLOTS` (1002, 60/60 s); Quelldateien per Git-Blob-Hash mit dem Commit abgeglichen. workers.dev aktiv, Preview-URLs aus.
-
-**Warnung:** Bis zum Go-live im Cloudflare-Dashboard keine Secrets oder Variablen mit «Deploy» ändern – das könnte die neueste Version live schalten.
+**Warnung:** Bis zum Go-live im Cloudflare-Dashboard keine Secrets oder Variablen mit «Deploy» ändern – das könnte die neueste Version live schalten. Versionen vor 37 auch nicht über das Dashboard zurückrollen.
 
 ## 2. Änderungen in diesem Stand
 1. **Rollback-Fehler behoben:** Die neue Terminverwaltungsseite blendete mit dem alten Worker Umbuchen **und** Stornieren aus (Felder `canCancel`/`canReschedule` fehlen dort). Jetzt wird nur bei ausdrücklichem `false` ausgeblendet.
@@ -74,27 +72,30 @@ Nur lesend bestätigt: Tabelle `nl_booking_email_aliases` vorhanden (0 Zeilen), 
 Mit Isen zu klären: Soll die Frist auch für Umbuchungen gelten, und wie sollen die Cal.com-eigenen Wege behandelt werden?
 
 ## 7. Ablauf und Rollback (nur nach ausdrücklicher Freigabe)
-Reihenfolge: zuerst Worker 36, danach zeitnah das Frontend.
+1. Neuen Fallback und danach neuen Kandidaten aus dem geprüften Commit **ohne Deployment** hochladen; Bindings prüfen (je 9 Secrets, beide Limits) und die IDs hier eintragen.
+2. Kandidat deployen, zeitnah das Frontend veröffentlichen.
 
 ```
-npx wrangler versions deploy ed522b6a-d9b8-4de8-a208-91e49e6cb746@100% --name nolimits-booking-test
+npx wrangler versions deploy <neue-Kandidaten-ID>@100% --name nolimits-booking-test
 node tools/NoLimits_ReadonlyPreflight_20261119.mjs https://nolimits-booking-test.broken-haze-6cad.workers.dev candidate
 ```
 Erst bei Erfolg `NOLIMITS_MONITOR_BASELINE=candidate` setzen.
 
 **Rollback A – Alias nie aktiviert:**
 ```
-npx wrangler versions deploy 2ed271b7-812f-489b-81a8-535644d837cc@100% --name nolimits-booking-test
+npx wrangler versions deploy da2c8307-6aa8-41e5-8c37-e9a4ad282407@100% --name nolimits-booking-test
 ```
-Preflight `legacy`, Monitor zurücksetzen. Folgen: keine Serien, keine 24-h-Sperre, Gentleman Rasur nicht öffentlich (bereits gebuchte Termine prüfen).
+Preflight `legacy`, Monitor zurücksetzen. Folgen: keine Serien, keine 24-h-Sperre, keine Mitarbeiter-Verwaltung, Gentleman Rasur nicht öffentlich (bereits gebuchte Termine prüfen).
 
-**Rollback B – Alias war aktiv:**
-```
-npx wrangler versions deploy 65d9b7d8-3e0c-431b-923b-7edfde9c4553@100% --name nolimits-booking-test
-```
-Versionen 32, 33, 34 und 36 sind dann **nicht** sicher (36 enthält keine Alias-Variablen). Tabelle, Secret-Key, Mailweiterleitung und Webhook behalten.
+**Rollback B – Alias war aktiv:** den neuen Fallback aus Schritt 1 deployen (bis dahin `18cf4a49-a4a1-494a-bdfe-f65132b56eed`, ohne die Änderungen aus Abschnitt 9). Tabelle, Secret-Key, Mailweiterleitung und Webhook behalten.
 
-Version 35 gilt nur für die **Demo-Domain**. Vor einem Domainwechsel `ALLOWED_ORIGINS` und `NL_PUBLIC_SITE_BASE` anpassen, Fallback neu hochladen und die neue ID hier eintragen. Die Rollbacks sind offline getestet, nicht durch ein echtes Umschalten.
+Der Fallback gilt nur für die **Demo-Domain**. Vor einem Domainwechsel `ALLOWED_ORIGINS` und `NL_PUBLIC_SITE_BASE` anpassen und neu hochladen. Die Rollbacks sind offline getestet, nicht durch ein echtes Umschalten.
 
 ## 8. Offene Punkte vor Go-live
 Interne End-to-End-Buchung mit Mailprüfung (nur mit Freigabe); Entscheidungen aus Abschnitt 5 und 6; Isens Kalender und Mitarbeiter-Login; Wix-Export; Offsite-Backup; Datenschutz; Domain und Auth-Redirects.
+
+## 9. Nachtrag: im Code vorbereitet, noch nicht deployt
+- Kunden können nur bis mindestens 24 Stunden vor Beginn stornieren **und** umbuchen. Damit ist die Entscheidung zu Abschnitt 6 getroffen; die Cal.com-eigenen Wege bleiben zu klären.
+- Mitarbeiter verschieben und stornieren in der Verwaltung auch kurzfristig; bei Mitarbeiterbuchungen wird die Information des Kunden bestätigt und mit der Mitarbeiter-ID protokolliert.
+- Buchungsbenachrichtigungen verwenden serverseitig gelesene Buchungsdaten.
+- Tests: `node tests/run-offline.mjs` (ohne Netzwerk); Live-Prüfung getrennt unter `tests/live/`.

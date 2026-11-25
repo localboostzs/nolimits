@@ -19,7 +19,7 @@
 | GitHub-Repo | `localboostzs/nolimits` | Draft-PR #3 `feature/NoLimits_Aliasbuchung_20261119` |
 | Öffentliche Buchungs-API der GitHub-Testseite | `nolimits-booking-test.broken-haze-6cad.workers.dev` | Trotz `test` im Namen nicht unkontrolliert neu deployen |
 | Aktueller produktrelevanter Worker-Name | `nolimits-booking-test` | **Nicht** `nolimits-booking` aus `worker/wrangler.toml` |
-| Aktueller Worker-Deployment-ID-Snapshot | `7c4e3a55-d3c4-406b-b464-4c756b80a865` | 100 % auf Version `2ed271b7-812f-489b-81a8-535644d837cc`, Quelle Cloudflare, 17.11.2026 |
+| Aktueller Worker-Deployment-ID-Snapshot | `b85afd54-5ec1-4a71-9a82-d09fbbe062ef` | 100 % auf Version `da2c8307-6aa8-41e5-8c37-e9a4ad282407`, Quelle Cloudflare, 25.11.2026 (siehe `NoLimits_Release_Stand_20261125.md`) |
 | Aktuelle Rate-Limits | `RL_BOOK`: Namespace 1001, 5/60 s; `RL_SLOTS`: Namespace 1002, 60/60 s | Bestehende Bindings beim Wechsel erhalten |
 | Bereits vorhandene Secrets | `CAL_API_KEY`, `CAL_WEBHOOK_SECRET`, `GOOGLE_OAUTH_CLIENT_SECRET`, `NL_EMAIL_ENABLED`, `NL_MANAGE_SECRET`, `NL_SUPABASE_PUBLISHABLE_KEY`, `NL_SUPABASE_URL`, `RESEND_API_KEY` | Werte nicht auslesen/dokumentieren |
 | Neue Alias-Secretbindung später | `NL_SUPABASE_SECRET_KEY` | **Fehlt am bestehenden Live-Worker**; erst bei freigegebener Umstellung |
@@ -62,7 +62,7 @@ Kurz und ohne technische Implementierungsdetails Website, Terminbuchungsablauf, 
 
 ### Vor einem Deploy (kein Code ohne Snapshot)
 - GitHub `main`-Commit und Deploymentversion archivieren. Vorhandene Worker-Bindings, Secrets **nur Namen**, Cal.com-Webhook-IDs und Config-Snapshot erfassen.
-- Wenn die aktive Cloudflare-Version von `2ed271b7-812f-489b-81a8-535644d837cc` abweicht, neu inventarisieren; niemals blind auf eine alte Version zurücksetzen.
+- Wenn die aktive Cloudflare-Version von `da2c8307-6aa8-41e5-8c37-e9a4ad282407` abweicht, neu inventarisieren; niemals blind auf eine alte Version zurücksetzen.
 - Vorhandene 9 Services und interne Rasur mit späteren **Isen**-Eventtyp-IDs (inklusive Zeitzone, Dauer, Preis) vergleichen. Änderungen zwingend versioniert.
 - Separaten Recovery-Weg offenhalten (Cloudflare-Web-Dashboard/Versionen und Repo-Tag).
 - Supabase-Alias-Migration und Rechte/Policies prüfen. Vor Import ein verschlüsseltes, wiederherstellbares Backup anfertigen; Wiederherstellung mit Testdaten verifizieren.

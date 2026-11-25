@@ -1,5 +1,7 @@
 # NoLimits – Produktionsvorbereitung und Cutover-Gates (24.11.2026)
 
+> Historischer Stand. Aktuelle Versionen und Rollback: `NoLimits_Release_Stand_20261125.md` (seit 25.11.2026).
+
 Status: **Vorbereitung, keine Produktionsfreigabe.** Wix bleibt unverändert. Keine echten Buchungen oder Kontaktimporte ausgeführt.
 
 ## Reconciliation und Release-Prüfungen
