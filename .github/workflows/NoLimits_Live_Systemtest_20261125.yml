@@ -33,4 +33,6 @@ jobs:
       - name: Live system test (read-only)
         env:
           NOLIMITS_BASELINE: ${{ inputs.baseline || vars.NOLIMITS_MONITOR_BASELINE || 'legacy' }}
+          # Empty: GitHub Pages. After the domain switch set the repository variable NOLIMITS_SITE.
+          NOLIMITS_SITE: ${{ vars.NOLIMITS_SITE }}
         run: node tests/live/NoLimits_Systemtest_Live_20261115.mjs "$NOLIMITS_BASELINE"

@@ -5,17 +5,19 @@
  * Aufruf: node tests/live/NoLimits_Systemtest_Live_20261115.mjs [legacy|candidate]
  *   legacy    = bisheriger Worker-Code (neun oeffentliche Leistungen)
  *   candidate = Release-Kandidat (zehn Leistungen inkl. Gentleman Rasur)
+ * Andere Adresse der Website: NOLIMITS_SITE=https://www.nolimits-barber.ch
  */
 import assert from 'node:assert/strict';
 import { checkReadiness } from '../../tools/NoLimits_ReadonlyPreflight_20261119.mjs';
 const baseline = process.argv[2] || process.env.NOLIMITS_BASELINE || 'legacy';
 assert.ok(['legacy', 'candidate'].includes(baseline), 'Baseline muss legacy oder candidate sein');
 const candidate = baseline === 'candidate';
-const page = 'https://localboostzs.github.io/nolimits';
+const page = (process.env.NOLIMITS_SITE || 'https://localboostzs.github.io/nolimits').replace(/\/+$/, '');
+const onGitHubPages = new URL(page).hostname.endsWith('.github.io');
 const worker = 'https://nolimits-booking-test.broken-haze-6cad.workers.dev';
 const supabase = 'https://jcctdjjunxmxaphjkrsz.supabase.co';
 const publishableKey = 'sb_publishable_HcTcEU_hx4qhURf1nHYqrQ_HAqK8sxx';
-const origin = { Origin: 'https://localboostzs.github.io' };
+const origin = { Origin: new URL(page).origin };
 let passed = 0;
 // Wrapper, der jede schreibende Anfrage verweigert.
 const readOnly = (url, options = {}) => {
@@ -75,10 +77,19 @@ for (const path of ['/booking-test/', '/konto/', '/verwaltung/']) {
 const cfg = await request(page + '/assets/js/account-config.js?v=20261115-2');
 ok(cfg.response.status === 200 && cfg.data.includes('jcctdjjunxmxaphjkrsz') && cfg.data.includes('publicSignupReady: false'),
    'Isolierte Supabase-Konfiguration und Signup-Gate aktiv');
-for (const template of ['NoLimits_Email_Anmeldung_20261115.html','NoLimits_Email_Registrierung_20261115.html']) {
-  const r = await request(page + '/emails/' + template);
-  ok(r.response.status === 200 && r.data.includes('{{ .ConfirmationURL }}') && r.data.includes('NoLimits'),
-    'Branded Template ' + template + ' vorhanden');
+if (onGitHubPages) {
+  for (const template of ['NoLimits_Email_Anmeldung_20261115.html','NoLimits_Email_Registrierung_20261115.html']) {
+    const r = await request(page + '/emails/' + template);
+    ok(r.response.status === 200 && r.data.includes('{{ .ConfirmationURL }}') && r.data.includes('NoLimits'),
+      'Branded Template ' + template + ' vorhanden');
+  }
+} else {
+  // The new hosting serves the allowlist only; internal paths must not exist.
+  for (const hidden of ['/README.md', '/worker/src/index.js', '/tests/run-offline.mjs', '/tools/', '/supabase/',
+    '/deploy/NoLimits_public_allowlist.txt', '/emails/NoLimits_Email_Anmeldung_20261115.html', '/verwaltung-lab/', '/.gitignore']) {
+    const r = await readOnly(page + hidden);
+    ok(r.status === 404, 'Intern und nicht ausgeliefert: ' + hidden);
+  }
 }
 const guest = await request(supabase + '/rest/v1/nl_customer_profiles?select=user_id&limit=1', {
   headers: { apikey: publishableKey }
