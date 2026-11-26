@@ -58,7 +58,9 @@ export async function checkReadiness(base,{client=fetch,baseline='legacy'}={}){
  for(const entry of services.services){
    const expected=expectedServices[entry.key];
    assert.equal(entry.minutes,expected.minutes,'unexpected duration for '+entry.key);
-   assert.equal(entry.price,expected.price,'unexpected CHF price for '+entry.key);
+   // Ab 01.01.2027 (Zuercher Zeit) meldet der Worker den um CHF 5 hoeheren Preis.
+   const raise=Date.now()>=Date.parse('2027-01-01T00:00:00+01:00')?5:0;
+   assert.equal(entry.price,expected.price+raise,'unexpected CHF price for '+entry.key);
    assert.ok(typeof entry.name==='string'&&entry.name.length>1);
  }
  return {healthy:true,services:services.services.length,

@@ -46,7 +46,7 @@
     $('nl-manage-status').textContent=b.status==='accepted'?'Termin bestätigt':'Status: '+b.status;
     $('nl-manage-time').textContent=fmt(b.start);
     $('nl-manage-duration').textContent=b.minutes+' Minuten';
-    $('nl-manage-price').textContent=b.price==null?'Vor Ort':('CHF '+b.price+' · vor Ort');
+    $('nl-manage-price').textContent=b.price==null?'Vor Ort':('CHF '+b.price+' · vor Ort'+(b.pricePlan&&b.price===b.pricePlan.before?' (bei Termin ab 01.01.2027: CHF '+b.pricePlan.after+')':''));
     $('nl-manage-actions').hidden=!b.canManage;
     // Nur ausblenden, wenn der Worker ausdruecklich false meldet. Der fruehere Worker (Rollback)
     // liefert diese Felder nicht; dort entscheidet canManage und der Server prueft selbst.
@@ -68,7 +68,18 @@
   function monthNum(y,m){return y*12+m;}
   function currentMonth(){var d=zDate(new Date());return {y:Number(d.slice(0,4)),m:Number(d.slice(5,7))-1};}
   function dateInMonth(day){return calendarMonth.y+'-'+String(calendarMonth.m+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');}
+  // Preis des gewählten neuen Termins (massgebend ist sein Datum), auch über den Jahreswechsel.
+  function priceOn(start){
+    var plan=booking&&booking.pricePlan;
+    return plan?(zDate(new Date(start))>=plan.from?plan.after:plan.before):null;
+  }
+  function showNewPrice(){
+    var box=$('nl-manage-new-price'),next=selectedStart?priceOn(selectedStart):null;
+    box.hidden=next===null;
+    box.textContent=next===null?'':'Preis am neuen Termin: CHF '+next+(next!==booking.price?' (bisher CHF '+booking.price+')':'')+', Zahlung vor Ort.';
+  }
   function syncSubmit(){
+    showNewPrice();
     $('nl-manage-reschedule-submit').disabled=rescheduleBusy || !selectedStart || !(monthDays[selectedDay]||[]).includes(selectedStart) || !$('nl-manage-confirm-reschedule').checked;
   }
   function clearChosen(){selectedDay='';selectedStart='';$('nl-manage-selected-start').value='';$('nl-manage-slots').replaceChildren();$('nl-manage-slots').hidden=true;syncSubmit();}
@@ -186,6 +197,10 @@
         var u=new URL(out.booking.manageUrl);
         uid=u.searchParams.get('uid');token=u.searchParams.get('token');
         sessionStorage.setItem(key,JSON.stringify({uid:uid,token:token}));
+      }
+      if(Number.isFinite(out.booking.price)){
+        desc+=' Preis am neuen Termin: CHF '+out.booking.price+', Zahlung vor Ort.';
+        $('nl-manage-price').textContent='CHF '+out.booking.price+' · vor Ort';
       }
       // Nach der Umbuchung keine veraltete Uhrzeit mehr anzeigen.
       $('nl-manage-status').textContent='Termin verschoben';

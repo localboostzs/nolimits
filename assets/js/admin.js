@@ -22,6 +22,31 @@
     if(!r.ok||!json||json.ok===false)throw new Error(json&&json.error&&json.error.message||'Anfrage fehlgeschlagen.');
     return json;
   }
+  // Preise nach Termindatum (Zuercher Kalendertag), nicht nach Buchungsdatum.
+  function serviceByKey(key){return loadedServices.find(function(s){return s.key===key;});}
+  function movedPrice(b,start){
+    var P=window.NOLIMITS_PREISE,s=serviceByKey(b.serviceKey);
+    if(!s||!Number.isFinite(s.price))return '';
+    var before=P.on(s,P.day(b.start)),after=P.on(s,P.day(start));
+    return ' Preis am neuen Termin: CHF '+after+(after!==before?' (bisher CHF '+before+')':'')+'.';
+  }
+  function bookingPrice(){
+    var P=window.NOLIMITS_PREISE,s=serviceByKey(services.value);
+    if(!s||!Number.isFinite(s.price)||!date.value)return '';
+    var count=form.elements.repeat.checked?Number(form.elements.repeatWeeks.value):1,totals=new Map();
+    for(var i=0;i<count;i++){
+      var d=new Date(date.value+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+7*i);
+      var price=P.on(s,d.toISOString().slice(0,10));
+      totals.set(price,(totals.get(price)||0)+1);
+    }
+    var parts=Array.from(totals);
+    if(count===1)return 'Preis am gewählten Datum: CHF '+parts[0][0]+' (Zahlung vor Ort).';
+    return 'Preise nach Termindatum: '+parts.map(function(p){return p[1]+' × CHF '+p[0];}).join(', ')+' (Zahlung vor Ort).';
+  }
+  function showBookingPrice(){
+    var box=document.getElementById('nl-admin-price'),text=bookingPrice();
+    box.textContent=text;box.hidden=!text;
+  }
   function makeAppt(b){
     var p=el('div','nl-appt'),s=el('strong',null,(b.service||'Termin'));
     var small=el('small',null,fmt(b.start)+' · '+(b.status||''));
@@ -51,7 +76,7 @@
     });
     panel.append(day,time,button('Neue Zeit speichern','btn btn-gold btn-sm nl-appt-save',function(){
       if(!time.value){msg('Bitte eine freie Uhrzeit auswählen.',true);return;}
-      if(!confirm('Termin vom '+fmt(b.start)+' auf '+fmt(time.value)+' verschieben?'))return;
+      if(!confirm('Termin vom '+fmt(b.start)+' auf '+fmt(time.value)+' verschieben?'+movedPrice(b,time.value)))return;
       send('/api/admin/reschedule',{uid:b.uid,start:time.value,confirm:true},'Termin erfolgreich verschoben.');
     }));
     box.append(button('Verschieben','nl-plain-button nl-appt-reschedule',function(){panel.hidden=!panel.hidden;}),
@@ -113,7 +138,7 @@
       var r=await Promise.all([request('/api/admin/services'),request('/api/admin/contacts')]);
       loadedServices=r[0].services||[];
       services.replaceChildren();services.appendChild(new Option('Leistung auswählen',''));
-      loadedServices.forEach(function(s){services.appendChild(new Option(s.name+' · '+s.minutes+' Min · CHF '+s.price,s.key));});
+      loadedServices.forEach(function(s){services.appendChild(new Option(s.name+' · '+s.minutes+' Min · CHF '+s.price+(s.priceChange?' (ab 2027: CHF '+s.priceChange.price+')':''),s.key));});
       contacts=r[1].contacts||[];renderContacts();
       if(selected){var found=contacts.find(function(c){return c.email && selected.email
         ? c.email===selected.email : c.phone===selected.phone && c.name===selected.name;});
@@ -194,9 +219,9 @@
   form.addEventListener('submit',async function(ev){
     ev.preventDefault();msg('');
     var series=form.elements.repeat.checked, weeks=series?Number(form.elements.repeatWeeks.value):1;
-    if(!confirm(series
+    if(!confirm((series
       ? 'Jetzt '+weeks+' wöchentliche Termine verbindlich buchen? Es werden zunächst alle freien Zeiten geprüft. Bei Problemen kann eine Teilbuchung entstehen.'
-      : 'Termin für diesen Kunden jetzt verbindlich eintragen?'))return;
+      : 'Termin für diesen Kunden jetzt verbindlich eintragen?')+(bookingPrice()?' '+bookingPrice():''))) return;
     var btn=form.querySelector('[type=submit]');btn.disabled=true;
     try{
       var data={
@@ -214,13 +239,16 @@
       var result=await request(series?'/api/admin/book-series':'/api/admin/book',{method:'POST',body:JSON.stringify(data)});
       // loadData() leert die Meldung: zuerst aktualisieren, dann den Erfolg anzeigen.
       await loadData();
-      msg(series?'Serientermin erfolgreich: '+result.count+' Termine ab '+fmt(result.starts[0])+' gebucht.':'Termin erfolgreich gebucht: '+fmt(result.booking.start));
+      var paid=(series?result.prices||[]:[result.booking.price]).filter(Number.isFinite);
+      var priceNote=paid.length?' Preis je Termin nach Datum: '+paid.map(function(p){return 'CHF '+p;}).join(', ')+'.':'';
+      msg((series?'Serientermin erfolgreich: '+result.count+' Termine ab '+fmt(result.starts[0])+' gebucht.':'Termin erfolgreich gebucht: '+fmt(result.booking.start)+'.')+priceNote);
     }catch(e){msg(e.message,true);}
     finally{btn.disabled=false;}
   });
   var repeat=document.getElementById('nl-admin-repeat'), repeatSettings=document.getElementById('nl-admin-repeat-settings');
   repeat.addEventListener('change',function(){repeatSettings.hidden=!repeat.checked;});
   services.addEventListener('change',loadSlots);
+  [services,date,form.elements.repeat,form.elements.repeatWeeks].forEach(function(x){x.addEventListener('change',showBookingPrice);});
   date.addEventListener('change',loadSlots);
   search.addEventListener('input',renderContacts);
   document.getElementById('nl-refresh').addEventListener('click',loadData);

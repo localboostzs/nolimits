@@ -20,7 +20,7 @@ function fake(extra=[],fail='',staffHttp=401){
    if(fail===path)return Response.json({ok:false},{status:503});
    if(path==='/api/health')return Response.json({ok:true});
    if(path==='/api/admin/contacts')return Response.json({ok:staffHttp===200},{status:staffHttp});
-   if(path==='/api/services')return Response.json({ok:true,services:[...Object.keys(known),...extra].map(key=>({key,name:key,minutes:known[key]?.[0]??30,price:known[key]?.[1]??30}))});
+   if(path==='/api/services')return Response.json({ok:true,services:[...Object.keys(known),...extra].map(key=>({key,name:key,minutes:known[key]?.[0]??30,price:(known[key]?.[1]??30)+(Date.now()>=Date.parse('2027-01-01T00:00:00+01:00')?5:0)}))});
    throw Error('Unknown read request '+path);
  }};
 }

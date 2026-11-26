@@ -87,7 +87,7 @@
     function row(k, v, muted) { var w = el('div'); w.appendChild(el('dt', null, k)); w.appendChild(el('dd', muted ? 'muted' : null, v)); dl.appendChild(w); }
     row('Leistung', state.service ? state.service.name : 'Noch nicht gewählt', !state.service);
     if (state.service) row('Dauer', state.service.minutes + ' Minuten');
-    if (state.service && Number.isFinite(state.service.price)) row('Preis (Zahlung vor Ort)', 'CHF ' + state.service.price);
+    if (state.service && Number.isFinite(state.service.price)) row('Preis (Zahlung vor Ort)', window.NOLIMITS_PREISE.label(state.service, state.date));
     row('Datum', state.date ? fmtLong.format(new Date(state.date + 'T12:00:00Z')) : 'Noch nicht gewählt', !state.date);
     row('Uhrzeit', state.slot ? state.slot.slice(11, 16) + ' Uhr' : 'Noch nicht gewählt', !state.slot);
     sumEl.appendChild(dl);
@@ -197,7 +197,7 @@
       b.appendChild(thumb);
       var detail = el('span', 'bk-service-detail');
       detail.appendChild(el('span', 'n', s.name));
-      detail.appendChild(el('span', 'd', s.minutes + ' Minuten' + (Number.isFinite(s.price) ? ' · CHF ' + s.price : '')));
+      detail.appendChild(el('span', 'd', s.minutes + ' Minuten' + (Number.isFinite(s.price) ? ' · ' + window.NOLIMITS_PREISE.label(s) : '')));
       if (serviceDescriptions[s.key]) detail.appendChild(el('span','bk-description',serviceDescriptions[s.key]));
       b.appendChild(detail);
       var go = el('span', 'go'); go.setAttribute('aria-hidden', 'true'); go.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'; b.appendChild(go);
@@ -312,6 +312,10 @@
     row('Leistung', b.service);
     row('Datum', fmtLong.format(start));
     row('Uhrzeit', new Intl.DateTimeFormat('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' }).format(start) + ' Uhr');
+    if (state.service && Number.isFinite(state.service.price)) {
+      var P = window.NOLIMITS_PREISE;
+      row('Preis (Zahlung vor Ort)', 'CHF ' + (Number.isFinite(b.price) ? b.price : P.on(state.service, P.day(start))));
+    }
     row('Ort', 'NoLimits Barbershop, Schmiedgasse 94, 6438 Ibach');
     var link = $('#bk-manage-link');
     if (link) { link.hidden = !b.manageUrl; link.style.display = b.manageUrl ? 'inline-flex' : 'none'; if (b.manageUrl) link.href = b.manageUrl; }

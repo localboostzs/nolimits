@@ -205,6 +205,22 @@ function termsEvidence(source, version, staffId) {
     ...(staffId ? { nlTermsStaffId: staffId } : {}),
   };
 }
+// Preisanpassung: Termine ab 01.01.2027 (Zuercher Zeit) kosten CHF 5 mehr, auch frueher gebuchte.
+// Massgebend ist der Terminbeginn. Leistungen ohne Preis (intern, LAB) bleiben unveraendert.
+const PRICE_CHANGE = { from: '2027-01-01', startMs: Date.parse('2027-01-01T00:00:00+01:00'), amount: 5 };
+const priceAt = (service, startMs) => service.price > 0
+  ? service.price + (startMs >= PRICE_CHANGE.startMs ? PRICE_CHANGE.amount : 0)
+  : service.price ?? null;
+// Preis zum Stichtag `nowMs`; priceChange nur, solange ein spaeterer Termin teurer ist.
+function priceInfo(service, nowMs) {
+  const price = priceAt(service, nowMs), later = priceAt(service, PRICE_CHANGE.startMs);
+  return later === price ? { price } : { price, priceChange: { from: PRICE_CHANGE.from, price: later } };
+}
+// Fuer die Terminverwaltung: beide Preise, solange ein Termin noch ueber den Stichtag
+// hinweg (in beide Richtungen) verschoben werden kann.
+const pricePlan = (service, nowMs) => service.price > 0 && nowMs < PRICE_CHANGE.startMs
+  ? { pricePlan: { from: PRICE_CHANGE.from, before: service.price, after: service.price + PRICE_CHANGE.amount } }
+  : {};
 const BOOKING_NOTICE_MS = 60 * 60 * 1000;
 const CANCEL_DEADLINE_MS = 24 * 60 * 60 * 1000;
 // Kunden: Stornieren und Umbuchen nur bis mindestens 24 Stunden vor Beginn.
@@ -505,7 +521,7 @@ async function book(req, env, adminMode = false, staffId = null) {
   if (bookingAlias) await bindBookingAlias(env, bookingAlias, d.uid).catch(() => null);
   const token = env.CAL_API_KEY ? await managementToken(d.uid, d.start, env) : null;
   const manageUrl = customerManageLink(d.uid, token, env);
-  return json({ ok: true, booking: { uid: d.uid, status: d.status, start: d.start, end: d.end, service: service.name, manageUrl } }, 201, req, env);
+  return json({ ok: true, booking: { uid: d.uid, status: d.status, start: d.start, end: d.end, service: service.name, price: priceAt(service, Date.parse(d.start)), manageUrl } }, 201, req, env);
 }
 
 
@@ -601,7 +617,8 @@ async function bookStaffSeries(req, env, staffId) {
     if (bookingAlias) await bindBookingAlias(env,bookingAlias,out.data.uid).catch(()=>null);
     booked.push({start:out.data.start,uid:out.data.uid});
   }
-  return json({ok:true,count:booked.length,starts:booked.map(b=>b.start)},201,req,env);
+  return json({ok:true,count:booked.length,starts:booked.map(b=>b.start),
+    prices:booked.map(b=>priceAt(service,Date.parse(b.start)))},201,req,env);
 }
 
 async function cancelCalBooking(req, env, uid, reason) {
@@ -635,6 +652,7 @@ async function rescheduleCalBooking(req, env, uid, matched, requested, reason, w
     if (!r.ok) return fail('upstream_error','Umbuchung nicht bestätigt. Bitte erneut versuchen.',502,req,env);
     const out = await r.json().catch(()=>null), newer = out?.data;
     return json({ok:true,booking:{start:newer?.start||chosen,end:newer?.end||null,status:newer?.status||'accepted',
+      price:priceAt(matched[1],Date.parse(newer?.start||chosen)),
       ...(withCustomerLink ? {manageUrl: newer?.uid && newer?.start ? customerManageLink(newer.uid,
         await managementToken(newer.uid, newer.start, env), env) : null} : {})
     }},200,req,env);
@@ -781,7 +799,7 @@ async function routeManage(req, env, url) {
   if (!post && url.pathname === '/api/manage') {
     return json({ ok:true, booking: {
       service: matched[1].name, serviceKey: matched[0], eventTypeId: matched[1].eventTypeId,
-      minutes: matched[1].minutes, price: matched[1].price,
+      minutes: matched[1].minutes, price: priceAt(matched[1], startMs), ...pricePlan(matched[1], Date.now()),
       start: b.start, end: b.end, status:b.status,
       canManage:b.status === 'accepted' && customerMayChange(startMs),
       canCancel:b.status === 'accepted' && customerMayChange(startMs),
@@ -882,7 +900,8 @@ function mailHtml(event, p, match, manageUrl, hasCalendar = false, env = {}) {
   const intro = cancelled ? 'Dein Termin wurde erfolgreich storniert. Hier findest du die Angaben zur abgesagten Buchung.' : event === 'BOOKING_RESCHEDULED' ? 'Dein Termin wurde erfolgreich verschoben. Hier sind deine neuen Termindetails.' : 'Vielen Dank für deine Buchung. Wir freuen uns auf deinen Besuch bei NoLimits.';
   const securityHint = cancelled ? 'Du hast diese Stornierung nicht veranlasst? Kontaktiere bitte direkt den Barbershop.' : 'Falls du die Buchung nicht vorgenommen hast, kontaktiere bitte direkt den Barbershop. Deinen persönlichen Terminlink solltest du nicht weitergeben.';
   const when = new Intl.DateTimeFormat('de-CH',{timeZone:TIME_ZONE,dateStyle:'full',timeStyle:'short'}).format(new Date(p.startTime));
-  const price = match[1].price == null ? '' : '<div style="font-size:14px;line-height:1.8;color:#59534a;"><strong style="color:#171715;">Preis:</strong> CHF '+mailEscape(match[1].price)+' · Bezahlung vor Ort</div>';
+  const amount = priceAt(match[1], Date.parse(p.startTime));
+  const price = amount == null ? '' : '<div style="font-size:14px;line-height:1.8;color:#59534a;"><strong style="color:#171715;">Preis:</strong> CHF '+mailEscape(amount)+' · Bezahlung vor Ort</div>';
   const safeLink = manageUrl ? '<table role="presentation" border="0" cellspacing="0" cellpadding="0" style="border-collapse:separate;margin-top:27px;"><tr><td style="background:#c0974f;border-radius:3px;"><a class="email-button" href="'+mailEscape(manageUrl)+'" style="display:inline-block;padding:16px 29px;color:#0f0f0e;background:#c0974f;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;font-weight:700;text-decoration:none;letter-spacing:.2px;">Termin verwalten</a></td></tr></table>' : '';
   return `<!DOCTYPE html>
 <html lang="de-CH" xmlns="http://www.w3.org/1999/xhtml">
@@ -1126,7 +1145,7 @@ export default {
           const available = Object.entries(SERVICES).concat(
             env.NL_ALIAS_STAGING_ONLY === 'true' ? [] : Object.entries(ADMIN_SERVICES));
           const list = available.map(([key,s]) =>
-            ({ key, name:s.name, minutes:s.minutes, price:s.price ?? null, internal:!!ADMIN_SERVICES[key] }));
+            ({ key, name:s.name, minutes:s.minutes, ...priceInfo(s, Date.now()), internal:!!ADMIN_SERVICES[key] }));
           return json({ ok:true, services:list }, 200, req, env);
         }
         if (req.method === 'GET' && url.pathname === '/api/admin/contacts') return await getContacts(req, env);
@@ -1144,7 +1163,7 @@ export default {
         return fail('not_found','Nicht gefunden.',404,req,env);
       }
       if (req.method === 'GET' && url.pathname === '/api/services') {
-        const list = Object.entries(SERVICES).map(([key, s]) => ({ key, name: s.name, minutes: s.minutes, price: s.price ?? null }));
+        const list = Object.entries(SERVICES).map(([key, s]) => ({ key, name: s.name, minutes: s.minutes, ...priceInfo(s, Date.now()) }));
         return json({ ok: true, timeZone: TIME_ZONE, services: list }, 200, req, env);
       }
       if (req.method === 'GET' && url.pathname === '/api/slots') return await getSlots(url, req, env);

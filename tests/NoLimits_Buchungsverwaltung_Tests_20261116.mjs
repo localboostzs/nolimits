@@ -31,9 +31,11 @@ assert.equal(init.status,201);const result=await init.json();
 assert.ok(result.booking.manageUrl,'book response has secure manage link');
 const u=new URL(result.booking.manageUrl);const uidQ=u.searchParams.get('uid'),tokQ=u.searchParams.get('token');
 const get=await doReq('/api/manage?uid='+uidQ+'&token='+tokQ);assert.equal(get.status,200);
-const detail=(await get.json()).booking;assert.equal(detail.price,60);assert.equal(detail.serviceKey,'haarschnitt-bartschnitt-rasieren');
+const detail=(await get.json()).booking;assert.equal(detail.price,60+(Date.parse(detail.start||new Date())>=Date.parse('2027-01-01T00:00:00+01:00')?5:0));assert.equal(detail.serviceKey,'haarschnitt-bartschnitt-rasieren');
 assert.equal(detail.canManage,true);
-const tampered=await doReq('/api/manage?uid='+uidQ+'&token='+tokQ.slice(0,-1)+'A');assert.equal(tampered.status,403);
+// Change the first signature character: the last one carries unused bits and may stay valid.
+const sig=tokQ.indexOf('.')+1,forged=tokQ.slice(0,sig)+(tokQ[sig]==='A'?'B':'A')+tokQ.slice(sig+1);
+const tampered=await doReq('/api/manage?uid='+uidQ+'&token='+forged);assert.equal(tampered.status,403);
 const noConfirm=await doReq('/api/manage/cancel',{method:'POST',body:JSON.stringify({uid:uidQ,token:tokQ})});
 assert.equal(noConfirm.status,400);assert.equal(cancels,0);
 const badReschedule=await doReq('/api/manage/reschedule',{method:'POST',body:JSON.stringify({uid:uidQ,token:tokQ,confirm:true,start:new Date(Date.now()+20*86400000).toISOString()})});

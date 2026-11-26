@@ -190,6 +190,8 @@ a{color:inherit}
 .price-dots{display:none}
 .price{grid-area:price;font-family:var(--font-head);font-weight:700;font-size:clamp(1.25rem,2.2vw,1.7rem);color:var(--gold-deep);white-space:nowrap;text-align:right}
 .price-row .btn{grid-area:btn;justify-self:start;margin-top:8px}
+.price-next{display:block;margin-top:2px;font-family:var(--font-body);font-size:.8rem;font-weight:600;color:var(--text-soft)}
+.price-info{margin:18px 0;font-size:.92rem;line-height:1.6;color:var(--text-soft)}
 @media (min-width:640px){
   .price-row{grid-template-columns:120px 1fr auto auto;grid-template-areas:"img name price btn";gap:24px;padding:22px 24px}
   .price-thumb{width:120px;height:120px}

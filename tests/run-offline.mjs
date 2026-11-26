@@ -21,10 +21,11 @@ export const NODE_SUITES = [
   'WixBookingPlan_Test_20261119', 'Kalenderdatei_Tests_20261119', 'AliasCleanup_Tests_20261120',
   'DomainSwitch_Tests_20261120', 'DomainFrontend_Config_20261123', 'ProductionCandidate_Tests_20261120',
   'ReadonlyPreflight_Tests_20261119', 'LabRotation_Tests_20261125', 'ManageCalendar_Tests_20261125', 'KeineCalMails_Tests_20261125',
+  'Preise2027_Tests_20261126',
 ];
 export const BROWSER_SUITES = [
   'MobileDesktop_UI_20261119', 'ManageBrowser_E2E_20261119', 'AccountProfile_Browser_20261119',
-  'StaffLab_Browser_20261120', 'FrontendKompatibilitaet_E2E_20261125',
+  'StaffLab_Browser_20261120', 'FrontendKompatibilitaet_E2E_20261125', 'PreiseUI_Browser_20261126',
 ];
 const file = (name) => 'tests/NoLimits_' + name + (name.endsWith('.cjs') ? '' : '.mjs');
 

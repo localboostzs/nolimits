@@ -27,9 +27,10 @@
 <script src="assets/js/privacy.js?v=20261115-privacy1" defer></script>
 <script src="assets/js/config.js"></script>
 <script src="assets/js/main.js"></script>
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": ["BarberShop", "HairSalon"], "@id": "https://www.nolimits-barber.ch/#barbershop", "name": "NoLimits Barbershop", "url": "https://www.nolimits-barber.ch/", "image": "https://www.nolimits-barber.ch/assets/img/logo-nolimits.jpg", "logo": "https://www.nolimits-barber.ch/assets/img/logo-nolimits.jpg", "description": "Klassischer Herrenschnitt, sauberer Bartschnitt, ehrliche Handwerkskunst. Seit 2020 in Ibach.", "telephone": "+41768019340", "priceRange": "CHF 15 - CHF 60", "address": {"@type": "PostalAddress", "streetAddress": "Schmiedgasse 94", "postalCode": "6438", "addressLocality": "Ibach", "addressRegion": "SZ", "addressCountry": "CH"}, "geo": {"@type": "GeoCoordinates", "latitude": 47.0108483, "longitude": 8.6438469}, "openingHoursSpecification": [{"@type": "OpeningHoursSpecification", "dayOfWeek": "Tuesday", "opens": "09:00", "closes": "12:00"}, {"@type": "OpeningHoursSpecification", "dayOfWeek": "Tuesday", "opens": "13:00", "closes": "19:00"}, {"@type": "OpeningHoursSpecification", "dayOfWeek": "Saturday", "opens": "08:00", "closes": "12:00"}, {"@type": "OpeningHoursSpecification", "dayOfWeek": "Saturday", "opens": "13:00", "closes": "17:00"}], "aggregateRating": {"@type": "AggregateRating", "ratingValue": "5.0", "bestRating": "5", "reviewCount": "9"}}</script>
+<script src="assets/js/preise.js?v=20261126-preis2027" defer></script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": ["BarberShop", "HairSalon"], "@id": "https://www.nolimits-barber.ch/#barbershop", "name": "NoLimits Barbershop", "url": "https://www.nolimits-barber.ch/", "image": "https://www.nolimits-barber.ch/assets/img/logo-nolimits.jpg", "logo": "https://www.nolimits-barber.ch/assets/img/logo-nolimits.jpg", "description": "Klassischer Herrenschnitt, sauberer Bartschnitt, ehrliche Handwerkskunst. Seit 2020 in Ibach.", "telephone": "+41768019340", "priceRange": "CHF 15 - CHF 65", "address": {"@type": "PostalAddress", "streetAddress": "Schmiedgasse 94", "postalCode": "6438", "addressLocality": "Ibach", "addressRegion": "SZ", "addressCountry": "CH"}, "geo": {"@type": "GeoCoordinates", "latitude": 47.0108483, "longitude": 8.6438469}, "openingHoursSpecification": [{"@type": "OpeningHoursSpecification", "dayOfWeek": "Tuesday", "opens": "09:00", "closes": "12:00"}, {"@type": "OpeningHoursSpecification", "dayOfWeek": "Tuesday", "opens": "13:00", "closes": "19:00"}, {"@type": "OpeningHoursSpecification", "dayOfWeek": "Saturday", "opens": "08:00", "closes": "12:00"}, {"@type": "OpeningHoursSpecification", "dayOfWeek": "Saturday", "opens": "13:00", "closes": "17:00"}], "aggregateRating": {"@type": "AggregateRating", "ratingValue": "5.0", "bestRating": "5", "reviewCount": "9"}}</script>
 <style>
-/* Temporary NoLimits price notice preview – homepage only. */
+/* NoLimits price notice 2027 – homepage only. */
 #nl-price-notice{position:fixed;inset:0;margin:auto;width:min(440px,calc(100% - 32px));max-width:none;max-height:calc(100% - 32px);overflow:auto;padding:0;border:1px solid rgba(217,182,114,.48);border-radius:12px;background:var(--ink-2,#171715);color:var(--on-dark,#f4efe7);box-shadow:0 26px 100px rgba(0,0,0,.55);text-align:center}
 #nl-price-notice::backdrop{background:rgba(15,15,14,.72);backdrop-filter:blur(4px)}
 #nl-price-notice .nl-notice-content{padding:clamp(28px,7vw,46px) clamp(22px,6vw,38px) 32px}
@@ -82,6 +83,7 @@
 <p class="lead reveal" style="--d:.08s">Kein Hobby-Barber, sondern ausgebildeter Fachmann mit Lehrabschluss, kontinuierlichen Weiterbildungen und Leidenschaft für mein Handwerk. Individuelle Beratung, höchste Präzision und ein Auge fürs Detail machen den Unterschied.</p>
 <p class="lead reveal" style="--d:.12s;margin-top:1em">Bei mir bekommst du nicht einfach einen Haarschnitt, sondern Qualität, die du siehst und spürst.</p>
 <a class="btn btn-ink reveal" style="--d:.16s" href="leistungen/">Alle Leistungen ansehen</a>
+<p class="price-info" data-nl-price-note>Preisanpassung: Termine ab dem 01.01.2027 kosten CHF 5.– mehr. Massgebend ist das Termindatum.</p>
 </div>
 <div class="feature-pair">
 <article class="feature reveal"><div class="frame"><img src="assets/img/feature-herrenschnitt-640.webp" width="640" height="800" alt="Mann mit grauem Haar und Dreitagebart" loading="lazy" decoding="async"></div><h3 class="h3">Herrenschnitt</h3></article>
@@ -146,6 +148,7 @@
     <h2 id="nl-price-title">INFO – PREISANPASSUNG</h2>
     <div class="nl-notice-rule" aria-hidden="true"></div>
     <p class="nl-notice-text" id="nl-price-description">Ab dem <strong>01.01.2027</strong> erhöht sich der Preis jeder Dienstleistung um <strong>CHF 5.–</strong>.</p>
+    <p class="nl-notice-text">Massgebend ist das Datum des Termins, auch wenn er schon vorher gebucht wurde.</p>
     <p class="nl-notice-thanks">Vielen Dank für euer Verständnis!</p>
     <button class="btn btn-gold nl-notice-ok" type="button" autofocus>Verstanden</button>
   </div>
@@ -153,16 +156,16 @@
 <script>
 (function(){
   'use strict';
-  // Approved design (24.11.2026). Keep disabled until the final Go-live phase.
-  // Re-enable deliberately after the website and booking system have passed acceptance.
+  // Approved design (24.11.2026). Go-live: set priceNoticeEnabled=true, only after the new
+  // Worker is deployed. It shows once per browser session and stops on 01.01.2027 (Zurich).
+  // Review at any time, also while disabled: add ?preisvorschau=1 to the homepage address.
   var priceNoticeEnabled=false;
-  if(!priceNoticeEnabled)return;
-  // Preview only: no automatic popup on the future custom production domain.
-  if(location.hostname!=='localboostzs.github.io')return;
+  var force=new URLSearchParams(location.search).get('preisvorschau')==='1';
+  var expired=Date.now()>=Date.parse('2027-01-01T00:00:00+01:00');
+  if(!force&&(!priceNoticeEnabled||expired))return;
   var dialog=document.getElementById('nl-price-notice');
   if(!dialog||typeof dialog.showModal!=='function')return;
-  var key='nolimits-price-notice-preview-20261124';
-  var force=new URLSearchParams(location.search).get('preisvorschau')==='1';
+  var key='nolimits-price-notice-2027';
   try{if(!force&&sessionStorage.getItem(key)==='seen')return;}catch(e){}
   function close(){dialog.close();}
   dialog.querySelector('.nl-notice-close').addEventListener('click',close);

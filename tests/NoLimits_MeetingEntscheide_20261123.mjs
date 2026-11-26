@@ -51,7 +51,8 @@ const servicesOut=await call('/api/services');
 assert.equal(servicesOut.status,200);
 assert.equal(servicesOut.body.services.length,10);
 assert.deepEqual(servicesOut.body.services.find(x=>x.key==='gentleman-rasur'),{
- key:'gentleman-rasur',name:'Gentleman Rasur',minutes:30,price:30
+ key:'gentleman-rasur',name:'Gentleman Rasur',minutes:30,price:30+(Date.now()>=Date.parse('2027-01-01T00:00:00+01:00')?5:0),
+ ...((Date.now()>=Date.parse('2027-01-01T00:00:00+01:00')?5:0)?{}:{priceChange:{from:'2027-01-01',price:35}})
 });
 const near={service:'haarschnitt',name:'Test Person',email:'test@example.test',phone:'+41790000000',
  start:new Date(Date.now()+30*60000).toISOString(),accepted:true,elapsedMs:5000};
