@@ -22,8 +22,9 @@ assert.deepEqual(built, [...list, '_headers', '_redirects'].sort());
 assert.ok(!built.some((f) => /^(deploy|tests|tools|ops|supabase|worker|emails|\.github)\/|\.md$|(^|\/)\./.test(f)), 'nothing internal');
 const second = node('.', 'deploy/NoLimits_build_pages.mjs', '--out', path.join(work, 'again'));
 assert.equal(second, first, 'reproducible');
-assert.match(fs.readFileSync(path.join(out, '_redirects'), 'utf8'), /^\/nolimits\/\* \/:splat 301$/m);
-const headers = fs.readFileSync(path.join(out, '_headers'), 'utf8');
+const config = (f) => fs.readFileSync(path.join(out, f), 'utf8').replace(/\r\n/g, '\n'); // Windows checkouts use CRLF
+assert.match(config('_redirects'), /^\/nolimits\/\* \/:splat 301$/m);
+const headers = config('_headers');
 assert.match(headers, /\/termin-verwalten\/\*\n {2}! Referrer-Policy\n {2}Referrer-Policy: no-referrer/);
 
 /* 2. Refusals, each on a throwaway copy */
