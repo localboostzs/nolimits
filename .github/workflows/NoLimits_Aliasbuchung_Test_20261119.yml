@@ -4,6 +4,7 @@ on:
     branches:
       - feature/NoLimits_Aliasbuchung_20261119
       - feature/NoLimits_MitarbeiterportalV2_20261126
+      - feature/NoLimits_CloudflarePages_20261126
   workflow_dispatch:
 jobs:
   alias-tests:
