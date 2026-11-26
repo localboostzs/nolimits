@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feature/NoLimits_Aliasbuchung_20261119
+      - feature/NoLimits_MitarbeiterportalV2_20261126
     paths:
       - 'tests/NoLimits_MobileDesktop_UI_20261119.mjs'
       - 'tests/NoLimits_ManageBrowser_E2E_20261119.mjs'
@@ -22,6 +23,8 @@ on:
       - 'tests/NoLimits_OfflineGuard.mjs'
       - 'assets/js/wix-csv.js'
       - 'assets/js/admin.js'
+      - 'assets/js/kalender.js'
+      - 'tests/NoLimits_Mitarbeiterportal_Browser_20261126.mjs'
       - 'assets/css/**'
       - 'verwaltung/**'
       - 'verwaltung-lab/**'
