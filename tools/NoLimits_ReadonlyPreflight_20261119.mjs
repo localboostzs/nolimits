@@ -16,8 +16,16 @@ const expectedPublicServices=Object.freeze({
  'bartschnitt':{minutes:15,price:15},
  'augenbrauen-zupfen':{minutes:15,price:15}
 });
-const knownPublicKeys=Object.keys(expectedPublicServices);
-export async function checkReadiness(base,{client=fetch}={}){
+// During the cutover the live API still has nine approved services. The new
+// candidate has exactly ten. Require an explicit baseline; never accept extra
+// services by default.
+const candidateServices=Object.freeze({...expectedPublicServices,
+ 'gentleman-rasur':{minutes:30,price:30}
+});
+export async function checkReadiness(base,{client=fetch,baseline='legacy'}={}){
+ if(!['legacy','candidate'].includes(baseline))throw Error('Unknown service baseline');
+ const expectedServices=baseline==='candidate'?candidateServices:expectedPublicServices;
+ const knownPublicKeys=Object.keys(expectedServices);
  const target=new URL(base);
  if(target.protocol!=='https:')throw Error('HTTPS required');
  if(target.username||target.password||target.search||target.hash)throw Error('Unexpected URL credentials or query');
@@ -48,9 +56,11 @@ export async function checkReadiness(base,{client=fetch}={}){
  assert.deepEqual([...keys].sort(),[...knownPublicKeys].sort(),
   'unexpected services/IDs or private staff-only services are public');
  for(const entry of services.services){
-   const expected=expectedPublicServices[entry.key];
+   const expected=expectedServices[entry.key];
    assert.equal(entry.minutes,expected.minutes,'unexpected duration for '+entry.key);
-   assert.equal(entry.price,expected.price,'unexpected CHF price for '+entry.key);
+   // Ab 01.01.2027 (Zuercher Zeit) meldet der Worker den um CHF 5 hoeheren Preis.
+   const raise=Date.now()>=Date.parse('2027-01-01T00:00:00+01:00')?5:0;
+   assert.equal(entry.price,expected.price+raise,'unexpected CHF price for '+entry.key);
    assert.ok(typeof entry.name==='string'&&entry.name.length>1);
  }
  return {healthy:true,services:services.services.length,
@@ -58,7 +68,8 @@ export async function checkReadiness(base,{client=fetch}={}){
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
  const url=process.argv[2];
- if(!url){console.error('Usage: node tools/NoLimits_ReadonlyPreflight_20261119.mjs https://<worker>.workers.dev');process.exitCode=2;}
- else{try{console.log(JSON.stringify(await checkReadiness(url),null,2));}
+ const baseline=process.argv[3]||'legacy';
+ if(!url){console.error('Usage: node tools/NoLimits_ReadonlyPreflight_20261119.mjs https://<worker>.workers.dev [legacy|candidate]');process.exitCode=2;}
+ else{try{console.log(JSON.stringify(await checkReadiness(url,{baseline}),null,2));}
  catch(e){console.error('Release preflight blocked:',e.message);process.exitCode=1;}}
 }

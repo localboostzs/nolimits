@@ -1,0 +1,36 @@
+name: NoLimits Aliasbuchung Staging Test
+on:
+  push:
+    branches:
+      - feature/NoLimits_Aliasbuchung_20261119
+  workflow_dispatch:
+jobs:
+  alias-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: node --check worker/src/index.js
+      # Offline only: the runner blocks every connection that leaves the machine.
+      # Live checks are in NoLimits_Live_Systemtest_20261125.yml.
+      - name: Offline tests (mock backends, no network)
+        run: |
+          git fetch --depth=1 origin main:refs/remotes/origin/main
+          node tests/run-offline.mjs node
+      - name: Verify Wrangler stage bundle (no Cloudflare deployment)
+        working-directory: worker
+        run: |
+          npx --yes wrangler@4 deploy --dry-run --outdir ../.alias-staging-dry-run -c wrangler.alias-staging.toml
+          npx --yes wrangler@4 deploy --dry-run --outdir ../.alias-production-candidate-dry-run -c wrangler.production-candidate.toml
+          npx --yes wrangler@4 deploy --dry-run --outdir ../.alias-fallback-dry-run -c wrangler.alias-fallback.toml
+          grep -rl 'NoLimits LAB Alias-Test' ../.alias-staging-dry-run >/dev/null
+          if grep -rl '7888953' ../.alias-staging-dry-run; then
+            echo 'ERROR: live Cal.com event type included in staging bundle'
+            exit 1
+          fi

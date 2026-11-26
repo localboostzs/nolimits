@@ -1,0 +1,70 @@
+name: NoLimits mobile/desktop read-only UI audit
+on:
+  push:
+    branches:
+      - feature/NoLimits_Aliasbuchung_20261119
+    paths:
+      - 'tests/NoLimits_MobileDesktop_UI_20261119.mjs'
+      - 'tests/NoLimits_ManageBrowser_E2E_20261119.mjs'
+      - 'tests/NoLimits_AccountProfile_Browser_20261119.mjs'
+      - 'tests/NoLimits_StaffLab_Browser_20261120.mjs'
+      - 'assets/js/manage.js'
+      - 'assets/js/booking.js'
+      - 'worker/**'
+      - 'leistungen/**'
+      - 'index.html'
+      - 'kontakt/**'
+      - 'assets/js/preise.js'
+      - 'tests/NoLimits_PreiseUI_Browser_20261126.mjs'
+      - 'tests/NoLimits_FrontendKompatibilitaet_E2E_20261125.mjs'
+      - 'tests/NoLimits_MockBackend_20261125.mjs'
+      - 'tests/run-offline.mjs'
+      - 'tests/NoLimits_OfflineGuard.mjs'
+      - 'assets/js/wix-csv.js'
+      - 'assets/js/admin.js'
+      - 'assets/css/**'
+      - 'verwaltung/**'
+      - 'verwaltung-lab/**'
+      - 'assets/js/NoLimits_StaffLab_20261120.js'
+      - 'booking-test/**'
+      - 'konto/**'
+      - 'termin-verwalten/**'
+      - '.github/workflows/NoLimits_UI_Test_20261119.yml'
+  workflow_dispatch:
+jobs:
+  browser-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright with preinstalled Chrome when available
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          if command -v google-chrome >/dev/null 2>&1; then
+            echo "PLAYWRIGHT_EXECUTABLE_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          elif command -v chromium >/dev/null 2>&1; then
+            echo "PLAYWRIGHT_EXECUTABLE_PATH=$(command -v chromium)" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
+      # The runner serves the checkout locally and blocks every other connection.
+      - name: Offline browser tests (mock backends, no network, no bookings)
+        run: |
+          git fetch --depth=1 origin main:refs/remotes/origin/main
+          node tests/run-offline.mjs browser
+      - name: Save screenshots of public demo pages
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NoLimits_UI_Audit_20261119
+          path: |
+            artifacts/nolimits-ui-20261119/
+            artifacts/nolimits-manage-e2e-20261119/
+            artifacts/nolimits-account-e2e-20261119/
+          if-no-files-found: ignore
+          retention-days: 7

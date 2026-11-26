@@ -1,17 +1,29 @@
 /**
- * NoLimits Systemtest – 2026-11-15
- * Ohne Zugangsdaten, ohne echte Kundendaten, ohne Terminbuchungen.
- * Aufruf: node tests/NoLimits_Systemtest_20261115.mjs
+ * NoLimits LIVE-Systemtest (liest die veroeffentlichte Seite, den Worker und Supabase).
+ * Nur GET/OPTIONS. Ohne Zugangsdaten, ohne echte Kundendaten, ohne Terminbuchungen.
+ * Nicht Teil der Offline-Tests.
+ * Aufruf: node tests/live/NoLimits_Systemtest_Live_20261115.mjs [legacy|candidate]
+ *   legacy    = bisheriger Worker-Code (neun oeffentliche Leistungen)
+ *   candidate = Release-Kandidat (zehn Leistungen inkl. Gentleman Rasur)
  */
 import assert from 'node:assert/strict';
+import { checkReadiness } from '../../tools/NoLimits_ReadonlyPreflight_20261119.mjs';
+const baseline = process.argv[2] || process.env.NOLIMITS_BASELINE || 'legacy';
+assert.ok(['legacy', 'candidate'].includes(baseline), 'Baseline muss legacy oder candidate sein');
+const candidate = baseline === 'candidate';
 const page = 'https://localboostzs.github.io/nolimits';
 const worker = 'https://nolimits-booking-test.broken-haze-6cad.workers.dev';
 const supabase = 'https://jcctdjjunxmxaphjkrsz.supabase.co';
 const publishableKey = 'sb_publishable_HcTcEU_hx4qhURf1nHYqrQ_HAqK8sxx';
 const origin = { Origin: 'https://localboostzs.github.io' };
 let passed = 0;
+// Wrapper, der jede schreibende Anfrage verweigert.
+const readOnly = (url, options = {}) => {
+  assert.ok(['GET', 'OPTIONS'].includes(options.method || 'GET'), 'Live-Test darf nur lesen');
+  return fetch(url, { signal: AbortSignal.timeout(20000), ...options });
+};
 async function request(url, options = {}) {
-  const r = await fetch(url, { signal: AbortSignal.timeout(20000), ...options });
+  const r = await readOnly(url, options);
   return { response: r, data: (r.headers.get('content-type') || '').includes('json') ? await r.json() : await r.text() };
 }
 function ok(condition, description) {
@@ -19,11 +31,11 @@ function ok(condition, description) {
   console.log('PASS', description);
   passed++;
 }
+console.log('LIVE-Systemtest, erwarteter Stand: ' + baseline);
+await checkReadiness(worker, { baseline, client: readOnly });
+ok(true, 'Dienstleistungen, Dauer und Preise entsprechen dem Stand "' + baseline + '"');
 const health = await request(worker + '/api/health', { headers: origin });
 ok(health.response.status === 200 && health.data.ok, 'Buchungsdienst erreichbar');
-const publicServices = await request(worker + '/api/services', { headers: origin });
-ok(publicServices.response.status === 200 && publicServices.data.services.length === 9, 'Genau neun öffentliche Dienstleistungen');
-ok(!publicServices.data.services.some(s => s.key === 'gentleman-rasur'), 'Interne Gentleman-Rasur nicht öffentlich');
 const noAdmin = await request(worker + '/api/admin/services', { headers: origin });
 ok(noAdmin.response.status === 401, 'Interne API ohne Login gesperrt');
 const noContacts = await request(worker + '/api/admin/contacts', { headers: origin });
@@ -31,29 +43,31 @@ ok(noContacts.response.status === 401, 'Kundenliste ohne Login gesperrt');
 const forged = await request(worker + '/api/admin/services', {
   headers: { ...origin, Authorization: 'Bearer invalid-for-test' }
 });
-ok([401, 403, 503].includes(forged.response.status), 'Ungültiger Token bekommt keinen Zugriff');
+ok([401, 403, 503].includes(forged.response.status), 'Ungueltiger Token bekommt keinen Zugriff');
 if (forged.response.status === 503)
-  console.warn('WARN: Admin-Authentifizierung erreicht Supabase derzeit nicht zuverlässig (HTTP 503), Mitarbeiter-Live-Test offen');
-const hidden = await request(worker + '/api/slots?service=gentleman-rasur&start=2026-11-17&end=2026-11-17', { headers: origin });
-ok(hidden.response.status === 400, 'Gentleman-Rasur nicht öffentlich anfragbar');
-const unknown = await request(worker + '/api/slots?service=not-a-service&start=2026-11-17&end=2026-11-17', { headers: origin });
+  console.warn('WARN: Admin-Authentifizierung erreicht Supabase derzeit nicht zuverlaessig (HTTP 503), Mitarbeiter-Live-Test offen');
+const today = new Date();
+const daysUntilTuesday = (2 - today.getUTCDay() + 7) % 7 || 7;
+today.setUTCDate(today.getUTCDate() + daysUntilTuesday);
+const day = today.toISOString().slice(0, 10);
+const slotsFor = (service) => request(worker + '/api/slots?service=' + service + '&start=' + day + '&end=' + day, { headers: origin });
+const gentleman = await slotsFor('gentleman-rasur');
+ok(gentleman.response.status === (candidate ? 200 : 400),
+  candidate ? 'Gentleman Rasur oeffentlich anfragbar' : 'Gentleman Rasur nicht oeffentlich anfragbar');
+const unknown = await slotsFor('not-a-service');
 ok(unknown.response.status === 400, 'Unbekannter Service abgewiesen');
 const blocked = await request(worker + '/api/services', { headers: { Origin: 'https://example.invalid' } });
 ok(blocked.response.status === 403, 'Fremde Website-Origin gesperrt');
-const preflight = await fetch(worker + '/api/admin/services', {
+const preflight = await readOnly(worker + '/api/admin/services', {
   method: 'OPTIONS', headers: {
     Origin: origin.Origin,
     'Access-Control-Request-Method': 'GET',
     'Access-Control-Request-Headers': 'authorization,content-type'
   }
 });
-ok(preflight.status === 204 && (preflight.headers.get('Access-Control-Allow-Headers') || '').includes('Authorization'), 'CORS für autorisierte Anfragen');
-const today = new Date();
-const daysUntilTuesday = (2 - today.getUTCDay() + 7) % 7 || 7;
-today.setUTCDate(today.getUTCDate() + daysUntilTuesday);
-const day = today.toISOString().slice(0, 10);
-const slots = await request(worker + '/api/slots?service=haarschnitt&start=' + day + '&end=' + day, { headers: origin });
-ok(slots.response.status === 200 && slots.data.ok && slots.data.days, 'Live-Cal.com-Verfügbarkeit abrufbar');
+ok(preflight.status === 204 && (preflight.headers.get('Access-Control-Allow-Headers') || '').includes('Authorization'), 'CORS fuer autorisierte Anfragen');
+const slots = await slotsFor('haarschnitt');
+ok(slots.response.status === 200 && slots.data.ok && slots.data.days, 'Live-Cal.com-Verfuegbarkeit abrufbar');
 for (const path of ['/booking-test/', '/konto/', '/verwaltung/']) {
   const r = await request(page + path);
   ok(r.response.status === 200 && r.data.includes('NoLimits'), 'Seite ' + path + ' erreichbar');
@@ -74,4 +88,4 @@ const guestStaff = await request(supabase + '/rest/v1/nl_staff?select=role&limit
   headers: { apikey: publishableKey }
 });
 ok(guestStaff.response.status === 401, 'Gast darf keine Mitarbeiterrollen auslesen');
-console.log('FERTIG: ' + passed + ' von ' + passed + ' Prüfungen bestanden');
+console.log('FERTIG: ' + passed + ' von ' + passed + ' Pruefungen bestanden');

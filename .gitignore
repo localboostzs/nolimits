@@ -1,5 +1,6 @@
 # Do not commit private NoLimits client/business materials to this PUBLIC repository.
 .env
+NoLimits_rotation_state.json
 .env.*
 !.env.example
 *.pem
@@ -24,3 +25,4 @@ emails/*SMTP*.md
 *API-Key*
 *Meetingnotizen*
 *Besprechung*
+artifacts/

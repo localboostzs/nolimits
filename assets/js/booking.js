@@ -7,7 +7,9 @@
     var q = new URLSearchParams(location.search).get('api');
     if (q) API = q.replace(/\/$/, '');
   }
-  var TERMS = 'Ich habe zur Kenntnis genommen, dass Termine bei Nichterscheinen oder bei einer Absage weniger als 24 Stunden vor Terminbeginn trotzdem verrechnet werden.';
+  var TERMS = 'Ich habe zur Kenntnis genommen, dass Online-Stornierungen und Online-Umbuchungen nur bis spätestens 24 Stunden vor Terminbeginn möglich sind. Bei Nichterscheinen können gemäss den vereinbarten Bedingungen Kosten entstehen.';
+  // Bei jeder Aenderung des Textes oben neue Kennung vergeben und im Worker (TERMS_VERSIONS) ergaenzen.
+  var TERMS_VERSION = '2026-11-25-online-24h-storno-umbuchung';
   var MAX_MONTHS = 3;
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
@@ -85,7 +87,7 @@
     function row(k, v, muted) { var w = el('div'); w.appendChild(el('dt', null, k)); w.appendChild(el('dd', muted ? 'muted' : null, v)); dl.appendChild(w); }
     row('Leistung', state.service ? state.service.name : 'Noch nicht gewählt', !state.service);
     if (state.service) row('Dauer', state.service.minutes + ' Minuten');
-    if (state.service && Number.isFinite(state.service.price)) row('Preis (Zahlung vor Ort)', 'CHF ' + state.service.price);
+    if (state.service && Number.isFinite(state.service.price)) row('Preis (Zahlung vor Ort)', window.NOLIMITS_PREISE.label(state.service, state.date));
     row('Datum', state.date ? fmtLong.format(new Date(state.date + 'T12:00:00Z')) : 'Noch nicht gewählt', !state.date);
     row('Uhrzeit', state.slot ? state.slot.slice(11, 16) + ' Uhr' : 'Noch nicht gewählt', !state.slot);
     sumEl.appendChild(dl);
@@ -160,6 +162,7 @@
     "haarschnitt": "thumb-haarschnitt-360.webp",
     "jugendliche-10-14": "thumb-jugendliche-360.webp",
     "bartschnitt": "thumb-bartschnitt-360.webp",
+    "gentleman-rasur": "thumb-haarschnitt-bartschnitt-rasieren-360.webp",
     "augenbrauen-zupfen": "thumb-augenbrauen-zupfen-360.webp",
   };
   var serviceDescriptions = {
@@ -171,6 +174,7 @@
   "haarschnitt": "Die perfekte Männer Frisur passend zu deiner Kopfform. Ganz egal ob kurzes, mittellanges oder langes Haar.",
   "jugendliche-10-14": "Haarschnitt für Jugendliche von 10 bis 14 Jahren.",
   "bartschnitt": "Ausführliche Beratung für den passenden Bart, saubere Umsetzung deines neuen Bartstyles sowie Pflege- und Stylingtipps.",
+  "gentleman-rasur": "Bart formen, gefolgt von einer Gesichtsmassage und Heißkompresse",
   "augenbrauen-zupfen": "Pinzette, Fadentechnik oder Heisswachs."
 };
   function renderServices() {
@@ -193,7 +197,7 @@
       b.appendChild(thumb);
       var detail = el('span', 'bk-service-detail');
       detail.appendChild(el('span', 'n', s.name));
-      detail.appendChild(el('span', 'd', s.minutes + ' Minuten' + (Number.isFinite(s.price) ? ' · CHF ' + s.price : '')));
+      detail.appendChild(el('span', 'd', s.minutes + ' Minuten' + (Number.isFinite(s.price) ? ' · ' + window.NOLIMITS_PREISE.label(s) : '')));
       if (serviceDescriptions[s.key]) detail.appendChild(el('span','bk-description',serviceDescriptions[s.key]));
       b.appendChild(detail);
       var go = el('span', 'go'); go.setAttribute('aria-hidden', 'true'); go.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'; b.appendChild(go);
@@ -286,7 +290,7 @@
     if (!validate()) { var bad = $('#bk-form [aria-invalid="true"]'); if (bad) bad.focus(); return; }
     var f = ev.target; var btn = $('#bk-submit'); state.busy = true; btn.disabled = true; var old = btn.textContent; btn.textContent = 'Wird gebucht …';
     try {
-      var r = await api('/api/book', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ service: state.service.key, start: state.slot, name: f.name.value, email: f.email.value, phone: f.phone.value, notes: ('Adresse: ' + f.address.value.trim() + (f.notes.value.trim() ? '\nNotiz: ' + f.notes.value.trim() : '')).slice(0, 500), accepted: $('#f-terms').checked, website: f.website.value, elapsedMs: Date.now() - state.formShown }) });
+      var r = await api('/api/book', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ service: state.service.key, start: state.slot, name: f.name.value, email: f.email.value, phone: f.phone.value, notes: ('Adresse: ' + f.address.value.trim() + (f.notes.value.trim() ? '\nNotiz: ' + f.notes.value.trim() : '')).slice(0, 500), accepted: $('#f-terms').checked, termsVersion: TERMS_VERSION, website: f.website.value, elapsedMs: Date.now() - state.formShown }) });
       showSuccess(r.booking);
     } catch (e) {
       if (e.code === 'slot_unavailable') {
@@ -308,6 +312,10 @@
     row('Leistung', b.service);
     row('Datum', fmtLong.format(start));
     row('Uhrzeit', new Intl.DateTimeFormat('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' }).format(start) + ' Uhr');
+    if (state.service && Number.isFinite(state.service.price)) {
+      var P = window.NOLIMITS_PREISE;
+      row('Preis (Zahlung vor Ort)', 'CHF ' + (Number.isFinite(b.price) ? b.price : P.on(state.service, P.day(start))));
+    }
     row('Ort', 'NoLimits Barbershop, Schmiedgasse 94, 6438 Ibach');
     var link = $('#bk-manage-link');
     if (link) { link.hidden = !b.manageUrl; link.style.display = b.manageUrl ? 'inline-flex' : 'none'; if (b.manageUrl) link.href = b.manageUrl; }

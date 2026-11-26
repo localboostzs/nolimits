@@ -1,0 +1,32 @@
+# NoLimits: compatible FALLBACK for AFTER alias activation. NOT a go-live command.
+# New bookings use real addresses again; existing alias bookings stay resolvable.
+# Upload as a version only (wrangler versions upload). Secret bindings, including
+# NL_SUPABASE_SECRET_KEY, must be preserved. Never write credentials into this file.
+name = "nolimits-booking-test"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[vars]
+# Before use: set both to the values that are live at the moment of the rollback.
+ALLOWED_ORIGINS = "https://localboostzs.github.io"
+NL_PUBLIC_SITE_BASE = "https://localboostzs.github.io/nolimits"
+NL_ALIAS_MODE = "disabled"
+# Keep identical to the values used while aliases were enabled. Without DOMAIN and
+# PREFIX, customer mail would be sent to the alias address instead of the customer.
+NL_ALIAS_DOMAIN = "localboost-zs.ch"
+NL_ALIAS_PREFIX = "info"
+NL_ALIAS_SEPARATOR = "+"
+NL_ICS_ENABLED = "false"
+
+[[unsafe.bindings]]
+name = "RL_BOOK"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 5, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_SLOTS"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 60, period = 60 }

@@ -8,11 +8,13 @@
 <link rel="icon" href="../assets/img/logo-nolimits.jpg" type="image/jpeg">
 <link rel="stylesheet" href="../assets/css/style.css">
 <link rel="stylesheet" href="../assets/css/privacy.css?v=20261115-privacy1">
-<link rel="stylesheet" href="../assets/css/manage.css?v=20261119-state-hidden1">
+<link rel="stylesheet" href="../assets/css/booking.css">
+<link rel="stylesheet" href="../assets/css/manage.css?v=20261125-calendar2">
 <script src="../assets/js/config.js"></script>
 <script src="../assets/js/booking-config.js"></script>
 <script defer src="../assets/js/privacy.js?v=20261115-privacy1"></script>
-<script defer src="../assets/js/manage.js?v=20261117-reschedule-time1"></script>
+<script defer src="../assets/js/preise.js?v=20261126-preis2027"></script>
+<script defer src="../assets/js/manage.js?v=20261126-preis2027"></script>
 </head><body id="top">
 <a class="skip" href="#main">Zum Inhalt springen</a>
 <header class="site-header"><div class="wrap header-in">
@@ -33,21 +35,32 @@
   <span class="nl-manage-tag" id="nl-manage-status">Termin</span>
   <h2 id="nl-manage-service"></h2>
   <dl class="nl-manage-facts"><div><dt>Datum &amp; Uhrzeit</dt><dd id="nl-manage-time"></dd></div><div><dt>Dauer</dt><dd id="nl-manage-duration"></dd></div><div><dt>Preis</dt><dd id="nl-manage-price"></dd></div><div><dt>Ort</dt><dd>Schmiedgasse 94, 6438 Ibach</dd></div></dl>
-  <p class="nl-manage-hint">Hinweis: Bei einer Stornierung oder Umbuchung weniger als 24 Stunden vor dem Termin können gemäss den aktuell angezeigten Buchungsbedingungen Kosten entstehen. Bei Fragen kontaktiere NoLimits.</p>
+  <p class="nl-manage-hint">Online-Stornierungen und Online-Umbuchungen sind nur bis spätestens 24 Stunden vor Terminbeginn möglich. Danach kontaktiere bitte NoLimits.</p>
   <div id="nl-manage-actions" class="nl-manage-actions">
     <button type="button" id="nl-manage-show-reschedule" class="btn btn-gold">Termin verschieben</button>
     <button type="button" id="nl-manage-show-cancel" class="nl-manage-outline">Termin stornieren</button>
   </div>
   <form id="nl-manage-cancel" hidden><h3>Termin wirklich stornieren?</h3>
     <label for="nl-manage-reason">Grund (optional)</label><textarea id="nl-manage-reason" rows="3" maxlength="200" placeholder="Zum Beispiel: Ich bin verhindert"></textarea>
-    <label class="nl-manage-check"><input id="nl-manage-confirm-cancel" type="checkbox" required> Ich möchte diesen Termin verbindlich absagen und habe den Hinweis zu möglichen Kosten gelesen.</label>
+    <label class="nl-manage-check"><input id="nl-manage-confirm-cancel" type="checkbox" required> Ich möchte diesen Termin verbindlich absagen (mindestens 24 Stunden vor Beginn).</label>
     <div class="nl-manage-actions"><button type="submit" class="btn btn-gold">Ja, Termin stornieren</button><button type="button" class="nl-manage-outline" data-dismiss>Zurück</button></div>
   </form>
   <form id="nl-manage-reschedule" hidden><h3>Neuen Termin wählen</h3>
-    <label for="nl-manage-date">Neues Datum</label><input id="nl-manage-date" type="date" required>
-    <div id="nl-manage-slots" aria-live="polite"></div><input id="nl-manage-selected-start" type="hidden">
-    <label class="nl-manage-check"><input id="nl-manage-confirm-reschedule" type="checkbox" required> Ich bestätige die Umbuchung und habe den Hinweis zu möglichen Kosten gelesen.</label>
-    <div class="nl-manage-actions"><button type="submit" class="btn btn-gold" id="nl-manage-reschedule-submit">Neuen Termin bestätigen</button><button type="button" class="nl-manage-outline" data-dismiss>Zurück</button></div>
+    <div class="nl-manage-picker">
+    <p class="bk-sub">Wähle zuerst einen freien Tag und danach die gewünschte Uhrzeit.</p>
+    <div class="nl-manage-calendar-nav bk-cal-head" aria-label="Monat auswählen">
+      <button type="button" id="nl-manage-prev" class="nl-manage-month-arrow bk-nav" aria-label="Vorheriger Monat"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <strong id="nl-manage-month" class="bk-month" aria-live="polite"></strong>
+      <button type="button" id="nl-manage-next" class="nl-manage-month-arrow bk-nav" aria-label="Nächster Monat"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+    </div>
+    <div class="nl-manage-weekdays bk-grid" aria-hidden="true"><span class="bk-dow">Mo</span><span class="bk-dow">Di</span><span class="bk-dow">Mi</span><span class="bk-dow">Do</span><span class="bk-dow">Fr</span><span class="bk-dow">Sa</span><span class="bk-dow">So</span></div>
+    <div id="nl-manage-calendar" class="nl-manage-calendar bk-grid" role="group" aria-label="Freies Datum auswählen"></div>
+    <p id="nl-manage-calendar-note" class="bk-empty" role="status" aria-live="polite"></p>
+    <div id="nl-manage-slots" class="bk-slots-wrap" aria-live="polite" hidden></div>
+    </div><input id="nl-manage-selected-start" type="hidden">
+    <p id="nl-manage-new-price" class="nl-manage-hint" role="status" aria-live="polite" hidden></p>
+    <label class="nl-manage-check"><input id="nl-manage-confirm-reschedule" type="checkbox" required> Ich bestätige die Umbuchung (mindestens 24 Stunden vor Beginn des bisherigen Termins) und habe den Hinweis zu möglichen Kosten gelesen.</label>
+    <div class="nl-manage-actions"><button type="submit" class="btn btn-gold" id="nl-manage-reschedule-submit" disabled>Neuen Termin bestätigen</button><button type="button" class="nl-manage-outline" data-dismiss>Zurück</button></div>
   </form>
   <div id="nl-manage-result" hidden><h2 id="nl-manage-result-title"></h2><p id="nl-manage-result-message"></p><a class="btn btn-gold" href="../booking-test/">Weitere Buchung</a></div>
 </div>

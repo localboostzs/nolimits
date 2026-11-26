@@ -1,0 +1,83 @@
+name: NoLimits Restore Inhaltsvergleich – rein synthetischer Test
+on:
+  push:
+    branches:
+      - feature/NoLimits_Aliasbuchung_20261119
+    paths:
+      - 'tools/NoLimits_RestoreInhaltsvergleich_20261120.mjs'
+      - '.github/workflows/NoLimits_RestoreInhaltsvergleich_Test_20261120.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-content-fingerprints:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: temporary-synthetic-only
+        ports:
+          - 55499:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check syntax; create purely fictional PostgreSQL source and restored databases
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tools/NoLimits_RestoreInhaltsvergleich_20261120.mjs
+          printf '127.0.0.1:55499:*:postgres:temporary-synthetic-only\n' > "$RUNNER_TEMP/nolimits-synthetic.pgpass"
+          chmod 600 "$RUNNER_TEMP/nolimits-synthetic.pgpass"
+          echo "TEST_PGPASSFILE=$RUNNER_TEMP/nolimits-synthetic.pgpass" >> "$GITHUB_ENV"
+          export PGPASSFILE="$RUNNER_TEMP/nolimits-synthetic.pgpass"
+          psql -h 127.0.0.1 -p 55499 -U postgres -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE nl_synthetic_source'
+          psql -h 127.0.0.1 -p 55499 -U postgres -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE nl_synthetic_restore'
+          psql -h 127.0.0.1 -p 55499 -U postgres -d nl_synthetic_source -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE SCHEMA auth;
+          CREATE SCHEMA storage;
+          CREATE SCHEMA vault;
+          CREATE TABLE public.nl_synthetic (id integer PRIMARY KEY, notes text, payload jsonb);
+          INSERT INTO public.nl_synthetic VALUES
+            (1,'synthetic-A','{"active":true}'),
+            (2,'synthetic-B','{"active":false}');
+          CREATE TABLE auth.users (id integer PRIMARY KEY, mock_email text);
+          INSERT INTO auth.users VALUES (1,'invented@example.invalid');
+          CREATE TABLE storage.objects (id integer PRIMARY KEY, mock_path text);
+          CREATE TABLE vault.secrets (id integer PRIMARY KEY, mock_name text);
+          SQL
+          pg_dump -h 127.0.0.1 -p 55499 -U postgres -d nl_synthetic_source -Fc --no-owner --no-privileges |
+            pg_restore -h 127.0.0.1 -p 55499 -U postgres -d nl_synthetic_restore --no-owner --no-privileges --exit-on-error
+      - name: Verify equal rows PASS, then detect altered content with same row count
+        shell: bash
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '55499'
+          PGUSER: postgres
+          PGDATABASE: nl_synthetic_source
+          PGSSLMODE: disable
+          NL_RESTORE_HOST: 127.0.0.1
+          NL_RESTORE_PORT: '55499'
+          NL_RESTORE_USER: postgres
+          NL_RESTORE_DATABASE: nl_synthetic_restore
+          NL_SYNTHETIC_TEST: '1'
+        run: |
+          set -euo pipefail
+          export PGPASSFILE="$TEST_PGPASSFILE"
+          export NL_RESTORE_PGPASSFILE="$TEST_PGPASSFILE"
+          node tools/NoLimits_RestoreInhaltsvergleich_20261120.mjs
+          psql -h 127.0.0.1 -p 55499 -U postgres -d nl_synthetic_restore -v ON_ERROR_STOP=1 \
+            -c "UPDATE public.nl_synthetic SET notes='changed-but-same-count' WHERE id=2;"
+          if node tools/NoLimits_RestoreInhaltsvergleich_20261120.mjs; then
+            echo "::error::Fingerprint checker failed to detect synthetic data corruption"
+            exit 1
+          fi
+          echo 'PASS: private SHA256 comparison detected a changed row with unchanged table count.'

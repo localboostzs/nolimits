@@ -2,7 +2,7 @@
   'use strict';
   var apiBase = window.NOLIMITS_BOOKING && window.NOLIMITS_BOOKING.API_BASE;
   var key='nl-manage-link';
-  var uid='',token='',booking=null,selectedStart='';
+  var uid='',token='',booking=null,selectedStart='',calendarMonth=null,monthDays={},selectedDay='',monthRequest=0,rescheduleBusy=false;
   function $(id){return document.getElementById(id);}
   function setMessage(text,error){
     var el=$('nl-manage-msg');el.textContent=text||'';el.hidden=!text;el.classList.toggle('error',!!error);
@@ -20,6 +20,7 @@
   }
   function params(){return 'uid='+encodeURIComponent(uid)+'&token='+encodeURIComponent(token);}
   function collapse(){
+    monthRequest++;
     $('nl-manage-cancel').hidden=true;$('nl-manage-reschedule').hidden=true;
     setMessage('');
   }
@@ -45,42 +46,109 @@
     $('nl-manage-status').textContent=b.status==='accepted'?'Termin bestätigt':'Status: '+b.status;
     $('nl-manage-time').textContent=fmt(b.start);
     $('nl-manage-duration').textContent=b.minutes+' Minuten';
-    $('nl-manage-price').textContent=b.price==null?'Vor Ort':('CHF '+b.price+' · vor Ort');
+    $('nl-manage-price').textContent=b.price==null?'Vor Ort':('CHF '+b.price+' · vor Ort'+(b.pricePlan&&b.price===b.pricePlan.before?' (bei Termin ab 01.01.2027: CHF '+b.pricePlan.after+')':''));
     $('nl-manage-actions').hidden=!b.canManage;
+    // Nur ausblenden, wenn der Worker ausdruecklich false meldet. Der fruehere Worker (Rollback)
+    // liefert diese Felder nicht; dort entscheidet canManage und der Server prueft selbst.
+    $('nl-manage-show-cancel').hidden=b.canCancel===false;
+    $('nl-manage-show-reschedule').hidden=b.canReschedule===false;
     $('nl-manage-result').hidden=true;
-    if(!b.canManage)setMessage('Dieser Termin kann nicht mehr online geändert werden. Bei Fragen kontaktiere bitte NoLimits.',false);
+    if(!b.canManage)setMessage('Dieser Termin kann nicht mehr online geändert werden (Stornieren und Umbuchen nur bis 24 Stunden vor Beginn). Bitte kontaktiere NoLimits.',false);
   }
   async function load(){
     setMessage('');
     try {render((await request('/api/manage?'+params())).booking);}
     catch(e){show('nl-manage-unavailable');setMessage(e.message,true);}
   }
-  function pickSlots(d){
-    var list=$('nl-manage-slots');list.replaceChildren();
-    var slots=Object.values(d.days||{}).flatMap(function(a){return a});
-    if(!slots.length){list.textContent='Für dieses Datum sind keine freien Termine verfügbar.';return;}
-    var head=document.createElement('p');head.textContent='Freie Uhrzeiten auswählen:';
-    var grid=document.createElement('div');grid.className='nl-manage-slots-grid';
+  function zDate(date){
+    var p=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Zurich',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);
+    function v(k){return p.find(function(x){return x.type===k;}).value;}
+    return v('year')+'-'+v('month')+'-'+v('day');
+  }
+  function monthNum(y,m){return y*12+m;}
+  function currentMonth(){var d=zDate(new Date());return {y:Number(d.slice(0,4)),m:Number(d.slice(5,7))-1};}
+  function dateInMonth(day){return calendarMonth.y+'-'+String(calendarMonth.m+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');}
+  // Preis des gewählten neuen Termins (massgebend ist sein Datum), auch über den Jahreswechsel.
+  function priceOn(start){
+    var plan=booking&&booking.pricePlan;
+    return plan?(zDate(new Date(start))>=plan.from?plan.after:plan.before):null;
+  }
+  function showNewPrice(){
+    var box=$('nl-manage-new-price'),next=selectedStart?priceOn(selectedStart):null;
+    box.hidden=next===null;
+    box.textContent=next===null?'':'Preis am neuen Termin: CHF '+next+(next!==booking.price?' (bisher CHF '+booking.price+')':'')+', Zahlung vor Ort.';
+  }
+  function syncSubmit(){
+    showNewPrice();
+    $('nl-manage-reschedule-submit').disabled=rescheduleBusy || !selectedStart || !(monthDays[selectedDay]||[]).includes(selectedStart) || !$('nl-manage-confirm-reschedule').checked;
+  }
+  function clearChosen(){selectedDay='';selectedStart='';$('nl-manage-selected-start').value='';$('nl-manage-slots').replaceChildren();$('nl-manage-slots').hidden=true;syncSubmit();}
+  function dateLabel(key){return new Intl.DateTimeFormat('de-CH',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(key+'T12:00:00Z'));}
+  function calendarNote(message){$('nl-manage-calendar-note').textContent=message||'';}
+  function validDays(raw,first,last){
+    var result={},today=zDate(new Date());
+    Object.keys(raw||{}).forEach(function(day){
+      if(day<first || day>last || day<today || !/^\d{4}-\d{2}-\d{2}$/.test(day) || !Array.isArray(raw[day]))return;
+      var slots=raw[day].filter(function(start){var t=typeof start==='string'?Date.parse(start):NaN;return Number.isFinite(t) && t>Date.now() && zDate(new Date(t))===day;});
+      if(slots.length)result[day]=Array.from(new Set(slots)).sort(function(a,b){return Date.parse(a)-Date.parse(b);});
+    });
+    return result;
+  }
+  function renderDaySlots(){
+    var list=$('nl-manage-slots');list.replaceChildren();list.hidden=false;
+    var slots=monthDays[selectedDay]||[];
+    if(!slots.length){list.textContent='Für diesen Tag sind keine freien Termine verfügbar.';return;}
+    var head=document.createElement('p');head.className='bk-slots-title';head.textContent=dateLabel(selectedDay);
+    var grid=document.createElement('div');grid.className='nl-manage-slots-grid bk-slots';grid.setAttribute('role','group');grid.setAttribute('aria-label','Freie Uhrzeiten');
     slots.forEach(function(start){
-      var b=document.createElement('button');b.type='button';b.className='nl-manage-slot';
-      b.textContent=time(start);b.setAttribute('aria-pressed','false');
+      var b=document.createElement('button');b.type='button';b.className='nl-manage-slot bk-slot';
+      b.textContent=time(start);b.setAttribute('aria-label',time(start)+' Uhr');b.setAttribute('aria-pressed',String(selectedStart===start));
       b.addEventListener('click',function(){
-        selectedStart=start;$('nl-manage-selected-start').value=start;
+        if(rescheduleBusy)return;
+        selectedStart=start;$('nl-manage-selected-start').value=start;syncSubmit();
         grid.querySelectorAll('button').forEach(function(el){el.setAttribute('aria-pressed',el===b?'true':'false');});
       });
       grid.appendChild(b);
     });
     list.append(head,grid);
   }
-  async function updateSlots(){
-    selectedStart='';$('nl-manage-selected-start').value='';
-    var date=$('nl-manage-date').value;
-    if(!date)return;
-    var list=$('nl-manage-slots');list.textContent='Verfügbare Uhrzeiten werden geladen …';
+  function paintMonth(loading){
+    var here=currentMonth(),number=monthNum(calendarMonth.y,calendarMonth.m),firstAllowed=monthNum(here.y,here.m);
+    $('nl-manage-prev').disabled=number<=firstAllowed;
+    $('nl-manage-next').disabled=number>=firstAllowed+2;
+    $('nl-manage-month').textContent=new Intl.DateTimeFormat('de-CH',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(Date.UTC(calendarMonth.y,calendarMonth.m,1)));
+    var el=$('nl-manage-calendar');el.replaceChildren();el.setAttribute('aria-busy',String(!!loading));
+    if(loading){var spinner=document.createElement('div');spinner.className='bk-loading';spinner.setAttribute('role','status');var wheel=document.createElement('span');wheel.className='bk-spin';wheel.setAttribute('aria-hidden','true');var label=document.createElement('span');label.className='sr-only';label.textContent='Termine werden geladen';spinner.append(wheel,label);el.appendChild(spinner);return;}
+    var firstDay=(new Date(Date.UTC(calendarMonth.y,calendarMonth.m,1)).getUTCDay()+6)%7;
+    for(var n=0;n<firstDay;n++){var empty=document.createElement('span');empty.className='nl-manage-month-empty';empty.setAttribute('aria-hidden','true');el.appendChild(empty);}
+    var last=new Date(Date.UTC(calendarMonth.y,calendarMonth.m+1,0)).getUTCDate();
+    for(var day=1;day<=last;day++){
+      var key=dateInMonth(day),b=document.createElement('button');
+      b.type='button';b.disabled=key<zDate(new Date()) || !(monthDays[key]||[]).length;
+      b.className='nl-manage-day bk-day'+(!b.disabled?' is-free':'')+(key===zDate(new Date())?' is-today':'');b.textContent=day;
+      b.setAttribute('aria-label',dateLabel(key)+(b.disabled?', keine freien Termine':', Termine frei'));
+      b.setAttribute('aria-pressed',String(selectedDay===key));
+      (function(dateKey,button){button.addEventListener('click',function(){if(button.disabled || rescheduleBusy)return;clearChosen();selectedDay=dateKey;paintMonth();renderDaySlots();var active=el.querySelector('[aria-pressed=true]');if(active)active.focus({preventScroll:true});});})(key,b);
+      el.appendChild(b);
+    }
+  }
+  async function loadMonth(){
+    var requestId=++monthRequest;
+    clearChosen();monthDays={};calendarNote('');paintMonth(true);
+    var first=dateInMonth(1),last=dateInMonth(new Date(Date.UTC(calendarMonth.y,calendarMonth.m+1,0)).getUTCDate());
     try{
-      var d=await request('/api/manage/slots?'+params()+'&service='+encodeURIComponent(booking.serviceKey)+'&start='+date+'&end='+date);
-      pickSlots(d);
-    }catch(e){list.textContent='Freie Zeiten konnten nicht geladen werden: '+e.message;}
+      var d=await request('/api/manage/slots?'+params()+'&service='+encodeURIComponent(booking.serviceKey)+'&start='+first+'&end='+last);
+      if(requestId!==monthRequest)return;
+      monthDays=validDays(d.days,first,last);
+      calendarNote(Object.keys(monthDays).length?'':'In diesem Monat sind aktuell keine freien Termine verfügbar.');
+      paintMonth(false);
+    }catch(e){if(requestId!==monthRequest)return;paintMonth(false);calendarNote('Kalender konnte nicht geladen werden: '+e.message+' ');var retry=document.createElement('button');retry.type='button';retry.className='bk-back';retry.textContent='Erneut versuchen';retry.addEventListener('click',loadMonth);$('nl-manage-calendar-note').appendChild(retry);}
+  }
+  function moveMonth(delta){
+    if(rescheduleBusy)return;
+    var d=new Date(Date.UTC(calendarMonth.y,calendarMonth.m+delta,1));
+    calendarMonth={y:d.getUTCFullYear(),m:d.getUTCMonth()};
+    loadMonth();
   }
   function done(title,description){
     collapse();$('nl-manage-actions').hidden=true;
@@ -96,12 +164,13 @@
   $('nl-manage-show-reschedule').addEventListener('click',function(){
     collapse();$('nl-manage-reschedule').hidden=false;
     $('nl-manage-confirm-reschedule').checked=false;
-    var iso=new Date().toLocaleDateString('en-CA',{timeZone:'Europe/Zurich'});
-    $('nl-manage-date').min=/^\d{4}-\d{2}-\d{2}$/.test(iso)?iso:new Date().toISOString().slice(0,10);
-    $('nl-manage-date').max=new Date(Date.now()+366*86400000).toISOString().slice(0,10);
+    calendarMonth=currentMonth();
+    loadMonth();
   });
   document.querySelectorAll('[data-dismiss]').forEach(function(el){el.addEventListener('click',collapse);});
-  $('nl-manage-date').addEventListener('change',updateSlots);
+  $('nl-manage-prev').addEventListener('click',function(){moveMonth(-1);});
+  $('nl-manage-next').addEventListener('click',function(){moveMonth(1);});
+  $('nl-manage-confirm-reschedule').addEventListener('change',syncSubmit);
   $('nl-manage-cancel').addEventListener('submit',async function(e){
     e.preventDefault();if(!$('nl-manage-confirm-cancel').checked)return;
     var b=this.querySelector('[type=submit]');b.disabled=true;setMessage('');
@@ -115,9 +184,10 @@
   });
   $('nl-manage-reschedule').addEventListener('submit',async function(e){
     e.preventDefault();
-    if(!selectedStart){setMessage('Bitte wähle zuerst eine freie Uhrzeit.',true);return;}
+    if(rescheduleBusy)return;
+    if(!selectedStart || !(monthDays[selectedDay]||[]).includes(selectedStart)){setMessage('Bitte wähle zuerst eine freie Uhrzeit.',true);return;}
     if(!$('nl-manage-confirm-reschedule').checked)return;
-    var b=$('nl-manage-reschedule-submit');b.disabled=true;setMessage('');
+    rescheduleBusy=true;syncSubmit();setMessage('');
     try{
       var out=await request('/api/manage/reschedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
         uid:uid,token:token,confirm:true,start:selectedStart
@@ -128,11 +198,15 @@
         uid=u.searchParams.get('uid');token=u.searchParams.get('token');
         sessionStorage.setItem(key,JSON.stringify({uid:uid,token:token}));
       }
+      if(Number.isFinite(out.booking.price)){
+        desc+=' Preis am neuen Termin: CHF '+out.booking.price+', Zahlung vor Ort.';
+        $('nl-manage-price').textContent='CHF '+out.booking.price+' · vor Ort';
+      }
       // Nach der Umbuchung keine veraltete Uhrzeit mehr anzeigen.
       $('nl-manage-status').textContent='Termin verschoben';
       $('nl-manage-time').textContent=fmt(out.booking.start);
       done('Dein Termin wurde verschoben',desc);
-    }catch(err){setMessage(err.message,true);}finally{b.disabled=false;}
+    }catch(err){setMessage(err.message,true);}finally{rescheduleBusy=false;syncSubmit();}
   });
   try{
     var url=new URL(location.href);

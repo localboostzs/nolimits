@@ -2,13 +2,14 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import {readFileSync} from 'node:fs';
-const {default:worker}=await import('data:text/javascript;base64,'+Buffer.from(readFileSync(process.argv[2] || 'worker/dist/worker.js')).toString('base64'));
+const readText=(p)=>readFileSync(p,'utf8').replace(/\r\n/g,'\n');
+const {default:worker}=await import('data:text/javascript;base64,'+Buffer.from((()=>{const services=readText('worker/src/services.js').replace(/^export /gm,'');return readText('worker/src/index.js').replace("import { SERVICES, TIME_ZONE, CAL_BASE } from './services.js';",services);})()).toString('base64'));
 const now=new Date(Date.now()+86400000*5).toISOString();
 const uid='TestCancelledBooking_1';
 let lookups=0, sends=0, lastEmail=null;
 globalThis.fetch=async(url,opts={})=>{
   url=String(url);
-  if(url.includes('/v2/bookings/')){lookups++;return Response.json({status:'success',data:{uid,eventTypeId:7888954,status:'cancelled',start:now,end:now}});}
+  if(url.includes('/v2/bookings/')){lookups++;return Response.json({status:'success',data:{uid,eventTypeId:7888954,status:'cancelled',start:now,end:now,attendees:[{email:'test@example.com',name:'QA Test'}]}});}
   if(url.includes('api.resend.com')){sends++;lastEmail=JSON.parse(opts.body);return Response.json({id:'mock123'});}
   throw new Error('Unexpected '+url);
 };
