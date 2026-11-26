@@ -1,6 +1,6 @@
 # NoLimits – Release-Stand, Testbericht und Rollback (Stand 26.11.2026)
 
-Status: **auf dem Feature-Branch, keine Produktionsfreigabe.** Kein Deployment des neuen Stands, kein Merge in `main`, keine Änderung an Wix oder DNS. Dieses Dokument ersetzt die Versions-, Rollback- und Alias-Vorgaben in den Dokumenten vom 19.–24.11. (dort steht noch Alias `off`).
+Status: **Stand vom 26.11.2026, in `main` übernommen.** Der laufende Betriebs- und Freigabestand wird intern geführt; die Angaben unten beschreiben den Stand vor der Freigabe. Keine Änderung an Wix oder DNS. Dieses Dokument ersetzt die Versions-, Rollback- und Alias-Vorgaben in den Dokumenten vom 19.–24.11. (dort steht noch Alias `off`).
 
 ## 1. Versionen (Worker `nolimits-booking-test`)
 
