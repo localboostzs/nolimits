@@ -1,0 +1,9 @@
+# GitHub Pages: nur die Website veroeffentlichen. Interne Dokumente, Werkzeuge,
+# Tests und Server-Code bleiben im Repository, werden aber nicht als Webseiten ausgeliefert.
+exclude:
+  - "NoLimits_*.md"
+  - ops/
+  - supabase/
+  - tests/
+  - tools/
+  - worker/
