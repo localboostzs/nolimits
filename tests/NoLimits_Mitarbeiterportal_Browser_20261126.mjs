@@ -226,6 +226,14 @@ for (const width of [320, 375, 390, 430, 768, 1024, 1440, 1920]) {
   await pick(page, '#nl-admin-calendar', zurich(at(6, 12)));
   const [scroll, inner] = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);
   assert.ok(scroll <= inner, width + ' px: page wider than screen (' + scroll + ')');
+  // The rescheduling calendar sits inside the appointment card: the narrowest place.
+  await page.locator('#nl-info .nl-appt-reschedule').click();
+  await pick(page, '#nl-info .nl-appt-move', zurich(at(8, 12)));
+  const moved = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth,
+    document.querySelector('#nl-info .nl-appt-move .nl-picker-box').getBoundingClientRect().right,
+    Math.max(...[...document.querySelectorAll('#nl-info .nl-appt-move .nl-picker-box *')].map((n) => n.getBoundingClientRect().right))]);
+  assert.ok(moved[0] <= moved[1], width + ' px: rescheduling calendar wider than screen (' + moved[0] + ')');
+  assert.ok(moved[3] <= moved[2] + 0.5, width + ' px: calendar content sticks out of its box (' + moved[3] + ' > ' + moved[2] + ')');
   await t.close();
 }
 await browser.close();
