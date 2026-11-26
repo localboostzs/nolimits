@@ -25,7 +25,7 @@
 <link rel="stylesheet" href="assets/css/style.css?v=20261117-mobile1">
 <link rel="stylesheet" href="assets/css/privacy.css?v=20261115-privacy1">
 <script src="assets/js/privacy.js?v=20261115-privacy1" defer></script>
-<script src="assets/js/config.js"></script>
+<script src="assets/js/config.js?v=20261126-pages"></script>
 <script src="assets/js/main.js"></script>
 <script src="assets/js/preise.js?v=20261126-preis2027" defer></script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": ["BarberShop", "HairSalon"], "@id": "https://www.nolimits-barber.ch/#barbershop", "name": "NoLimits Barbershop", "url": "https://www.nolimits-barber.ch/", "image": "https://www.nolimits-barber.ch/assets/img/logo-nolimits.jpg", "logo": "https://www.nolimits-barber.ch/assets/img/logo-nolimits.jpg", "description": "Klassischer Herrenschnitt, sauberer Bartschnitt, ehrliche Handwerkskunst. Seit 2020 in Ibach.", "telephone": "+41768019340", "priceRange": "CHF 15 - CHF 65", "address": {"@type": "PostalAddress", "streetAddress": "Schmiedgasse 94", "postalCode": "6438", "addressLocality": "Ibach", "addressRegion": "SZ", "addressCountry": "CH"}, "geo": {"@type": "GeoCoordinates", "latitude": 47.0108483, "longitude": 8.6438469}, "openingHoursSpecification": [{"@type": "OpeningHoursSpecification", "dayOfWeek": "Tuesday", "opens": "09:00", "closes": "12:00"}, {"@type": "OpeningHoursSpecification", "dayOfWeek": "Tuesday", "opens": "13:00", "closes": "19:00"}, {"@type": "OpeningHoursSpecification", "dayOfWeek": "Saturday", "opens": "08:00", "closes": "12:00"}, {"@type": "OpeningHoursSpecification", "dayOfWeek": "Saturday", "opens": "13:00", "closes": "17:00"}], "aggregateRating": {"@type": "AggregateRating", "ratingValue": "5.0", "bestRating": "5", "reviewCount": "9"}}</script>
@@ -54,7 +54,7 @@
 <a href="kontakt/">Kontakt</a>
 <a href="ueber-mich/">Über mich</a>
 </nav>
-<a class="btn btn-gold btn-sm header-cta" href="https://localboostzs.github.io/nolimits/booking-test/" data-booking>Termin buchen</a>
+<a class="btn btn-gold btn-sm header-cta" href="booking-test/" data-booking>Termin buchen</a>
 <button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav" aria-label="Menü öffnen"><span></span><span></span></button>
 </div>
 </header>
@@ -66,7 +66,7 @@
 <h1 class="display reveal" style="--d:.08s">NoLimits Barbershop<br>- <em>Dein Schnitt, dein Style.</em></h1>
 <p class="lead reveal" style="--d:.16s">Klassischer Herrenschnitt, sauberer Bartschnitt, ehrliche Handwerkskunst.<br>Seit 2020 in Ibach.</p>
 <div class="hero-cta reveal" style="--d:.24s">
-<a class="btn btn-gold btn-lg" href="https://localboostzs.github.io/nolimits/booking-test/" data-booking>Termin anfragen</a>
+<a class="btn btn-gold btn-lg" href="booking-test/" data-booking>Termin anfragen</a>
 <p class="note">Antwort meist innert Stunden</p>
 </div>
 <p class="rating reveal" style="--d:.32s">⭐ 5.0 auf Google · 9 Bewertungen</p>
@@ -156,10 +156,10 @@
 <script>
 (function(){
   'use strict';
-  // Approved design (24.11.2026). Go-live: set priceNoticeEnabled=true, only after the new
-  // Worker is deployed. It shows once per browser session and stops on 01.01.2027 (Zurich).
+  // Approved design (24.11.2026). Switch: priceNoticeEnabled. It shows once per browser
+  // session and stops on 01.01.2027 (Zurich).
   // Review at any time, also while disabled: add ?preisvorschau=1 to the homepage address.
-  var priceNoticeEnabled=false;
+  var priceNoticeEnabled=true;
   var force=new URLSearchParams(location.search).get('preisvorschau')==='1';
   var expired=Date.now()>=Date.parse('2027-01-01T00:00:00+01:00');
   if(!force&&(!priceNoticeEnabled||expired))return;

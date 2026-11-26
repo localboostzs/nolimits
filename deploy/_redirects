@@ -1,0 +1,3 @@
+# Adressen mit dem früheren Unterpfad /nolimits/ auf die Hauptdomain führen.
+/nolimits / 301
+/nolimits/* /:splat 301
