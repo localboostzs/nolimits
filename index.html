@@ -156,10 +156,10 @@
 <script>
 (function(){
   'use strict';
-  // Approved design (24.11.2026). Go-live: set priceNoticeEnabled=true, only after the new
-  // Worker is deployed. It shows once per browser session and stops on 01.01.2027 (Zurich).
+  // Approved design (24.11.2026). Switch: priceNoticeEnabled. It shows once per browser
+  // session and stops on 01.01.2027 (Zurich).
   // Review at any time, also while disabled: add ?preisvorschau=1 to the homepage address.
-  var priceNoticeEnabled=false;
+  var priceNoticeEnabled=true;
   var force=new URLSearchParams(location.search).get('preisvorschau')==='1';
   var expired=Date.now()>=Date.parse('2027-01-01T00:00:00+01:00');
   if(!force&&(!priceNoticeEnabled||expired))return;

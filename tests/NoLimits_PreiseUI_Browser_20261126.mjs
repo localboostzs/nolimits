@@ -36,6 +36,7 @@ async function pickInCalendar(page, root, day) {
 
 // One simulated moment for the Worker (Node) and the browser.
 async function open(now, { popup = false } = {}) {
+  // The popup switch is forced to the wanted state, whatever the shipped page says.
   const mock = createMock();
   mock.requiredTerms = new Set(Object.values(SERVICES).map((s) => s.eventTypeId));
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'de-CH', timezoneId: 'Europe/Zurich' });
@@ -63,10 +64,10 @@ async function open(now, { popup = false } = {}) {
       const file = path.resolve(rel);
       if (!fs.existsSync(file)) return route.fulfill({ status: 404, body: 'missing' });
       let body = fs.readFileSync(file);
-      if (popup && rel === 'index.html') {
-        const html = body.toString('utf8');
-        assert.equal(html.split('var priceNoticeEnabled=false;').length, 2, 'exactly one go-live switch');
-        body = html.replace('var priceNoticeEnabled=false;', 'var priceNoticeEnabled=true;');
+      if (rel === 'index.html') {
+        const html = body.toString('utf8'), flag = /var priceNoticeEnabled=(true|false);/g;
+        assert.equal((html.match(flag) || []).length, 1, 'exactly one go-live switch');
+        body = html.replace(flag, 'var priceNoticeEnabled=' + popup + ';');
       }
       return route.fulfill({ contentType: types[path.extname(file)] || 'application/octet-stream', body });
     }
@@ -111,7 +112,7 @@ for (const [now, after] of [['2026-12-31T22:00:00Z', false], ['2026-12-31T23:00:
   assert.equal(await page.locator('[data-nl-price-note]').isVisible(), !after, 'services note ' + now);
   await t.go('/');
   assert.equal(await page.locator('[data-nl-price-note]').isVisible(), !after, 'home note ' + now);
-  assert.equal(await page.locator('#nl-price-notice[open]').count(), 0, 'popup stays off until go-live');
+  assert.equal(await page.locator('#nl-price-notice[open]').count(), 0, 'popup stays off while disabled');
   await t.go('/?preisvorschau=1');
   await page.locator('#nl-price-notice[open]').waitFor();
   assert.match(await text(page.locator('#nl-price-notice')), /01\.01\.2027.*CHF 5\.–.*Datum des Termins/);
