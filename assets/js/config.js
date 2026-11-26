@@ -1,14 +1,11 @@
-/* Zentrale, sichere Buchungs-URL für die Demo und die spätere NoLimits-Domain.
-   Beide öffentlich zulässigen Produktions-Hosts benutzen /booking-test/ am Root.
-   Alle anderen Hosts (einschliesslich der GitHub-Demo) führen zur bekannten Demo-URL.
-   Die Umstellung ist zunächst NUR auf dem Feature-Branch vorbereitet.
-   Es werden KEINE Domain-, DNS-, Worker- oder Cal.com-Einstellungen geändert. */
+/* Buchungs-URL. Sie liegt immer in derselben Website wie diese Datei, egal ob diese
+   unter der eigenen Domain, unter *.pages.dev, unter einem Unterpfad oder lokal läuft.
+   Massgebend ist der Speicherort des Skripts, nicht eine fest eingetragene Adresse. */
 (function () {
   'use strict';
-  var host = String(window.location.hostname || '').toLowerCase();
-  var productionHost = host === 'www.nolimits-barber.ch' || host === 'nolimits-barber.ch';
-  var destination = productionHost
-    ? window.location.origin + '/booking-test/'
-    : 'https://localboostzs.github.io/nolimits/booking-test/';
-  window.NOLIMITS_CONFIG = { BOOKING_URL: destination };
+  var script = document.currentScript;
+  var base = script && script.src
+    ? new URL('../../', script.src)
+    : new URL('/', window.location.href);
+  window.NOLIMITS_CONFIG = { BOOKING_URL: new URL('booking-test/', base).href };
 })();

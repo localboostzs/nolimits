@@ -26,3 +26,6 @@ emails/*SMTP*.md
 *Meetingnotizen*
 *Besprechung*
 artifacts/
+
+# Ergebnis des Website-Builds (Cloudflare Pages)
+dist/

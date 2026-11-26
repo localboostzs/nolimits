@@ -4,7 +4,14 @@ on:
     branches:
       - feature/NoLimits_Aliasbuchung_20261119
       - feature/NoLimits_MitarbeiterportalV2_20261126
+      - feature/NoLimits_CloudflarePages_20261126
     paths:
+      - 'deploy/**'
+      - '404.html'
+      - 'assets/js/config.js'
+      - 'impressum/**'
+      - 'ueber-mich/**'
+      - 'tests/NoLimits_PagesBuild_Tests_20261126.mjs'
       - 'tests/NoLimits_MobileDesktop_UI_20261119.mjs'
       - 'tests/NoLimits_ManageBrowser_E2E_20261119.mjs'
       - 'tests/NoLimits_AccountProfile_Browser_20261119.mjs'

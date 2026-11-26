@@ -27,6 +27,7 @@ export const NODE_SUITES = [
 export const BROWSER_SUITES = [
   'MobileDesktop_UI_20261119', 'ManageBrowser_E2E_20261119', 'AccountProfile_Browser_20261119',
   'StaffLab_Browser_20261120', 'FrontendKompatibilitaet_E2E_20261125', 'PreiseUI_Browser_20261126', 'Mitarbeiterportal_Browser_20261126',
+  'PagesBuild_Tests_20261126',
 ];
 const file = (name) => 'tests/NoLimits_' + name + (name.endsWith('.cjs') ? '' : '.mjs');
 
