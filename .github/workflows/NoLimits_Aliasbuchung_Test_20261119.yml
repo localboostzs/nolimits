@@ -21,7 +21,8 @@ jobs:
       # Live checks are in NoLimits_Live_Systemtest_20261125.yml.
       - name: Offline tests (mock backends, no network)
         run: |
-          git fetch --depth=1 origin main:refs/remotes/origin/main
+          # State before the release (Worker version 37) for the compatibility suites.
+          git fetch --depth=1 origin c70fc168c2e5778cd7f8496732117d83deed8558
           node tests/run-offline.mjs node
       - name: Verify Wrangler stage bundle (no Cloudflare deployment)
         working-directory: worker

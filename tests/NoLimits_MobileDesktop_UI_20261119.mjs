@@ -122,8 +122,7 @@ try {
           const selectInfo=await page.evaluate(()=>{
             const desk=document.getElementById('nl-desk'),gate=document.getElementById('nl-gate');
             desk.hidden=false;gate.hidden=true;
-            const service=document.getElementById('nl-admin-service'),
-                  slots=document.getElementById('nl-admin-slot');
+            const service=document.getElementById('nl-admin-service');
             service.replaceChildren();
             for(const label of [
               'Leistung auswählen',
@@ -134,18 +133,16 @@ try {
               'Gentleman Rasur · 30 Min · CHF 30']) {
                 service.append(new Option(label,label==='Leistung auswählen'?'':label));
             }
-            slots.replaceChildren(new Option('Uhrzeit auswählen',''),
-              new Option('10:15','10:15'),new Option('11:30','11:30'));
             const st=getComputedStyle(service),opt=CSS.supports('appearance','base-select');
             return {height:service.getBoundingClientRect().height, radius:st.borderTopLeftRadius,
               appearance:st.appearance, modernSupport:opt,
               labelServices:!!document.querySelector('label[for="nl-admin-service"]'),
-              labelSlots:!!document.querySelector('label[for="nl-admin-slot"]'),
+              labelSlots:!!document.querySelector('#nl-admin-calendar[aria-labelledby="nl-admin-when"]')&&!!document.querySelector('#nl-admin-calendar .bk-cal-head .bk-nav'),
               options:service.options.length};
           });
           assert.ok(selectInfo.height>=52,'staff dropdown is a touch-friendly size');
           assert.ok(parseFloat(selectInfo.radius)>=6,'staff dropdown has modern radius');
-          assert.ok(selectInfo.labelServices&&selectInfo.labelSlots,'both select labels accessible');
+          assert.ok(selectInfo.labelServices&&selectInfo.labelSlots,'service label and labelled booking calendar');
           assert.equal(selectInfo.options,6);
           if(selectInfo.modernSupport) assert.equal(selectInfo.appearance,'base-select',
             'supported Chromium should style the opened native picker');
