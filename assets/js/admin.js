@@ -3,39 +3,205 @@
 (function(){
   'use strict';
   var A=window.NOLIMITS_ACCOUNT;
+  var K=window.NOLIMITS_KALENDER;
   var API=(window.NOLIMITS_BOOKING&&window.NOLIMITS_BOOKING.API_BASE||'').replace(/\/$/,'');
   var gate=document.getElementById('nl-gate'), desk=document.getElementById('nl-desk'),
       notice=document.getElementById('nl-admin-notice');
   var list=document.getElementById('nl-contacts'), info=document.getElementById('nl-info'),
       search=document.getElementById('nl-search'), form=document.getElementById('nl-admin-book-form');
-  var services=document.getElementById('nl-admin-service'), date=document.getElementById('nl-admin-date'),
-      slots=document.getElementById('nl-admin-slot');
+  var services=document.getElementById('nl-admin-service'), slotInput=document.getElementById('nl-admin-slot'),
+      bookHeading=document.getElementById('nl-book-heading'), bookFor=document.getElementById('nl-book-for');
   var contacts=[], selected=null, loadedServices=[];
+  var DAY_MS=86400000;
   function msg(text,error){ notice.textContent=text;notice.hidden=!text;notice.classList.toggle('error',!!error); }
   function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;}
   function fmt(date){try{return new Intl.DateTimeFormat('de-CH',{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/Zurich'}).format(new Date(date));}catch(e){return date||'';}}
+  var dateFmt=new Intl.DateTimeFormat('de-CH',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric',timeZone:'Europe/Zurich'});
   async function request(path,opts){
     var token=await A.bearer();if(!token)throw new Error('Sitzung abgelaufen – bitte erneut anmelden.');
     var options=Object.assign({method:'GET',cache:'no-store'},opts||{});
     options.headers=Object.assign({'Authorization':'Bearer '+token,'Content-Type':'application/json'},options.headers||{});
     var r=await fetch(API+path,options),json=await r.json().catch(function(){return null;});
-    if(!r.ok||!json||json.ok===false)throw new Error(json&&json.error&&json.error.message||'Anfrage fehlgeschlagen.');
+    if(!r.ok||!json||json.ok===false){
+      var err=new Error(json&&json.error&&json.error.message||'Anfrage fehlgeschlagen.');
+      err.code=json&&json.error&&json.error.code;throw err;
+    }
     return json;
   }
-  // Preise nach Termindatum (Zuercher Kalendertag), nicht nach Buchungsdatum.
+  // Freie Zeiten über die bestehende Mitarbeiter-API (gleiche Prüfung wie bisher).
+  function slotLoader(serviceKey){
+    return async function(first,last){
+      var r=await request('/api/admin/slots?service='+encodeURIComponent(serviceKey)+'&start='+first+'&end='+last);
+      return r.days||{};
+    };
+  }
   function serviceByKey(key){return loadedServices.find(function(s){return s.key===key;});}
+  // Preise nach Termindatum (Zuercher Kalendertag), nicht nach Buchungsdatum.
+  function priceOn(key,start){
+    var P=window.NOLIMITS_PREISE,s=serviceByKey(key);
+    return s&&Number.isFinite(s.price)?P.on(s,P.day(start)):null;
+  }
   function movedPrice(b,start){
-    var P=window.NOLIMITS_PREISE,s=serviceByKey(b.serviceKey);
-    if(!s||!Number.isFinite(s.price))return '';
-    var before=P.on(s,P.day(b.start)),after=P.on(s,P.day(start));
+    var before=priceOn(b.serviceKey,b.start),after=priceOn(b.serviceKey,start);
+    if(before==null||after==null)return '';
     return ' Preis am neuen Termin: CHF '+after+(after!==before?' (bisher CHF '+before+')':'')+'.';
   }
+  function initials(c){
+    var words=String(c.name||'').trim().split(/\s+/).filter(Boolean);
+    var text=words.length>1?words[0][0]+words[words.length-1][0]:words.length?words[0].slice(0,2):String(c.email||c.phone||'?')[0];
+    return text.toUpperCase();
+  }
+  function avatar(c,cls){var a=el('span','nl-avatar'+(cls?' '+cls:''),initials(c));a.setAttribute('aria-hidden','true');return a;}
+  var STATUS={accepted:'Bestätigt',cancelled:'Storniert',canceled:'Storniert',rejected:'Abgelehnt',pending:'Unbestätigt',unconfirmed:'Unbestätigt'};
+
+  /* ---------- Terminkarten ---------- */
+  function makeAppt(b){
+    var card=el('article','nl-appt'),body=el('div','nl-appt-body');
+    var start=Date.parse(b.start),end=Date.parse(b.end||'');
+    var s=serviceByKey(b.serviceKey);
+    var minutes=Number.isFinite(end)&&end>start?Math.round((end-start)/60000):s&&s.minutes;
+    var price=priceOn(b.serviceKey,b.start);
+    var top=el('div','nl-appt-top');
+    top.append(el('strong','nl-appt-service',b.service||'Termin'));
+    var status=String(b.status||'').toLowerCase();
+    if(status)top.append(el('span','nl-status nl-status-'+status.replace(/[^a-z]/g,''),STATUS[status]||b.status));
+    body.append(top);
+    var facts=el('dl','nl-appt-facts');
+    function fact(label,value){if(value==null||value==='')return;var w=el('div');w.append(el('dt',null,label),el('dd',null,value));facts.append(w);}
+    if(Number.isFinite(start)){
+      fact('Datum',dateFmt.format(new Date(start)));
+      fact('Uhrzeit',K.time(start)+' Uhr');
+    }
+    if(minutes)fact('Dauer',minutes+' Min');
+    if(price!=null)fact('Preis','CHF '+price);
+    body.append(facts);
+    card.append(body);
+    if(b.uid&&b.serviceKey&&status==='accepted'&&start>Date.now()){
+      if(start-Date.now()<DAY_MS)card.append(el('p','nl-appt-note','Beginnt in weniger als 24 Stunden: Kunden können online nichts mehr ändern, Mitarbeitende schon.'));
+      card.appendChild(staffActions(b));
+    }
+    return card;
+  }
+  // Mitarbeiter duerfen auch kurzfristig absagen und verschieben; der Server prueft die Berechtigung.
+  function staffActions(b){
+    var box=el('div','nl-appt-actions'),panel=el('div','nl-appt-move');panel.hidden=true;
+    var shortNotice=function(){return Date.parse(b.start)-Date.now()<DAY_MS;};
+    function button(text,cls,onClick){var x=el('button',cls,text);x.type='button';x.addEventListener('click',onClick);return x;}
+    async function send(path,data,done){
+      box.querySelectorAll('button').forEach(function(x){x.disabled=true;});
+      try{await request(path,{method:'POST',body:JSON.stringify(data)});await loadData();msg(done);}
+      catch(e){msg(e.message,true);box.querySelectorAll('button').forEach(function(x){x.disabled=false;});save.disabled=!picker||!picker.selected();}
+    }
+    var pickerBox=el('div','nl-picker-box'),picker=null,hint=el('p','nl-small nl-appt-move-price');hint.setAttribute('role','status');
+    var save=button('Neue Zeit speichern','btn btn-gold btn-sm nl-appt-save',async function(){
+      var target=picker&&picker.selected();
+      if(!target){msg('Bitte eine freie Uhrzeit auswählen.',true);return;}
+      var extra=shortNotice()?' Mitarbeiterausnahme: Der bisherige Termin beginnt in weniger als 24 Stunden.':'';
+      if(!confirm('Termin vom '+fmt(b.start)+' auf '+fmt(target)+' verschieben?'+movedPrice(b,target)+extra))return;
+      send('/api/admin/reschedule',{uid:b.uid,start:target,confirm:true},'Termin erfolgreich verschoben.');
+    });
+    save.disabled=true;
+    panel.append(el('p','nl-appt-move-title','Neue Zeit wählen'),pickerBox,hint,save);
+    box.append(button('Verschieben','nl-plain-button nl-appt-reschedule',function(){
+        panel.hidden=!panel.hidden;
+        if(!panel.hidden&&!picker){
+          picker=K.create(pickerBox,{load:slotLoader(b.serviceKey),label:'Neues Datum für '+(b.service||'den Termin'),onChange:function(start){
+            save.disabled=!start;
+            hint.textContent=start?movedPrice(b,start).trim():'';
+          }});
+          picker.reset(true);
+        }
+      }),
+      button('Absagen','nl-plain-button nl-appt-cancel',function(){
+        var extra=shortNotice()?' Mitarbeiterausnahme: Der Termin beginnt in weniger als 24 Stunden.':'';
+        if(!confirm('Termin vom '+fmt(b.start)+' wirklich absagen?'+extra))return;
+        send('/api/admin/cancel',{uid:b.uid,confirm:true},'Termin erfolgreich abgesagt.');
+      }),panel);
+    return box;
+  }
+
+  /* ---------- Kundendetails ---------- */
+  function section(title,items,empty){
+    var s=el('section','nl-crm-section');
+    var h=el('h3',null,title);h.append(el('span','nl-crm-count',String(items.length)));
+    s.append(h);
+    if(!items.length)s.append(el('p','nl-empty',empty));
+    else{var g=el('div','nl-appt-list');items.forEach(function(x){g.append(makeAppt(x));});s.append(g);}
+    return s;
+  }
+  function displayContact(c){
+    selected=c;info.replaceChildren();
+    if(!c){
+      var empty=el('div','nl-crm-placeholder');
+      empty.append(el('h2',null,'Kunde auswählen'),el('p',null,'Wähle links einen Kunden, um Termine zu sehen und zu verwalten, oder buche unten einen Termin für einen neuen Kunden.'));
+      info.append(empty);
+      setBookingCustomer(null);renderContacts();return;
+    }
+    var head=el('div','nl-crm-head');
+    var who=el('div','nl-crm-who');
+    who.append(el('h2',null,c.name||c.email||c.phone));
+    var lines=el('p','nl-crm-lines');
+    if(c.email)lines.append(el('span',null,c.email));
+    if(c.phone)lines.append(el('span',null,c.phone));
+    who.append(lines);
+    var tags=el('p','nl-crm-tags');
+    tags.append(el('span','nl-tag-chip',c.registered?'NoLimits-Kundenkonto':'Ohne Kundenkonto'));
+    if(c.legacy)tags.append(el('span','nl-tag-chip','Aus Wix importiert'));
+    who.append(tags);
+    if(c.recentService)who.append(el('p','nl-small','Zuletzt gebuchte Leistung: '+c.recentService));
+    head.append(avatar(c,'nl-avatar-lg'),who);
+    var quick=el('div','nl-crm-quick');
+    if(c.email){var m=el('a','nl-plain-button','E-Mail schreiben');m.href='mailto:'+c.email;quick.append(m);}
+    if(c.phone){var t=el('a','nl-plain-button','Anrufen');t.href='tel:'+String(c.phone).replace(/[^+\d]/g,'');quick.append(t);}
+    var book=el('button','nl-plain-button nl-crm-book','Termin buchen');book.type='button';
+    book.addEventListener('click',function(){document.getElementById('nl-book-panel').scrollIntoView({behavior:'smooth',block:'start'});services.focus({preventScroll:true});});
+    quick.append(book);
+    info.append(head,quick,
+      section('Kommende Termine',c.upcoming||[],'Keine kommenden Termine.'),
+      section('Vergangene Termine',(c.past||[]).slice(0,12),'Keine vergangenen Termine.'));
+    setBookingCustomer(c);renderContacts();
+  }
+  function setBookingCustomer(c){
+    form.elements.name.value=c&&c.name||'';form.elements.email.value=c&&c.email||'';
+    form.elements.phone.value=c&&c.phone||'';
+    bookHeading.textContent=c?'Termin für '+(c.name||c.email||'diesen Kunden')+' buchen':'Termin für neuen Kunden buchen';
+    bookFor.hidden=!c;
+  }
+  function renderContacts(){
+    var q=search.value.trim().toLowerCase();list.replaceChildren();
+    var matches=contacts.filter(function(c){return (c.name+' '+c.email+' '+(c.phone||'')).toLowerCase().includes(q);});
+    document.getElementById('nl-contact-count').textContent=q?matches.length+' von '+contacts.length:String(contacts.length);
+    if(!contacts.length){list.append(el('p','nl-empty','Noch keine Kontakte vorhanden.'));return;}
+    if(!matches.length){list.append(el('p','nl-empty','Keine Kontakte zu «'+search.value.trim()+'» gefunden.'));return;}
+    matches.forEach(function(c){
+      var b=el('button','nl-contact');b.type='button';
+      var active=!!selected&&selected.name===c.name&&selected.email===c.email&&selected.phone===c.phone;
+      b.setAttribute('aria-pressed',active?'true':'false');
+      var text=el('span','nl-contact-text');
+      text.append(el('strong',null,c.name||c.email||c.phone));
+      if(c.email)text.append(el('span',null,c.email));
+      if(c.phone)text.append(el('span',null,c.phone));
+      if(!c.email&&!c.phone)text.append(el('span',null,'Wix-Kontakt'));
+      b.append(avatar(c),text);
+      if(c.upcoming&&c.upcoming.length){var n=el('span','nl-contact-next',String(c.upcoming.length));n.setAttribute('aria-label',c.upcoming.length+' kommende Termine');n.title='Kommende Termine';b.append(n);}
+      b.addEventListener('click',function(){displayContact(c);});
+      list.appendChild(b);
+    });
+  }
+
+  /* ---------- Termin buchen ---------- */
+  var calendar=K.create(document.getElementById('nl-admin-calendar'),{
+    load:function(first,last){return slotLoader(services.value)(first,last);},
+    idleText:'Bitte zuerst eine Leistung wählen.',
+    label:'Datum für den neuen Termin',
+    onChange:function(start){slotInput.value=start||'';showBookingPrice();}
+  });
   function bookingPrice(){
-    var P=window.NOLIMITS_PREISE,s=serviceByKey(services.value);
-    if(!s||!Number.isFinite(s.price)||!date.value)return '';
+    var P=window.NOLIMITS_PREISE,s=serviceByKey(services.value),first=calendar.day();
+    if(!s||!Number.isFinite(s.price)||!first)return '';
     var count=form.elements.repeat.checked?Number(form.elements.repeatWeeks.value):1,totals=new Map();
     for(var i=0;i<count;i++){
-      var d=new Date(date.value+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+7*i);
+      var d=new Date(first+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+7*i);
       var price=P.on(s,d.toISOString().slice(0,10));
       totals.set(price,(totals.get(price)||0)+1);
     }
@@ -47,102 +213,21 @@
     var box=document.getElementById('nl-admin-price'),text=bookingPrice();
     box.textContent=text;box.hidden=!text;
   }
-  function makeAppt(b){
-    var p=el('div','nl-appt'),s=el('strong',null,(b.service||'Termin'));
-    var small=el('small',null,fmt(b.start)+' · '+(b.status||''));
-    p.append(s,small);
-    if(b.uid&&b.serviceKey&&b.status==='accepted'&&Date.parse(b.start)>Date.now())p.appendChild(staffActions(b));
-    return p;
-  }
-  // Mitarbeiter duerfen auch kurzfristig absagen und verschieben; der Server prueft die Berechtigung.
-  function staffActions(b){
-    var box=el('div','nl-account-actions nl-appt-actions'),panel=el('div','nl-appt-move');panel.hidden=true;
-    function button(text,cls,onClick){var x=el('button',cls,text);x.type='button';x.addEventListener('click',onClick);return x;}
-    async function send(path,data,done){
-      box.querySelectorAll('button').forEach(function(x){x.disabled=true;});
-      try{await request(path,{method:'POST',body:JSON.stringify(data)});await loadData();msg(done);}
-      catch(e){msg(e.message,true);box.querySelectorAll('button').forEach(function(x){x.disabled=false;});}
-    }
-    var day=el('input');day.type='date';day.setAttribute('aria-label','Neues Datum');
-    var time=el('select');time.setAttribute('aria-label','Neue Uhrzeit');time.appendChild(new Option('Zuerst Datum wählen',''));
-    day.addEventListener('change',async function(){
-      time.replaceChildren(new Option('Uhrzeit auswählen',''));
-      if(!day.value)return;
-      try{
-        var r=await request('/api/admin/slots?service='+encodeURIComponent(b.serviceKey)+'&start='+day.value+'&end='+day.value);
-        (r.days&&r.days[day.value]||[]).forEach(function(s){time.appendChild(new Option(fmt(s).split(', ').pop(),s));});
-        if(time.options.length===1)msg('Für diesen Tag sind keine freien Zeiten vorhanden.');
-      }catch(e){msg(e.message,true);}
-    });
-    panel.append(day,time,button('Neue Zeit speichern','btn btn-gold btn-sm nl-appt-save',function(){
-      if(!time.value){msg('Bitte eine freie Uhrzeit auswählen.',true);return;}
-      if(!confirm('Termin vom '+fmt(b.start)+' auf '+fmt(time.value)+' verschieben?'+movedPrice(b,time.value)))return;
-      send('/api/admin/reschedule',{uid:b.uid,start:time.value,confirm:true},'Termin erfolgreich verschoben.');
-    }));
-    box.append(button('Verschieben','nl-plain-button nl-appt-reschedule',function(){panel.hidden=!panel.hidden;}),
-      button('Absagen','nl-plain-button nl-appt-cancel',function(){
-        if(!confirm('Termin vom '+fmt(b.start)+' wirklich absagen?'))return;
-        send('/api/admin/cancel',{uid:b.uid,confirm:true},'Termin erfolgreich abgesagt.');
-      }),panel);
-    return box;
-  }
-  function displayContact(c){
-    selected=c;info.replaceChildren();
-    if(!c){info.appendChild(el('p',null,'Wähle links einen Kunden aus.'));return;}
-    info.append(el('h2',null,c.name||c.email||c.phone),
-      el('p',null,[c.email,c.phone].filter(Boolean).join(' · ')));
-    if(c.registered) info.appendChild(el('p','nl-small','NoLimits-Kundenkonto vorhanden'));
-    if(c.legacy) info.appendChild(el('p','nl-small','Aus Wix importiert'));
-    if(c.recentService) info.appendChild(el('p','nl-small','Zuletzt gebuchte Leistung: '+c.recentService));
-    info.appendChild(el('h3',null,'Kommende Termine'));
-    if(!c.upcoming.length)info.appendChild(el('p','nl-small','Keine kommenden Termine.'));
-    c.upcoming.forEach(function(x){info.appendChild(makeAppt(x));});
-    info.appendChild(el('h3',null,'Vergangene Termine'));
-    if(!c.past.length)info.appendChild(el('p','nl-small','Keine vergangenen Termine.'));
-    c.past.slice(0,12).forEach(function(x){info.appendChild(makeAppt(x));});
-    form.elements.name.value=c.name||'';form.elements.email.value=c.email||'';
-    form.elements.phone.value=c.phone||'';renderContacts();
-  }
-  function renderContacts(){
-    var q=search.value.trim().toLowerCase();list.replaceChildren();
-    var matches=contacts.filter(function(c){return (c.name+' '+c.email+' '+(c.phone||'')).toLowerCase().includes(q);});
-    document.getElementById('nl-contact-count').textContent=matches.length+' Kontakte';
-    if(!matches.length){list.appendChild(el('p','nl-small','Keine Kontakte gefunden.'));return;}
-    matches.forEach(function(c){
-      var b=el('button','nl-contact');b.type='button';
-      b.setAttribute('aria-pressed',selected&&selected.name===c.name&&selected.email===c.email&&selected.phone===c.phone?'true':'false');
-      b.append(el('strong',null,c.name||c.email||c.phone),el('span',null,c.email||c.phone||'Wix-Kontakt'));
-      b.addEventListener('click',function(){displayContact(c);});
-      list.appendChild(b);
-    });
-  }
-  async function loadSlots(){
-    slots.replaceChildren();slots.appendChild(new Option('Zuerst Leistung und Datum auswählen',''));
-    if(!services.value||!date.value)return;
-    slots.disabled=true;
-    try{
-      var q='?service='+encodeURIComponent(services.value)+'&start='+date.value+'&end='+date.value;
-      var result=await request('/api/admin/slots'+q);
-      var available=result.days&&result.days[date.value]||[];
-      slots.replaceChildren();
-      slots.appendChild(new Option(available.length?'Uhrzeit auswählen':'Keine freien Zeiten',''));
-      available.forEach(function(s){slots.appendChild(new Option(fmt(s).split(', ').pop(),s));});
-      if(!available.length)msg('Für diesen Tag sind keine freien Zeiten vorhanden.');
-      else msg('');
-    }catch(e){msg(e.message,true);}
-    finally{slots.disabled=false;}
-  }
   async function loadData(){
     msg('');
     try{
       var r=await Promise.all([request('/api/admin/services'),request('/api/admin/contacts')]);
       loadedServices=r[0].services||[];
+      var keep=services.value;
       services.replaceChildren();services.appendChild(new Option('Leistung auswählen',''));
       loadedServices.forEach(function(s){services.appendChild(new Option(s.name+' · '+s.minutes+' Min · CHF '+s.price+(s.priceChange?' (ab 2027: CHF '+s.priceChange.price+')':''),s.key));});
-      contacts=r[1].contacts||[];renderContacts();
+      if(keep&&serviceByKey(keep))services.value=keep;
+      contacts=r[1].contacts||[];
       if(selected){var found=contacts.find(function(c){return c.email && selected.email
         ? c.email===selected.email : c.phone===selected.phone && c.name===selected.name;});
         displayContact(found||null);}
+      else{displayContact(null);}
+      if(services.value)calendar.reload();
       if(r[1].bookingsWarning){
         msg('Kundenkonten und importierte Wix-Kontakte werden angezeigt. Die Cal.com-Terminübersicht wird erst nach Verbindung des geschäftlichen Cal.com-Kontos synchronisiert.');
       } else if (r[1].legacyWarning) {
@@ -219,13 +304,23 @@
   form.addEventListener('submit',async function(ev){
     ev.preventDefault();msg('');
     var series=form.elements.repeat.checked, weeks=series?Number(form.elements.repeatWeeks.value):1;
-    if(!confirm((series
-      ? 'Jetzt '+weeks+' wöchentliche Termine verbindlich buchen? Es werden zunächst alle freien Zeiten geprüft. Bei Problemen kann eine Teilbuchung entstehen.'
-      : 'Termin für diesen Kunden jetzt verbindlich eintragen?')+(bookingPrice()?' '+bookingPrice():''))) return;
-    var btn=form.querySelector('[type=submit]');btn.disabled=true;
+    var btn=form.querySelector('[type=submit]');
     try{
+      if(!services.value)throw new Error('Bitte eine Leistung wählen.');
+      if(!slotInput.value)throw new Error('Bitte im Kalender einen Tag und eine freie Uhrzeit auswählen.');
+      if(!form.reportValidity())return;
+      btn.disabled=true;
+      // Unmittelbar vor dem Absenden beim Worker nachfragen, ob die Zeit noch frei ist.
+      if(!await calendar.stillFree()){
+        await calendar.reload();
+        throw new Error('Diese Uhrzeit ist inzwischen nicht mehr frei. Bitte eine andere wählen.');
+      }
+      var price=bookingPrice();
+      if(!confirm((series
+        ? 'Jetzt '+weeks+' wöchentliche Termine verbindlich buchen? Es werden zunächst alle freien Zeiten geprüft. Bei Problemen kann eine Teilbuchung entstehen.'
+        : 'Termin am '+fmt(slotInput.value)+' für diesen Kunden jetzt verbindlich eintragen?')+(price?' '+price:''))) return;
       var data={
-        service:services.value,start:slots.value,
+        service:services.value,start:slotInput.value,
         name:form.elements.name.value.trim(),
         email:form.elements.email.value.trim(),
         phone:form.elements.phone.value.trim(),
@@ -234,7 +329,6 @@
         // Kennung des Bestaetigungstextes in verwaltung/index.html
         termsVersion:'staff-2026-11-25-informiert'
       };
-      if(!data.start)throw new Error('Bitte eine freie Uhrzeit auswählen.');
       if(series)data.count=weeks;
       var result=await request(series?'/api/admin/book-series':'/api/admin/book',{method:'POST',body:JSON.stringify(data)});
       // loadData() leert die Meldung: zuerst aktualisieren, dann den Erfolg anzeigen.
@@ -242,15 +336,23 @@
       var paid=(series?result.prices||[]:[result.booking.price]).filter(Number.isFinite);
       var priceNote=paid.length?' Preis je Termin nach Datum: '+paid.map(function(p){return 'CHF '+p;}).join(', ')+'.':'';
       msg((series?'Serientermin erfolgreich: '+result.count+' Termine ab '+fmt(result.starts[0])+' gebucht.':'Termin erfolgreich gebucht: '+fmt(result.booking.start)+'.')+priceNote);
-    }catch(e){msg(e.message,true);}
+      form.elements.accepted.checked=false;
+    }catch(e){
+      msg(e.message,true);
+      if(e.code==='slot_unavailable'||e.code==='series_conflict')calendar.reload();
+    }
     finally{btn.disabled=false;}
   });
   var repeat=document.getElementById('nl-admin-repeat'), repeatSettings=document.getElementById('nl-admin-repeat-settings');
   repeat.addEventListener('change',function(){repeatSettings.hidden=!repeat.checked;});
-  services.addEventListener('change',loadSlots);
-  [services,date,form.elements.repeat,form.elements.repeatWeeks].forEach(function(x){x.addEventListener('change',showBookingPrice);});
-  date.addEventListener('change',loadSlots);
+  services.addEventListener('change',function(){slotInput.value='';showBookingPrice();calendar.reset(!!services.value);});
+  [form.elements.repeat,form.elements.repeatWeeks].forEach(function(x){x.addEventListener('change',showBookingPrice);});
   search.addEventListener('input',renderContacts);
+  document.getElementById('nl-new-customer').addEventListener('click',function(){
+    displayContact(null);
+    document.getElementById('nl-book-panel').scrollIntoView({behavior:'smooth',block:'start'});
+    form.elements.name.focus({preventScroll:true});
+  });
   document.getElementById('nl-refresh').addEventListener('click',loadData);
   (async function(){
     try{

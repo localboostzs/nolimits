@@ -1,7 +1,8 @@
 // All OFFLINE tests. No request may leave this machine (see NoLimits_OfflineGuard.mjs).
 // Usage: node tests/run-offline.mjs [node|browser|all]
 // Browser suites need Playwright and Chrome/Chromium (PLAYWRIGHT_EXECUTABLE_PATH).
-// The compatibility suites need main: NOLIMITS_MAIN_DIR, or the local ref origin/main.
+// The compatibility suites compare with the state before the release (Worker version 37,
+// rollback target): NOLIMITS_MAIN_DIR, or commit c70fc16 (NOLIMITS_LEGACY_REF), which must be fetched.
 // Live checks are separate: tests/live/ (never started from here).
 import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -25,7 +26,7 @@ export const NODE_SUITES = [
 ];
 export const BROWSER_SUITES = [
   'MobileDesktop_UI_20261119', 'ManageBrowser_E2E_20261119', 'AccountProfile_Browser_20261119',
-  'StaffLab_Browser_20261120', 'FrontendKompatibilitaet_E2E_20261125', 'PreiseUI_Browser_20261126',
+  'StaffLab_Browser_20261120', 'FrontendKompatibilitaet_E2E_20261125', 'PreiseUI_Browser_20261126', 'Mitarbeiterportal_Browser_20261126',
 ];
 const file = (name) => 'tests/NoLimits_' + name + (name.endsWith('.cjs') ? '' : '.mjs');
 
@@ -46,7 +47,9 @@ function serve() {
 function mainCheckout() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nl-main-'));
   const archive = path.join(dir, 'main.tar');
-  execFileSync('git', ['archive', '--format=tar', '-o', archive, 'origin/main'], { cwd: root });
+  // main contains the release since 26.11.2026; the comparison needs the code before it.
+  const legacy = process.env.NOLIMITS_LEGACY_REF || 'c70fc168c2e5778cd7f8496732117d83deed8558';
+  execFileSync('git', ['archive', '--format=tar', '-o', archive, legacy], { cwd: root });
   execFileSync('tar', ['-xf', 'main.tar'], { cwd: dir });
   fs.rmSync(archive);
   return dir;

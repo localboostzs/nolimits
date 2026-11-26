@@ -286,3 +286,5 @@ a{color:inherit}
   .price-row>.btn{margin-top:0}
   .price-desc{max-width:70ch;margin:0;align-self:start}
 }
+/* Sehr schmale Handys (unter 360 px): Kopfzeile bleibt einzeilig. */
+@media (max-width:359.98px){.header-in{gap:10px}.header-cta{padding:0 12px;letter-spacing:.1em}}

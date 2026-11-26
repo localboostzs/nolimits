@@ -29,6 +29,19 @@ const browser = await chromium.launch(options);
 const results = [];
 let ip = 0;
 
+// Staff portal calendar (assets/js/kalender.js): go to the month of `day`, click it and the first free time.
+async function pickInCalendar(page, root, day) {
+  const grid = page.locator(root + ' .bk-grid');
+  await grid.first().waitFor({ timeout: 15000 });
+  const button = page.locator(root + ' button.bk-day[data-day="' + day + '"]');
+  for (let i = 0; i < 14 && !(await button.count()); i++) {
+    await page.locator(root + ' .bk-nav').last().click();
+    await grid.first().waitFor({ timeout: 15000 });
+  }
+  await button.click();
+  await page.locator(root + ' .bk-slot').first().click();
+}
+
 async function open(fe, wk, viewport) {
   const mock = createMock();
   const env = { ...secrets, ...workers[wk].vars };
@@ -169,10 +182,13 @@ async function staffFlow(fe, wk) {
   const date = new Date(Date.now() + 8 * 86400000).toISOString().slice(0, 10);
   async function fill(repeat) {
     await page.locator('#nl-admin-service').selectOption('gentleman-rasur');
-    await page.locator('#nl-admin-date').fill(date);
-    await page.locator('#nl-admin-date').dispatchEvent('change');
-    await page.locator('#nl-admin-slot option').nth(1).waitFor({ state: 'attached' });
-    await page.locator('#nl-admin-slot').selectOption({ index: 1 });
+    if (fe === 'feature') await pickInCalendar(page, '#nl-admin-calendar', date);
+    else {
+      await page.locator('#nl-admin-date').fill(date);
+      await page.locator('#nl-admin-date').dispatchEvent('change');
+      await page.locator('#nl-admin-slot option').nth(1).waitFor({ state: 'attached' });
+      await page.locator('#nl-admin-slot').selectOption({ index: 1 });
+    }
     await page.locator('#nl-cname').fill('Testkunde');
     await page.locator('#nl-cemail').fill('kunde@example.test');
     await page.locator('#nl-cphone').fill('+41 79 000 00 00');
@@ -215,10 +231,7 @@ async function staffFlow(fe, wk) {
   if (actions) {
     await page.locator('.nl-appt-reschedule').click();
     const target = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
-    await page.locator('.nl-appt-move input[type=date]').fill(target);
-    await page.locator('.nl-appt-move input[type=date]').dispatchEvent('change');
-    await page.locator('.nl-appt-move select option').nth(1).waitFor({ state: 'attached' });
-    await page.locator('.nl-appt-move select').selectOption({ index: 1 });
+    await pickInCalendar(page, '.nl-appt-move', target);
     await page.locator('.nl-appt-save').click();
     await page.waitForFunction(() => /verschoben/.test(document.getElementById('nl-admin-notice').textContent));
     assert.equal(near.status, 'cancelled'); assert.ok(near.rescheduledToUid);

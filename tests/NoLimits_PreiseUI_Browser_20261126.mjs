@@ -21,6 +21,19 @@ const realNow = Date.now;
 const text = async (locator) => (await locator.innerText()).replace(/\s+/g, ' ').trim();
 let ip = 0;
 
+// Staff portal calendar (assets/js/kalender.js): go to the month of `day`, click it and the first free time.
+async function pickInCalendar(page, root, day) {
+  const grid = page.locator(root + ' .bk-grid');
+  await grid.first().waitFor({ timeout: 15000 });
+  const button = page.locator(root + ' button.bk-day[data-day="' + day + '"]');
+  for (let i = 0; i < 14 && !(await button.count()); i++) {
+    await page.locator(root + ' .bk-nav').last().click();
+    await grid.first().waitFor({ timeout: 15000 });
+  }
+  await button.click();
+  await page.locator(root + ' .bk-slot').first().click();
+}
+
 // One simulated moment for the Worker (Node) and the browser.
 async function open(now, { popup = false } = {}) {
   const mock = createMock();
@@ -196,24 +209,21 @@ for (const file of ['index.html', 'kontakt/index.html']) {
   await t.go('/verwaltung/');
   await page.locator('#nl-contacts button.nl-contact', { hasText: 'Bestandskunde' }).click();
   await page.locator('#nl-info .nl-appt-reschedule').first().click();
-  await page.locator('#nl-info .nl-appt-move input[type=date]').fill('2027-01-05');
-  const times = page.locator('#nl-info .nl-appt-move select');
-  await times.locator('option').nth(1).waitFor({ state: 'attached' });
-  await times.selectOption({ index: 1 });
+  await pickInCalendar(page, '#nl-info .nl-appt-move', '2027-01-05');
+  await waitFor(page.locator('#nl-info .nl-appt-move-price'), /^Preis am neuen Termin: CHF 35 \(bisher CHF 30\)\.$/);
   await page.locator('#nl-info .nl-appt-save').click();
   await waitFor(page.locator('#nl-admin-notice'), /verschoben/);
   assert.match(t.dialogs.at(-1), /Preis am neuen Termin: CHF 35 \(bisher CHF 30\)\./);
 
   const box = page.locator('#nl-admin-price');
   await page.locator('#nl-admin-service').selectOption('haarschnitt');
-  await page.locator('#nl-admin-date').fill('2027-01-02');
+  await pickInCalendar(page, '#nl-admin-calendar', '2027-01-02');
   await waitFor(box, /^Preis am gewählten Datum: CHF 35 \(Zahlung vor Ort\)\.$/);
-  await page.locator('#nl-admin-date').fill('2026-12-19');
+  await page.locator('#nl-admin-calendar .bk-nav').first().click();
+  await pickInCalendar(page, '#nl-admin-calendar', '2026-12-19');
   await waitFor(box, /^Preis am gewählten Datum: CHF 30 /);
   await page.locator('#nl-admin-repeat').check();
   await waitFor(box, /^Preise nach Termindatum: 2 × CHF 30, 2 × CHF 35 \(Zahlung vor Ort\)\.$/);
-  await page.locator('#nl-admin-slot option').nth(1).waitFor({ state: 'attached' });
-  await page.locator('#nl-admin-slot').selectOption({ index: 1 });
   await page.locator('#nl-cname').fill('Serienkunde');
   await page.locator('#nl-cemail').fill('serie@example.test');
   await page.locator('#nl-cphone').fill('+41 79 000 00 01');
