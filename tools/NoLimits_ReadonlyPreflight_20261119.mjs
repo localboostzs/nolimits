@@ -6,10 +6,10 @@ import {pathToFileURL} from 'node:url';
 // Expected public prices and minutes as confirmed in NoLimits service mapping.
 // Fail closed if a future release changes them without updating the approved baseline.
 const expectedPublicServices=Object.freeze({
- 'haarschnitt-bartschnitt-rasieren':{minutes:60,price:60},
- 'haarschnitt-bartschnitt-augenbrauen':{minutes:45,price:55},
+ 'haarschnitt-bartschnitt-rasieren':{minutes:60,price:70},
+ 'haarschnitt-bartschnitt-augenbrauen':{minutes:45,price:65},
  'haarschnitt-waschen':{minutes:45,price:50},
- 'haarschnitt-bartschnitt':{minutes:45,price:45},
+ 'haarschnitt-bartschnitt':{minutes:45,price:55},
  'classic-scissor-cut':{minutes:30,price:40},
  'haarschnitt':{minutes:30,price:30},
  'jugendliche-10-14':{minutes:30,price:25},

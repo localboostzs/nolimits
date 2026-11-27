@@ -126,8 +126,8 @@ try {
             service.replaceChildren();
             for(const label of [
               'Leistung auswählen',
-              'Haarschnitt mit Bartschnitt und Rasieren · 60 Min · CHF 60',
-              'Haarschnitt mit Bartschnitt + Augenbrauen · 45 Min · CHF 55',
+              'Haarschnitt mit Bartschnitt und Rasieren · 60 Min · CHF 70',
+              'Haarschnitt mit Bartschnitt + Augenbrauen · 45 Min · CHF 65',
               'Haarschnitt mit Waschen · 45 Min · CHF 50',
               'Haarschnitt · 30 Min · CHF 30',
               'Gentleman Rasur · 30 Min · CHF 30']) {

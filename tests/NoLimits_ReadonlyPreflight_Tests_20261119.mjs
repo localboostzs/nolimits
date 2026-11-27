@@ -2,10 +2,10 @@
 import assert from 'node:assert/strict';
 import {checkReadiness} from '../tools/NoLimits_ReadonlyPreflight_20261119.mjs';
 const known={
- 'haarschnitt-bartschnitt-rasieren':[60,60],
- 'haarschnitt-bartschnitt-augenbrauen':[45,55],
+ 'haarschnitt-bartschnitt-rasieren':[60,70],
+ 'haarschnitt-bartschnitt-augenbrauen':[45,65],
  'haarschnitt-waschen':[45,50],
- 'haarschnitt-bartschnitt':[45,45],
+ 'haarschnitt-bartschnitt':[45,55],
  'classic-scissor-cut':[30,40],
  'haarschnitt':[30,30],
  'jugendliche-10-14':[30,25],
