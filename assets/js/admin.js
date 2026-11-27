@@ -11,7 +11,9 @@
       search=document.getElementById('nl-search'), form=document.getElementById('nl-admin-book-form');
   var services=document.getElementById('nl-admin-service'), slotInput=document.getElementById('nl-admin-slot'),
       bookHeading=document.getElementById('nl-book-heading'), bookFor=document.getElementById('nl-book-for');
-  var contacts=[], selected=null, loadedServices=[];
+  var contacts=[], selected=null, loadedServices=[], unclearBooking=false;
+  var N=window.NOLIMITS_NOTFALL;
+  var FALLBACK=' Termine, die per WhatsApp eingehen, bis dahin im Google-Kalender «Termine auf Facebook für No Limits Barber» eintragen, damit die Zeit online gesperrt bleibt.';
   var DAY_MS=86400000;
   function msg(text,error){ notice.textContent=text;notice.hidden=!text;notice.classList.toggle('error',!!error); }
   function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;}
@@ -21,12 +23,10 @@
     var token=await A.bearer();if(!token)throw new Error('Sitzung abgelaufen – bitte erneut anmelden.');
     var options=Object.assign({method:'GET',cache:'no-store'},opts||{});
     options.headers=Object.assign({'Authorization':'Bearer '+token,'Content-Type':'application/json'},options.headers||{});
-    var r=await fetch(API+path,options),json=await r.json().catch(function(){return null;});
-    if(!r.ok||!json||json.ok===false){
-      var err=new Error(json&&json.error&&json.error.message||'Anfrage fehlgeschlagen.');
-      err.code=json&&json.error&&json.error.code;throw err;
-    }
-    return json;
+    return N.request(API+path,options);
+  }
+  async function requireReachable(){
+    if(!(await N.reachable(API)))throw N.failure(N.UNREACHABLE+' Es wurde nichts gesendet.'+FALLBACK,'offline',0,true);
   }
   // Freie Zeiten über die bestehende Mitarbeiter-API (gleiche Prüfung wie bisher).
   function slotLoader(serviceKey){
@@ -89,8 +89,13 @@
     function button(text,cls,onClick){var x=el('button',cls,text);x.type='button';x.addEventListener('click',onClick);return x;}
     async function send(path,data,done){
       box.querySelectorAll('button').forEach(function(x){x.disabled=true;});
-      try{await request(path,{method:'POST',body:JSON.stringify(data)});await loadData();msg(done);}
-      catch(e){msg(e.message,true);box.querySelectorAll('button').forEach(function(x){x.disabled=false;});save.disabled=!picker||!picker.selected();}
+      try{await requireReachable();await request(path,{method:'POST',body:JSON.stringify(data)});await loadData();msg(done);}
+      catch(e){
+        if(N.notExecuted(e)){msg(e.message,true);box.querySelectorAll('button').forEach(function(x){x.disabled=false;});save.disabled=!picker||!picker.selected();return;}
+        // Unklar: Knöpfe dieser Karte bleiben gesperrt, bis der Stand neu geladen ist.
+        await loadData();
+        msg('Status unklar: Wir wissen nicht, ob die Änderung ausgeführt wurde. Prüfe den Termin (Liste neu laden oder Cal.com), bevor du es erneut versuchst.',true);
+      }
     }
     var pickerBox=el('div','nl-picker-box'),picker=null,hint=el('p','nl-small nl-appt-move-price');hint.setAttribute('role','status');
     var save=button('Neue Zeit speichern','btn btn-gold btn-sm nl-appt-save',async function(){
@@ -209,6 +214,28 @@
     if(count===1)return 'Preis am gewählten Datum: CHF '+parts[0][0]+' (Zahlung vor Ort).';
     return 'Preise nach Termindatum: '+parts.map(function(p){return p[1]+' × CHF '+p[0];}).join(', ')+' (Zahlung vor Ort).';
   }
+  // Geplante Serientermine wie im Worker: gleicher Zürcher Wochentag und gleiche Uhrzeit, je 7 Kalendertage später.
+  function seriesPlan(count){
+    var P=window.NOLIMITS_PREISE,s=serviceByKey(services.value),start=slotInput.value,first=start&&P.day(start);
+    if(!first)return [];
+    var hm=new Intl.DateTimeFormat('de-CH',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Zurich'}).format(new Date(start));
+    var plan=[];
+    for(var i=0;i<count;i++){
+      var d=new Date(first+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+7*i);
+      var day=d.toISOString().slice(0,10);
+      plan.push({day:day,label:dateFmt.format(d)+', '+hm+' Uhr',price:s&&Number.isFinite(s.price)?P.on(s,day):null});
+    }
+    return plan;
+  }
+  function seriesQuestion(count){
+    var plan=seriesPlan(count),s=serviceByKey(services.value),known=plan.every(function(p){return p.price!=null;});
+    var total=plan.reduce(function(sum,p){return sum+(p.price||0);},0);
+    return 'Serie verbindlich buchen?\n\n'+(s?s.name+', ':'')+count+' Termine:\n'+
+      plan.map(function(p,i){return (i+1)+'. '+p.label+(p.price!=null?' – CHF '+p.price:'');}).join('\n')+
+      (known?'\n\nTotal CHF '+total+' (Zahlung vor Ort, Preis nach Termindatum).':'')+
+      '\n\nZuerst werden alle Zeiten geprüft. Ist eine nicht frei, wird keiner der Termine gebucht. Bei einer Störung während der Buchung kann eine Teilserie entstehen.';
+  }
+  window.NOLIMITS_ADMIN_TEST={seriesPlan:seriesPlan,seriesQuestion:seriesQuestion};
   function showBookingPrice(){
     var box=document.getElementById('nl-admin-price'),text=bookingPrice();
     box.textContent=text;box.hidden=!text;
@@ -233,7 +260,8 @@
       } else if (r[1].legacyWarning) {
         msg('Kundenkonten und Termine geladen. Wix-Kontakte konnten nicht gelesen werden.',true);
       }
-    }catch(e){msg(e.message,true);}
+      return true;
+    }catch(e){msg(e.message+(e.unavailable?FALLBACK:''),true);return false;}
   }
   // Preview remains entirely local: no contact data leaves the browser here.
   var wixFile=document.getElementById('nl-wix-file'),
@@ -302,7 +330,7 @@
     }
   });
   form.addEventListener('submit',async function(ev){
-    ev.preventDefault();msg('');
+    ev.preventDefault();if(unclearBooking)return;msg('');
     var series=form.elements.repeat.checked, weeks=series?Number(form.elements.repeatWeeks.value):1;
     var btn=form.querySelector('[type=submit]');
     try{
@@ -316,9 +344,9 @@
         throw new Error('Diese Uhrzeit ist inzwischen nicht mehr frei. Bitte eine andere wählen.');
       }
       var price=bookingPrice();
-      if(!confirm((series
-        ? 'Jetzt '+weeks+' wöchentliche Termine verbindlich buchen? Es werden zunächst alle freien Zeiten geprüft. Bei Problemen kann eine Teilbuchung entstehen.'
-        : 'Termin am '+fmt(slotInput.value)+' für diesen Kunden jetzt verbindlich eintragen?')+(price?' '+price:''))) return;
+      if(!confirm(series
+        ? seriesQuestion(weeks)
+        : 'Termin am '+fmt(slotInput.value)+' für diesen Kunden jetzt verbindlich eintragen?'+(price?' '+price:''))) return;
       var data={
         service:services.value,start:slotInput.value,
         name:form.elements.name.value.trim(),
@@ -330,7 +358,11 @@
         termsVersion:'staff-2026-11-25-informiert'
       };
       if(series)data.count=weeks;
+      await requireReachable();
+      unclearBooking=true; // gilt, bis eine Bestätigung oder eine eindeutige Ablehnung da ist
       var result=await request(series?'/api/admin/book-series':'/api/admin/book',{method:'POST',body:JSON.stringify(data)});
+      if(series?!(result.count===weeks&&result.starts&&result.starts.length===weeks):!N.confirmed(result.booking))throw N.failure('Keine Bestätigung erhalten.','unclear');
+      unclearBooking=false;
       // loadData() leert die Meldung: zuerst aktualisieren, dann den Erfolg anzeigen.
       await loadData();
       var paid=(series?result.prices||[]:[result.booking.price]).filter(Number.isFinite);
@@ -338,10 +370,13 @@
       msg((series?'Serientermin erfolgreich: '+result.count+' Termine ab '+fmt(result.starts[0])+' gebucht.':'Termin erfolgreich gebucht: '+fmt(result.booking.start)+'.')+priceNote);
       form.elements.accepted.checked=false;
     }catch(e){
-      msg(e.message,true);
+      if(unclearBooking&&N.notExecuted(e))unclearBooking=false;
+      msg(unclearBooking
+        ?(e.code==='series_partial'?e.message:'Status unklar: Wir wissen nicht, ob der Termin eingetragen wurde.')+' Nicht erneut buchen. Erst «Aktualisieren» wählen oder in Cal.com prüfen.'
+        :e.message,true);
       if(e.code==='slot_unavailable'||e.code==='series_conflict')calendar.reload();
     }
-    finally{btn.disabled=false;}
+    finally{btn.disabled=unclearBooking;}
   });
   var repeat=document.getElementById('nl-admin-repeat'), repeatSettings=document.getElementById('nl-admin-repeat-settings');
   repeat.addEventListener('change',function(){repeatSettings.hidden=!repeat.checked;});
@@ -353,7 +388,11 @@
     document.getElementById('nl-book-panel').scrollIntoView({behavior:'smooth',block:'start'});
     form.elements.name.focus({preventScroll:true});
   });
-  document.getElementById('nl-refresh').addEventListener('click',loadData);
+  document.getElementById('nl-refresh').addEventListener('click',async function(){
+    if(!(await loadData())||!unclearBooking)return;
+    unclearBooking=false;form.querySelector('[type=submit]').disabled=false;
+    msg('Stand neu geladen. Prüfe beim Kunden, ob der Termin eingetragen ist, bevor du erneut buchst.');
+  });
   (async function(){
     try{
       if(!A||!A.enabled||!API){gate.textContent='Verwaltung noch nicht eingerichtet. Die Einrichtung erfolgt auf dem eigenen NoLimits-Konto.';return;}

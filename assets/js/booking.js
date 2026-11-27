@@ -24,6 +24,7 @@
   var root = $('#bk');
   if (!root) return;
   var state = { services: [], service: null, month: null, cache: {}, date: null, slot: null, step: 0, formShown: 0, busy: false };
+  var N = window.NOLIMITS_NOTFALL; // assets/js/notfall.js, wird vor dieser Datei geladen
 
   var stepsEl = $('#bk-steps'), panels = [$('#p-service'), $('#p-date'), $('#p-form')], okEl = $('#bk-ok');
   var sumEl = $('#bk-summary');
@@ -35,16 +36,7 @@
     box.classList.add('is-active');
   }
 
-  async function api(path, init) {
-    var res = await fetch(API + path, init);
-    var data = null;
-    try { data = await res.json(); } catch (e) { /* leer */ }
-    if (!res.ok || !data || data.ok === false) {
-      var err = new Error((data && data.error && data.error.message) || 'Anfrage fehlgeschlagen.');
-      err.code = data && data.error && data.error.code; err.status = res.status; throw err;
-    }
-    return data;
-  }
+  function api(path, init) { return N.request(API + path, init); }
 
   /* ---------- Fortschritt ---------- */
   function renderSteps() {
@@ -227,6 +219,13 @@
   }
   function renderCalendarError(e) {
     var g = $('#cal'); g.innerHTML = '';
+    $('#cal-note').textContent = '';
+    if (e.unavailable) {
+      g.appendChild(N.panel({ title: 'Online-Buchung gerade nicht möglich', retry: loadMonth, lines: [
+        'Wegen einer technischen Störung können wir die freien Zeiten nicht laden. Es wurde nichts gebucht.',
+        'Du kannst deinen Termin über WhatsApp vereinbaren.'] }));
+      return;
+    }
     var m = el('div', 'bk-msg', e.message + ' '); var r = el('button', 'bk-back', 'Erneut versuchen'); r.type = 'button'; r.addEventListener('click', loadMonth); m.appendChild(r); g.appendChild(m);
   }
   function renderCalendar(loading) {
@@ -285,20 +284,58 @@
     return ok;
   }
   function formMsg(msg) { var m = $('#bk-formmsg'); m.textContent = msg || ''; m.hidden = !msg; if (msg) m.focus(); }
+  // what: warum sicher nichts gebucht ist; ohne Angabe wird nur ein früherer Hinweis entfernt.
+  function outage(what) {
+    var old = $('#bk-outage'); if (old) old.remove();
+    if (!what) return;
+    var box = N.panel({ title: 'Online-Buchung gerade nicht möglich', lines: [
+      what, 'Versuche es später erneut oder vereinbare den Termin über WhatsApp.'] });
+    box.id = 'bk-outage';
+    var actions = $('#bk-form .bk-actions'); actions.parentNode.insertBefore(box, actions);
+    box.scrollIntoView({ block: 'nearest' });
+  }
+  // Es ist offen, ob der Termin eingetragen wurde: kein Erfolg, kein Fehler, nicht erneut senden.
+  function showUnclear(record) {
+    $('#bk-main').hidden = true; sumEl.parentElement.hidden = true; stepsEl.parentElement.hidden = true; okEl.classList.remove('is-active');
+    var card = $('#bk-unclear');
+    if (card) card.remove();
+    card = el('div', 'bk-card nl-unclear'); card.id = 'bk-unclear';
+    var when = new Date(record.start);
+    var box = N.panel({ title: 'Status deiner Buchung unklar', lines: [
+      'Die Verbindung ist beim Buchen abgebrochen. Wir wissen nicht, ob dein Termin eingetragen wurde.',
+      (record.service ? record.service + ', ' : '') + fmtLong.format(when) + ', ' + new Intl.DateTimeFormat('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' }).format(when) + ' Uhr.',
+      'Bitte buche nicht erneut. Kommt innert 15 Minuten eine Bestätigung per E-Mail (auch den Spam-Ordner prüfen), ist der Termin eingetragen. Sonst frag über WhatsApp nach.'] });
+    card.appendChild(box);
+    var again = el('button', 'bk-back', 'Ich habe nachgefragt: Es ist kein Termin eingetragen. Neu buchen'); again.type = 'button';
+    again.addEventListener('click', function () { N.pending.clear(); location.reload(); });
+    card.appendChild(again);
+    root.insertBefore(card, $('#bk-main'));
+    var h = card.querySelector('h3'); h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true });
+    card.scrollIntoView({ block: 'start' });
+  }
   async function submit(ev) {
-    ev.preventDefault(); if (state.busy) return; formMsg('');
+    ev.preventDefault(); if (state.busy) return; formMsg(''); outage();
+    var open = N.pending.read(); if (open) { showUnclear(open); return; }
     if (!validate()) { var bad = $('#bk-form [aria-invalid="true"]'); if (bad) bad.focus(); return; }
     var f = ev.target; var btn = $('#bk-submit'); state.busy = true; btn.disabled = true; var old = btn.textContent; btn.textContent = 'Wird gebucht …';
+    var attempt = { service: state.service.name, start: state.slot };
     try {
+      if (!(await N.reachable(API))) { outage('Das Buchungssystem ist nicht erreichbar. Deine Buchung wurde nicht gesendet, es ist nichts gebucht.'); return; }
+      N.pending.save(attempt); // übersteht auch Neuladen oder Schliessen während des Sendens
       var r = await api('/api/book', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ service: state.service.key, start: state.slot, name: f.name.value, email: f.email.value, phone: f.phone.value, notes: ('Adresse: ' + f.address.value.trim() + (f.notes.value.trim() ? '\nNotiz: ' + f.notes.value.trim() : '')).slice(0, 500), accepted: $('#f-terms').checked, termsVersion: TERMS_VERSION, website: f.website.value, elapsedMs: Date.now() - state.formShown }) });
+      if (!N.confirmed(r.booking)) throw N.failure('Keine Bestätigung erhalten.', 'unclear');
+      N.pending.clear();
       showSuccess(r.booking);
     } catch (e) {
+      if (!N.notExecuted(e)) { showUnclear(attempt); return; }
+      N.pending.clear();
       if (e.code === 'slot_unavailable') {
         delete state.cache[monthKey()]; state.slot = null; formMsg(e.message); showPanel(2); state.step = 1; renderSteps();
         await loadMonth(); if (state.cache[monthKey()] && state.cache[monthKey()][state.date]) renderSlots(); else { state.date = null; $('#slots-wrap').hidden = true; }
         showPanel(1); $('#slots-wrap').hidden = !state.date;
         var m = $('#cal-note'); m.textContent = e.message;
       } else if (e.code === 'invalid_email') { fieldError('f-email', e.message); $('#f-email').focus(); }
+      else if (e.status >= 500) outage('Ein Teil des Buchungssystems ist gestört. Deine Buchung wurde nicht eingetragen.');
       else formMsg(e.message || 'Die Buchung konnte nicht abgeschlossen werden. Bitte erneut versuchen.');
     } finally { state.busy = false; btn.disabled = false; btn.textContent = old; }
   }
@@ -343,6 +380,7 @@
     $('#bk-back-svc').addEventListener('click', function () { goto(0); });
     $('#bk-again').addEventListener('click', function () { location.reload(); });
     if (!API) { renderSteps(); renderSummary(); setup('Die Verbindung zum Buchungssystem ist noch nicht eingerichtet. Sobald der Buchungsdienst aktiv ist, können Termine hier gebucht werden.'); return; }
+    var open = N.pending.read(); if (open) { showUnclear(open); return; }
     renderSteps(); renderSummary();
     panels[0].classList.add('is-active');
     await Promise.all([loadServices(), prefillAccount()]);
@@ -361,6 +399,10 @@
     loading.appendChild(el('span', 'bk-spin'));
     loading.appendChild(el('span', 'sr-only', 'Leistungen werden geladen'));
     box.appendChild(loading);
+    var slow = setTimeout(function () {
+      var hint = el('p', 'nl-phone-line', 'Das dauert länger als üblich. Du kannst auch über WhatsApp buchen: ');
+      hint.appendChild(N.phoneLink()); box.appendChild(hint);
+    }, 5000);
     try {
       var result;
       for (var attempt = 0; attempt < 3; attempt++) {
@@ -378,23 +420,19 @@
     } catch (e) {
       box.classList.remove('is-loading'); box.removeAttribute('aria-busy');
       box.innerHTML = '';
-      var msg = el('div', 'bk-msg');
-      msg.setAttribute('role', 'alert');
-      msg.appendChild(el('p', null, navigator.onLine === false
-        ? 'Keine Internetverbindung. Bitte Verbindung prüfen.'
-        : 'Die Verbindung zum Buchungssystem ist gerade nicht erreichbar.'));
-      var retry = el('button', 'bk-back', 'Erneut versuchen');
-      retry.type = 'button';
-      retry.addEventListener('click', loadServices);
-      msg.appendChild(retry);
-      box.appendChild(msg);
+      box.appendChild(N.panel({ title: 'Online-Buchung gerade nicht möglich', retry: loadServices, lines: [
+        navigator.onLine === false
+          ? 'Keine Internetverbindung. Bitte Verbindung prüfen.'
+          : 'Die Verbindung zum Buchungssystem ist gerade nicht erreichbar.',
+        'Es wurde nichts gebucht. Du kannst deinen Termin über WhatsApp vereinbaren.'] }));
     } finally {
+      clearTimeout(slow);
       servicesLoading = false;
     }
   }
 
   window.addEventListener('online', function () {
-    if (!state.services.length) loadServices();
+    if (!state.services.length && !N.pending.read()) loadServices();
   });
   init();
 })();

@@ -91,7 +91,17 @@
     try { if (storageLocal) storageLocal.setItem(KEY, JSON.stringify(choices)); } catch (e) {}
     updateMaps();
     if (banner) banner.hidden = true;
+    space();
     window.dispatchEvent(new CustomEvent('nl-privacy-updated', { detail: choices }));
+  }
+  // Solange der Banner offen ist, bekommt die Seite unten so viel Platz wie der Banner hoch ist:
+  // Buttons am Seitenende (z. B. «Über WhatsApp buchen») lassen sich darüber scrollen und bleiben erreichbar.
+  function space() {
+    try {
+      var open = !!banner && !banner.hidden;
+      document.documentElement.style.setProperty('--nl-privacy-space', open ? Math.ceil(banner.getBoundingClientRect().height) + 'px' : '0px');
+      document.body.classList.toggle('nl-privacy-open', open);
+    } catch (e) { /* ohne Layout (z. B. sehr alte Browser): Banner bleibt schliessbar */ }
   }
   function make(tag, className, content) {
     var el = document.createElement(tag);
@@ -187,6 +197,9 @@
     banner.appendChild(line);
     banner.hidden=!!choices;
     document.body.appendChild(banner);
+    if (window.ResizeObserver) new ResizeObserver(space).observe(banner);
+    if (window.addEventListener) window.addEventListener('resize', space);
+    space();
 
     var footer = document.querySelector('.footer-bottom') || document.querySelector('footer');
     if (footer) {
@@ -197,6 +210,7 @@
         inputLogin.checked=!!(choices && choices.persistentLogin);
         inputMap.checked=!!(choices && choices.googleMaps);
         banner.hidden=false;
+        space();
         no.focus({preventScroll:true});
       });
       footer.appendChild(reopen);

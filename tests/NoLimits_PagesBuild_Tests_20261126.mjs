@@ -3,7 +3,7 @@
 // Offline: the pages are served from the build folder through request interception.
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -18,7 +18,7 @@ const walk = (dir, base = '') => fs.readdirSync(path.join(dir, base), { withFile
 const first = node('.', 'deploy/NoLimits_build_pages.mjs', '--out', out);
 const list = fs.readFileSync('deploy/NoLimits_public_allowlist.txt', 'utf8').split(/\r?\n/).filter((l) => l && !l.startsWith('#'));
 const built = walk(out).sort();
-assert.deepEqual(built, [...list, '_headers', '_redirects'].sort());
+assert.deepEqual(built, [...list, '_headers', '_redirects', 'build.txt'].sort());
 assert.ok(!built.some((f) => /^(deploy|tests|tools|ops|supabase|worker|emails|\.github)\/|\.md$|(^|\/)\./.test(f)), 'nothing internal');
 const second = node('.', 'deploy/NoLimits_build_pages.mjs', '--out', path.join(work, 'again'));
 assert.equal(second, first, 'reproducible');
@@ -26,6 +26,47 @@ const config = (f) => fs.readFileSync(path.join(out, f), 'utf8').replace(/\r\n/g
 assert.match(config('_redirects'), /^\/nolimits\/\* \/:splat 301$/m);
 const headers = config('_headers');
 assert.match(headers, /\/termin-verwalten\/\*\n {2}! Referrer-Policy\n {2}Referrer-Policy: no-referrer/);
+
+/* 1b. The standby host gets the same website; only the header file differs */
+const netlify = path.join(work, 'netlify');
+const third = node('.', 'deploy/NoLimits_build_pages.mjs', '--host', 'netlify', '--out', netlify);
+assert.equal(third, first, 'same website digest on both hosts');
+assert.deepEqual(walk(netlify).sort(), built);
+for (const f of built.filter((f) => f !== '_headers')) {
+  assert.ok(fs.readFileSync(path.join(netlify, f)).equals(fs.readFileSync(path.join(out, f))), 'identical: ' + f);
+}
+assert.match(config('build.txt'), /^[0-9a-f]{64}\n$/);
+const other = fs.readFileSync(path.join(netlify, '_headers'), 'utf8');
+assert.doesNotMatch(other, /^\s+! /m, 'no detach syntax');
+assert.doesNotMatch(other, /^https?:/m, 'no absolute rules');
+assert.match(other, /^\/\*\n {2}X-Content-Type-Options: nosniff\n {2}X-Frame-Options: DENY\n {2}Permissions-Policy:/m);
+assert.equal(other.match(/Referrer-Policy:/g).length, 1, 'only the management page sets it');
+assert.match(other, /\/termin-verwalten\/\*\n {2}Referrer-Policy: no-referrer\n {2}Cache-Control: no-store\n {2}X-Robots-Tag: noindex/);
+for (const rule of ['/verwaltung/*', '/konto/*']) assert.ok(other.includes(rule + '\n  X-Robots-Tag: noindex'), rule);
+const toml = fs.readFileSync('netlify.toml', 'utf8');
+assert.match(toml, /command = "node deploy\/NoLimits_build_pages\.mjs --host netlify"/);
+assert.match(toml, /publish = "dist"/);
+assert.throws(() => node('.', 'deploy/NoLimits_build_pages.mjs', '--host', 'x', '--out', path.join(work, 'x')), 'unknown host');
+
+/* 1c. Netlify skips builds only when nothing of the website changed */
+const repo = fs.mkdtempSync(path.join(work, 'git-'));
+const git = (...args) => execFileSync('git', ['-c', 'user.email=t@example.invalid', '-c', 'user.name=t', ...args], { cwd: repo, stdio: 'pipe' }).toString().trim();
+const put = (file, text) => { fs.mkdirSync(path.dirname(path.join(repo, file)), { recursive: true }); fs.writeFileSync(path.join(repo, file), text); };
+for (const f of ['deploy/NoLimits_netlify_ignore.mjs', 'deploy/NoLimits_public_allowlist.txt']) put(f, fs.readFileSync(f));
+put('index.html', 'a'); put('notes.md', 'a');
+git('init', '-q'); git('add', '-A'); git('commit', '-qm', '1');
+const commit = (file) => { put(file, file + Math.random()); git('add', '-A'); git('commit', '-qm', file); return git('rev-parse', 'HEAD'); };
+const decide = (before, now, context = 'production') => spawnSync(process.execPath, ['deploy/NoLimits_netlify_ignore.mjs'],
+  { cwd: repo, env: { ...process.env, CACHED_COMMIT_REF: before, COMMIT_REF: now, CONTEXT: context } }).status;
+const start = git('rev-parse', 'HEAD'), docs = commit('notes.md'), page = commit('index.html'), config2 = commit('netlify.toml');
+assert.equal(decide(start, docs), 0, 'documents only: skip');
+assert.equal(decide(docs, page), 1, 'website changed: build');
+assert.equal(decide(page, config2), 1, 'host configuration changed: build');
+assert.equal(decide(page, page), 1, 'first build or retry: build');
+assert.equal(decide('', page), 1, 'no cached commit: build');
+assert.equal(decide('0'.repeat(40), page), 1, 'unknown commit: build');
+assert.equal(decide(docs, page, 'deploy-preview'), 0, 'deploy preview: never built');
+assert.equal(decide(docs, page, 'branch-deploy'), 0, 'branch deploy: never built');
 
 /* 2. Refusals, each on a throwaway copy */
 function refused(label, change, expected) {

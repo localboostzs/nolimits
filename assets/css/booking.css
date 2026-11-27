@@ -151,3 +151,16 @@
 .bk-account-status.error{color:#8e281e}
 .bk-account-ready{margin:0;color:var(--text);font-size:.92rem;line-height:1.6}
 @media (max-width:560px){.bk-account-box{padding:16px}.bk-account-google{width:100%}}
+
+/* Notfallmodus (assets/js/notfall.js) */
+.nl-notfall{display:grid;gap:12px;padding:clamp(18px,3vw,26px);border:1px solid var(--gold-deep);border-left-width:4px;background:var(--paper);color:var(--text);text-align:left}
+.nl-notfall p{margin:0}
+.nl-notfall-title{margin:0;font-size:1.2rem}
+.nl-notfall-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.nl-notfall-actions .btn{white-space:normal;text-align:center;letter-spacing:.06em}
+.nl-notfall-hours{font-size:.86rem;opacity:.8}
+.nl-unclear{display:grid;gap:16px;justify-items:start}
+.nl-unclear>.bk-back{text-transform:none;letter-spacing:0;text-align:left;text-decoration:underline;font-size:.95rem}
+.nl-phone-line{margin:14px 0 0;font-size:.92rem}
+.nl-phone-line a{font-weight:600;white-space:nowrap}
+@media (max-width:480px){.nl-notfall-actions .btn{width:100%;justify-content:center}}

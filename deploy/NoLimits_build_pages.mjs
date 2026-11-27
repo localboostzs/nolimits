@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // Builds the public website into dist/ strictly from the allowlist next to this file.
-// Cloudflare Pages: build command "node deploy/NoLimits_build_pages.mjs", output "dist".
+// Two independent hosts build the same repository, both publish "dist":
+//   Cloudflare Pages: node deploy/NoLimits_build_pages.mjs
+//   Netlify:          node deploy/NoLimits_build_pages.mjs --host netlify   (see netlify.toml)
 // No dependencies, no network, no git. Anything not listed is never published.
-//   node deploy/NoLimits_build_pages.mjs [--out <empty folder>]
+//   node deploy/NoLimits_build_pages.mjs [--host cloudflare|netlify] [--out <empty folder>]
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -11,6 +13,19 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
 const stop = (message) => { console.error('BUILD ABGEBROCHEN: ' + message); process.exit(1); };
+
+const hostArgument = process.argv.indexOf('--host');
+const host = hostArgument > -1 ? process.argv[hostArgument + 1] : 'cloudflare';
+if (!['cloudflare', 'netlify'].includes(host)) stop('Unbekannter Host: ' + host);
+// Netlify kennt weder "! Kopfzeile" noch Regeln mit vollständiger Adresse. Ohne die allgemeine
+// Referrer-Policy gilt im Browser derselbe Standardwert; der Verwaltungslink behält no-referrer.
+function netlifyHeaders(text) {
+  return text.replace(/\r\n/g, '\n').split(/\n\n+/)
+    .filter((block) => !/^(#.*\n)*https?:/.test(block))
+    .map((block) => block.split('\n').filter((line) => !/^\s+! /.test(line))
+      .filter((line) => !(/(^|\n)\/\*\n/.test(block) && /^\s+Referrer-Policy:/.test(line))).join('\n'))
+    .join('\n\n').replace(/\n*$/, '\n');
+}
 
 const argument = process.argv.indexOf('--out');
 const custom = argument > -1 ? process.argv[argument + 1] : null;
@@ -70,7 +85,8 @@ for (const [name, source] of files) {
   if (FORBIDDEN_PATH.test(name) || name.includes('..') || path.isAbsolute(name)) stop('Nicht erlaubt: ' + name);
   if (!fs.existsSync(source)) stop('Datei fehlt: ' + name);
   if (!fs.lstatSync(source).isFile()) stop('Keine gewöhnliche Datei: ' + name);
-  const data = fs.readFileSync(source);
+  let data = fs.readFileSync(source);
+  if (name === '_headers' && host === 'netlify') data = Buffer.from(netlifyHeaders(data.toString('utf8')));
   if (TEXT.test(name)) {
     const text = data.toString('utf8');
     if (!name.includes('/vendor/')) {
@@ -82,8 +98,15 @@ for (const [name, source] of files) {
   const target = path.join(out, name);
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.writeFileSync(target, data);
-  manifest.push(name + ' ' + crypto.createHash('sha256').update(data).digest('hex'));
+  // Die Prüfsumme gilt für die Website selbst (ohne Host-Konfiguration): Auf beiden Hosts gleich.
+  // Zeilenenden zählen nicht, damit Windows und Linux dieselbe Zahl ergeben.
+  if (!SPECIAL.includes(name)) {
+    const content = TEXT.test(name) ? data.toString('utf8').replace(/\r\n/g, '\n') : data;
+    manifest.push(name + ' ' + crypto.createHash('sha256').update(content).digest('hex'));
+  }
 }
 if (problems.length) stop('Verweise oder Adressen prüfen:\n  ' + [...new Set(problems)].sort().join('\n  '));
 const digest = crypto.createHash('sha256').update(manifest.sort().join('\n')).digest('hex');
+// Öffentlich abrufbar: damit prüft die Überwachung, ob die Reserve denselben Stand hat.
+fs.writeFileSync(path.join(out, 'build.txt'), digest + '\n');
 console.log('Website gebaut: ' + manifest.length + ' Dateien, Prüfsumme ' + digest);

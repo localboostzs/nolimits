@@ -27,3 +27,7 @@
 @media(max-width:550px){.nl-privacy-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}.nl-privacy-accept{grid-column:2;grid-row:1}.nl-privacy-reject{grid-column:1;grid-row:1}.nl-privacy-customize{grid-column:1 / -1}.nl-privacy-inner h2{font-size:1.15rem}.nl-privacy-banner{padding:15px 17px calc(15px + env(safe-area-inset-bottom,0px))}}
 
 .map iframe[data-nl-map-src][hidden]{display:none!important}
+
+/* Offener Banner verdeckt nichts dauerhaft: Platz am Seitenende in Bannerhöhe */
+body.nl-privacy-open{padding-bottom:var(--nl-privacy-space,0px)}
+html{scroll-padding-bottom:var(--nl-privacy-space,0px)}

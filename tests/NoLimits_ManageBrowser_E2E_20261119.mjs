@@ -23,6 +23,9 @@ async function runCase(name,viewport,mode){
  const context=await browser.newContext({viewport,locale:'de-CH',timezoneId:'Europe/Zurich'});
  const page=await context.newPage();
  const calls=[];
+ // Kurze Erreichbarkeitsprüfung vor jeder Änderung (assets/js/notfall.js).
+ await page.route('**/api/health',route=>route.fulfill({status:200,
+   headers:{'Content-Type':'application/json','Access-Control-Allow-Origin':root},body:'{"ok":true}'}));
  await page.route('**/api/manage**',async route=>{
    const req=route.request(),url=new URL(req.url()),path=url.pathname;
    calls.push({method:req.method(),path});

@@ -1,0 +1,11 @@
+# Netlify baut dieselbe öffentliche Website wie Cloudflare Pages (Positivliste in deploy/).
+[build]
+  command = "node deploy/NoLimits_build_pages.mjs --host netlify"
+  publish = "dist"
+  ignore = "node deploy/NoLimits_netlify_ignore.mjs"
+
+# Vorschau- und Zweig-Deployments werden im Ignorier-Skript übersprungen (nur production baut).
+# Zusätzlich im Netlify-Dashboard: Deploy Previews «None», Branch deploys «Production branch only».
+
+[build.environment]
+  NODE_VERSION = "22"

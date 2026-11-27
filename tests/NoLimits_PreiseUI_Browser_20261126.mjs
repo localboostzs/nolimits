@@ -231,7 +231,7 @@ for (const file of ['index.html', 'kontakt/index.html']) {
   await page.locator('#nl-admin-book-form input[name=accepted]').check();
   await page.locator('#nl-admin-book-form [type=submit]').click();
   await waitFor(page.locator('#nl-admin-notice'), /Serientermin erfolgreich: 4 Termine.*CHF 30, CHF 30, CHF 35, CHF 35\./);
-  assert.match(t.dialogs.at(-1), /4 wöchentliche Termine.*2 × CHF 30, 2 × CHF 35/s);
+  assert.match(t.dialogs.at(-1), /Serie verbindlich buchen\?.*4 Termine:.*CHF 30.*CHF 30.*CHF 35.*CHF 35.*Total CHF 130/s);
   await t.close();
 }
 

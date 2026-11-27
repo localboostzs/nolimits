@@ -8,3 +8,6 @@ exclude:
   - tools/
   - worker/
   - deploy/
+  - netlify.toml
+  - README.md
+  - emails/

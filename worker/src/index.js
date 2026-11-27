@@ -436,6 +436,11 @@ async function getSlots(url, req, env, privateService) {
   return json({ ok: true, timeZone: TIME_ZONE, minutes: service.minutes, days }, 200, req, env, { 'Cache-Control': 'no-store' });
 }
 
+// Cal.com hat die Anfrage sicher abgewiesen und nichts angelegt.
+const definiteRejection = (status) => status === 400 || status === 409 || status === 422;
+// «unavailable» allein (z. B. «Service unavailable») ist kein belegter Termin.
+const SLOT_TAKEN = /(?<!un)available|no_available|booked|already|busy|conflict|slot/;
+
 async function book(req, env, adminMode = false, staffId = null) {
   if (await limited(env, 'RL_BOOK', 'b:' + clientIp(req), 5, 10 * 60_000)) return fail('rate_limited', 'Zu viele Buchungsversuche. Bitte später erneut versuchen.', 429, req, env);
   const len = Number(req.headers.get('Content-Length') || 0);
@@ -505,13 +510,17 @@ async function book(req, env, adminMode = false, staffId = null) {
       await discardRejectedBookingAlias(env, bookingAlias).catch(() => null);
     }
     // Keine Kundendaten weiterreichen oder protokollieren; nur eine sinnvolle Fehlerklasse zurückgeben.
+    // Eindeutige Ablehnungen («nichts gebucht») nur bei 400/409/422. Bei Störungen (5xx, 429,
+    // sonstige Antworten) ist offen, ob Cal.com gebucht hat: upstream_error, die Website zeigt
+    // dann «Status unklar». Früher machte etwa «Service unavailable» daraus «Termin vergeben».
     const msg = String(out?.message || out?.error?.message || '').toLowerCase();
-    if (/email|mail/.test(msg)) return fail('invalid_email', 'Diese E-Mail-Adresse kann keine Nachrichten empfangen. Bitte eine gültige Adresse angeben.', 400, req, env);
+    if (!definiteRejection(res.status)) return fail('upstream_error', 'Die Buchung konnte nicht abgeschlossen werden.', 502, req, env);
+    if (/e-?mail/.test(msg)) return fail('invalid_email', 'Diese E-Mail-Adresse kann keine Nachrichten empfangen. Bitte eine gültige Adresse angeben.', 400, req, env);
     if (/phone|telefon/.test(msg)) return fail('invalid_phone', 'Bitte gültige Telefonnummer angeben.', 400, req, env);
-    if (res.status === 409 || /available|booked|busy|conflict|slot|no_available/.test(msg)) {
+    if (res.status === 409 || SLOT_TAKEN.test(msg)) {
       return fail('slot_unavailable', 'Dieser Termin ist leider nicht mehr verfügbar. Bitte einen anderen wählen.', 409, req, env);
     }
-    return fail('upstream_error', 'Die Buchung konnte nicht abgeschlossen werden.', 502, req, env);
+    return fail('booking_rejected', 'Die Buchung wurde abgelehnt. Bitte Angaben prüfen oder über WhatsApp buchen.', 400, req, env);
   }
   const d = out?.data;
   // Nur bestätigte Buchungen als Erfolg melden.
