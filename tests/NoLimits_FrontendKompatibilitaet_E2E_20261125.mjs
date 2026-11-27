@@ -132,6 +132,9 @@ async function customerFlow(fe, wk, viewport) {
     const target = new Date(Date.parse(old.start) + 86400000).toISOString().slice(0, 10);
     await page.locator('#nl-manage-date').fill(target);
     await page.locator('#nl-manage-date').dispatchEvent('change');
+    // WebKit holds its own "change" back until the field loses focus; let that reload finish before picking a time.
+    await page.locator('#nl-manage-date').blur();
+    await page.waitForTimeout(500);
   } else {
     await page.locator('#nl-manage-calendar button.nl-manage-day:not([disabled])').last().click();
   }
@@ -186,6 +189,8 @@ async function staffFlow(fe, wk) {
     else {
       await page.locator('#nl-admin-date').fill(date);
       await page.locator('#nl-admin-date').dispatchEvent('change');
+      await page.locator('#nl-admin-date').blur(); // WebKit: see the customer flow above
+      await page.waitForTimeout(500);
       await page.locator('#nl-admin-slot option').nth(1).waitFor({ state: 'attached' });
       await page.locator('#nl-admin-slot').selectOption({ index: 1 });
     }
