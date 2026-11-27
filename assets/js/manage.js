@@ -3,6 +3,7 @@
   var apiBase = window.NOLIMITS_BOOKING && window.NOLIMITS_BOOKING.API_BASE;
   var key='nl-manage-link';
   var uid='',token='',booking=null,selectedStart='',calendarMonth=null,monthDays={},selectedDay='',monthRequest=0,rescheduleBusy=false;
+  var N=window.NOLIMITS_NOTFALL;
   function $(id){return document.getElementById(id);}
   function setMessage(text,error){
     var el=$('nl-manage-msg');el.textContent=text||'';el.hidden=!text;el.classList.toggle('error',!!error);
@@ -13,10 +14,25 @@
     ['nl-manage-loading','nl-manage-unavailable','nl-manage-missing','nl-manage-details'].forEach(function(name){$(name).hidden=name!==id;});
   }
   async function request(path,opts){
-    var r=await fetch(apiBase+path,Object.assign({cache:'no-store',referrerPolicy:'no-referrer'},opts||{}));
-    var body=await r.json().catch(function(){return null;});
-    if(!r.ok || !body || !body.ok)throw new Error(body&&body.error&&body.error.message||'Die Verbindung konnte nicht hergestellt werden.');
+    var body=await N.request(apiBase+path,Object.assign({cache:'no-store',referrerPolicy:'no-referrer'},opts||{}));
+    if(body.ok!==true)throw N.failure(N.UNREACHABLE,'unclear',200,true);
     return body;
+  }
+  function unreachableMessage(){
+    setMessage(N.UNREACHABLE+' Es wurde nichts geändert. Du erreichst uns telefonisch: ',true);
+    $('nl-manage-msg').appendChild(N.phoneLink());
+  }
+  // Offen, ob die Änderung angekommen ist: nichts bestätigen und nicht wiederholen lassen.
+  function unclear(kind){
+    done('Status unklar',kind==='cancel'
+      ?'Die Verbindung ist abgebrochen. Wir wissen nicht, ob die Absage angekommen ist.'
+      :'Die Verbindung ist abgebrochen. Wir wissen nicht, ob dein Termin verschoben wurde.');
+    var next=document.querySelector('#nl-manage-result > a');if(next)next.hidden=true;
+    var lines=kind==='cancel'
+      ?['Bitte sende die Absage nicht erneut. Lade den aktuellen Stand später neu oder frag telefonisch nach.']
+      :['Bitte verschiebe nicht erneut. Prüfe deine E-Mails auf eine neue Bestätigung oder frag telefonisch nach.'];
+    var box=N.panel({title:'Bitte nachfragen',lines:lines,retry:kind==='cancel'?function(){location.reload();}:null});
+    box.id='nl-manage-unclear';$('nl-manage-result').appendChild(box);
   }
   function params(){return 'uid='+encodeURIComponent(uid)+'&token='+encodeURIComponent(token);}
   function collapse(){
@@ -175,12 +191,14 @@
     e.preventDefault();if(!$('nl-manage-confirm-cancel').checked)return;
     var b=this.querySelector('[type=submit]');b.disabled=true;setMessage('');
     try{
-      await request('/api/manage/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      if(!(await N.reachable(apiBase))){unreachableMessage();return;}
+      var out=await request('/api/manage/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
         uid:uid,token:token,confirm:true,reason:$('nl-manage-reason').value.trim()
       })});
+      if(out.status!=='cancelled')throw N.failure(N.UNREACHABLE,'unclear');
       showCancelled();
       $('nl-manage-details').scrollIntoView({block:'start'});
-    }catch(err){setMessage(err.message,true);}finally{b.disabled=false;}
+    }catch(err){if(N.notExecuted(err))setMessage(err.message,true);else unclear('cancel');}finally{b.disabled=false;}
   });
   $('nl-manage-reschedule').addEventListener('submit',async function(e){
     e.preventDefault();
@@ -189,9 +207,11 @@
     if(!$('nl-manage-confirm-reschedule').checked)return;
     rescheduleBusy=true;syncSubmit();setMessage('');
     try{
+      if(!(await N.reachable(apiBase))){unreachableMessage();return;}
       var out=await request('/api/manage/reschedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
         uid:uid,token:token,confirm:true,start:selectedStart
       })});
+      if(!out.booking||!Number.isFinite(Date.parse(out.booking.start))||(out.booking.status&&out.booking.status!=='accepted'))throw N.failure(N.UNREACHABLE,'unclear');
       var desc='Der neue Termin beginnt am '+fmt(out.booking.start)+'. Eine neue Buchungsbestätigung wird über die eingerichteten Benachrichtigungen versendet.';
       if(out.booking.manageUrl){
         var u=new URL(out.booking.manageUrl);
@@ -206,7 +226,7 @@
       $('nl-manage-status').textContent='Termin verschoben';
       $('nl-manage-time').textContent=fmt(out.booking.start);
       done('Dein Termin wurde verschoben',desc);
-    }catch(err){setMessage(err.message,true);}finally{rescheduleBusy=false;syncSubmit();}
+    }catch(err){if(N.notExecuted(err))setMessage(err.message,true);else unclear('reschedule');}finally{rescheduleBusy=false;syncSubmit();}
   });
   try{
     var url=new URL(location.href);

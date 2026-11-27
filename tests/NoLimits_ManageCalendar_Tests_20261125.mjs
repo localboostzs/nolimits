@@ -29,7 +29,8 @@ let delayed=null;
 const fakeFetch=async(url,opts)=>{
   const u=new URL(url);requests.push({u,opts});
   let body;
-  if(u.pathname==='/api/manage')body={ok:true,booking:{service:'Augenbrauen',serviceKey:'augenbrauen',start:'2026-12-01T18:45:00+01:00',minutes:15,price:15,status:'accepted',canManage:true}};
+  if(u.pathname==='/api/health')body={ok:true};
+  else if(u.pathname==='/api/manage')body={ok:true,booking:{service:'Augenbrauen',serviceKey:'augenbrauen',start:'2026-12-01T18:45:00+01:00',minutes:15,price:15,status:'accepted',canManage:true}};
   else if(u.pathname==='/api/manage/slots'){
     if(fail){fail=false;return {ok:false,json:async()=>({ok:false,error:{message:'Offline'}})};}
     if(delayed){const wait=delayed;delayed=null;await wait;}
@@ -39,7 +40,11 @@ const fakeFetch=async(url,opts)=>{
   return {ok:true,json:async()=>body};
 };
 const context={window:{NOLIMITS_BOOKING:{API_BASE:'https://mock.invalid'}},document:{getElementById:$,createElement(tag){const e=new Element();e.tag=tag;return e;},querySelectorAll(){return[];}},Date:FixedDate,Intl,URL,location:{href:'https://mock.invalid/termin-verwalten/?uid=test&token=mock',pathname:'/termin-verwalten/'},sessionStorage:{setItem(){},getItem(){return null;}},history:{replaceState(){}},fetch:fakeFetch};
-vm.runInNewContext(script,context);
+vm.createContext(context);
+// manage.js braucht den Notfallmodus (Zeitlimits, Einordnung der Antworten).
+Object.assign(context,{AbortController,setTimeout,clearTimeout});
+vm.runInContext(readFileSync(new URL('../assets/js/notfall.js',import.meta.url),'utf8'),context);
+vm.runInContext(script,context);
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 await tick();
 await $('nl-manage-show-reschedule').fire('click');await tick();

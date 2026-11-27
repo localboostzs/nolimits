@@ -198,9 +198,15 @@ async function staffFlow(fe, wk) {
     const before = t.calls.filter((c) => c.path === '/api/admin/contacts').length;
     await page.locator('#nl-admin-book-form [type=submit]').click();
     for (let i = 0; i < 100 && !t.last(path); i++) await page.waitForTimeout(100);
-    await page.waitForFunction(() => !document.querySelector('#nl-admin-book-form [type=submit]').disabled);
+    // The new frontend keeps the button locked while the outcome is unknown (upstream error).
+    await page.waitForFunction(() => !document.querySelector('#nl-admin-book-form [type=submit]').disabled ||
+      /Status unklar/.test(document.getElementById('nl-admin-notice').textContent));
     const reply = t.last(path);
     const notice = await page.locator('#nl-admin-notice').textContent();
+    if (fe === 'feature' && reply.status === 502) {
+      assert.match(notice, /Status unklar.*Nicht erneut buchen/);
+      assert.equal(await page.locator('#nl-admin-book-form [type=submit]').isDisabled(), true);
+    }
     if (reply.status === 201) {
       assert.ok(t.calls.filter((c) => c.path === '/api/admin/contacts').length > before, 'CRM reloaded');
       // main clears its own success message while reloading (fixed in the feature frontend).

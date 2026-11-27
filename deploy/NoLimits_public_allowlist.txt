@@ -54,6 +54,7 @@ assets/js/config.js
 assets/js/kalender.js
 assets/js/main.js
 assets/js/manage.js
+assets/js/notfall.js
 assets/js/preise.js
 assets/js/privacy.js
 assets/js/vendor/supabase-2.76.1.js
