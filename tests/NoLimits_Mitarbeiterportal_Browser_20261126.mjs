@@ -95,7 +95,8 @@ async function pick(page, root, day) {
   mock.addBooking({ eventTypeId: SERVICES.bartschnitt.eventTypeId, start: at(7, 12), email: 'ben@example.test', name: 'Ben Muster' });
   await page.locator('#nl-refresh').click();
   await page.locator('#nl-contacts .nl-contact', { hasText: 'Anna Beispiel' }).waitFor();
-  assert.equal(await text(page.locator('#nl-contact-count')), '2');
+  // The first load may still be under way and know only part of the bookings: wait for the full list.
+  await page.waitForFunction(() => document.getElementById('nl-contact-count').textContent.trim() === '2');
   assert.match(await text(page.locator('#nl-info')), /Kunde auswählen/);
   const anna = page.locator('#nl-contacts .nl-contact', { hasText: 'Anna Beispiel' });
   assert.equal(await text(anna.locator('.nl-avatar')), 'AB');

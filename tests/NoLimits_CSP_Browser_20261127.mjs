@@ -202,8 +202,10 @@ try {
     assert.equal(t.seen.some((s) => s.includes('www.google.com/maps')), false, 'no map without consent');
     await page.locator('.nl-privacy-reopen').click();
     await page.locator('.nl-privacy-accept').click();
+    await page.locator('iframe[data-nl-map-src]').scrollIntoViewIfNeeded(); // the map loads lazily, WebKit only near the screen
     await t.until('map request', () => t.seen.some((s) => s.includes('www.google.com/maps')));
     await t.go('/kontakt/');
+    await page.locator('iframe[data-nl-map-src]').scrollIntoViewIfNeeded();
     await t.until('map frame', () => page.frames().some((f) => f.url().startsWith('https://www.google.com/maps')));
     const [popup] = await Promise.all([t.context.waitForEvent('page'), page.locator('.page-hero a.nl-wa').click()]);
     await popup.waitForURL(/wa\.me/);
@@ -322,6 +324,9 @@ try {
     await control.context.close();
     for (const width of [320, 390, 1366]) {
       const t = await open({ width, inject: INJECT }), { page } = t;
+      // Firefox and WebKit run no test listener inside the badge frame; there the browser's own console line is the proof.
+      const refused = [];
+      page.on('console', (m) => { if (/Content[- ]Security[- ]Policy/i.test(m.text()) && /script/i.test(m.text())) refused.push(m.text()); });
       for (const p of ['/', '/kontakt/', '/booking-test/', '/verwaltung/']) {
         await t.go(p);
         await page.evaluate(() => document.getElementById('nl-price-notice')?.close());
@@ -332,7 +337,7 @@ try {
         assert.match(state.clip, /path\(/, width + ' ' + p + ': badge stays clipped to nothing');
         assert.equal(state.hit, false, width + ' ' + p + ': nothing covers the bottom right corner');
       }
-      assert.ok(t.violations.length >= 4, 'the inline script was blocked');
+      assert.ok((browser.browserType().name() === 'chromium' ? t.violations : refused).length >= 4, 'the inline script was blocked');
       assert.ok(t.violations.every((v) => /^script-src/.test(v.directive) && v.blocked === 'inline'), 'only the injected inline script is blocked: ' + JSON.stringify(t.violations.slice(0, 3)));
       assert.deepEqual(t.errors, []);
       await t.context.close();

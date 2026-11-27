@@ -205,6 +205,11 @@
   opacity: .6;
   background-color: #f1ede7;
 }
+/* Safari lets the long service names stick out of the closed select and widens the whole
+   portal on phones. Browsers with a styled picker are not affected. */
+@supports not (appearance: base-select) {
+  #nl-admin-book-form .nl-field select { overflow: hidden; }
+}
 /* Chromium 135+, Safari 27+: customize the entire opened menu. */
 @supports (appearance: base-select) {
   #nl-admin-book-form .nl-field select,
