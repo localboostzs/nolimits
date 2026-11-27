@@ -30,6 +30,7 @@ export const BROWSER_SUITES = [
   'StaffLab_Browser_20261120', 'FrontendKompatibilitaet_E2E_20261125', 'PreiseUI_Browser_20261126', 'Mitarbeiterportal_Browser_20261126',
   'PagesBuild_Tests_20261126',
   'Notfallmodus_Browser_20261126',
+  'WhatsApp_Kontakt_Browser_20261127',
 ];
 const file = (name) => 'tests/NoLimits_' + name + (name.endsWith('.cjs') ? '' : '.mjs');
 

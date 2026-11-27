@@ -223,7 +223,7 @@
     if (e.unavailable) {
       g.appendChild(N.panel({ title: 'Online-Buchung gerade nicht möglich', retry: loadMonth, lines: [
         'Wegen einer technischen Störung können wir die freien Zeiten nicht laden. Es wurde nichts gebucht.',
-        'Du kannst deinen Termin telefonisch vereinbaren.'] }));
+        'Du kannst deinen Termin über WhatsApp vereinbaren.'] }));
       return;
     }
     var m = el('div', 'bk-msg', e.message + ' '); var r = el('button', 'bk-back', 'Erneut versuchen'); r.type = 'button'; r.addEventListener('click', loadMonth); m.appendChild(r); g.appendChild(m);
@@ -289,7 +289,7 @@
     var old = $('#bk-outage'); if (old) old.remove();
     if (!what) return;
     var box = N.panel({ title: 'Online-Buchung gerade nicht möglich', lines: [
-      what, 'Versuche es später erneut oder vereinbare den Termin telefonisch.'] });
+      what, 'Versuche es später erneut oder vereinbare den Termin über WhatsApp.'] });
     box.id = 'bk-outage';
     var actions = $('#bk-form .bk-actions'); actions.parentNode.insertBefore(box, actions);
     box.scrollIntoView({ block: 'nearest' });
@@ -304,7 +304,7 @@
     var box = N.panel({ title: 'Status deiner Buchung unklar', lines: [
       'Die Verbindung ist beim Buchen abgebrochen. Wir wissen nicht, ob dein Termin eingetragen wurde.',
       (record.service ? record.service + ', ' : '') + fmtLong.format(when) + ', ' + new Intl.DateTimeFormat('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' }).format(when) + ' Uhr.',
-      'Bitte buche nicht erneut. Kommt innert 15 Minuten eine Bestätigung per E-Mail (auch den Spam-Ordner prüfen), ist der Termin eingetragen. Sonst frag telefonisch nach.'] });
+      'Bitte buche nicht erneut. Kommt innert 15 Minuten eine Bestätigung per E-Mail (auch den Spam-Ordner prüfen), ist der Termin eingetragen. Sonst frag über WhatsApp nach.'] });
     card.appendChild(box);
     var again = el('button', 'bk-back', 'Ich habe nachgefragt: Es ist kein Termin eingetragen. Neu buchen'); again.type = 'button';
     again.addEventListener('click', function () { N.pending.clear(); location.reload(); });
@@ -400,7 +400,7 @@
     loading.appendChild(el('span', 'sr-only', 'Leistungen werden geladen'));
     box.appendChild(loading);
     var slow = setTimeout(function () {
-      var hint = el('p', 'nl-phone-line', 'Das dauert länger als üblich. Du kannst auch anrufen: ');
+      var hint = el('p', 'nl-phone-line', 'Das dauert länger als üblich. Du kannst auch über WhatsApp buchen: ');
       hint.appendChild(N.phoneLink()); box.appendChild(hint);
     }, 5000);
     try {
@@ -424,7 +424,7 @@
         navigator.onLine === false
           ? 'Keine Internetverbindung. Bitte Verbindung prüfen.'
           : 'Die Verbindung zum Buchungssystem ist gerade nicht erreichbar.',
-        'Es wurde nichts gebucht. Du kannst deinen Termin telefonisch vereinbaren.'] }));
+        'Es wurde nichts gebucht. Du kannst deinen Termin über WhatsApp vereinbaren.'] }));
     } finally {
       clearTimeout(slow);
       servicesLoading = false;

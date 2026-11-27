@@ -19,7 +19,7 @@
     return body;
   }
   function unreachableMessage(){
-    setMessage(N.UNREACHABLE+' Es wurde nichts geändert. Du erreichst uns telefonisch: ',true);
+    setMessage(N.UNREACHABLE+' Es wurde nichts geändert. Du erreichst uns über WhatsApp: ',true);
     $('nl-manage-msg').appendChild(N.phoneLink());
   }
   // Offen, ob die Änderung angekommen ist: nichts bestätigen und nicht wiederholen lassen.
@@ -29,8 +29,8 @@
       :'Die Verbindung ist abgebrochen. Wir wissen nicht, ob dein Termin verschoben wurde.');
     var next=document.querySelector('#nl-manage-result > a');if(next)next.hidden=true;
     var lines=kind==='cancel'
-      ?['Bitte sende die Absage nicht erneut. Lade den aktuellen Stand später neu oder frag telefonisch nach.']
-      :['Bitte verschiebe nicht erneut. Prüfe deine E-Mails auf eine neue Bestätigung oder frag telefonisch nach.'];
+      ?['Bitte sende die Absage nicht erneut. Lade den aktuellen Stand später neu oder frag über WhatsApp nach.']
+      :['Bitte verschiebe nicht erneut. Prüfe deine E-Mails auf eine neue Bestätigung oder frag über WhatsApp nach.'];
     var box=N.panel({title:'Bitte nachfragen',lines:lines,retry:kind==='cancel'?function(){location.reload();}:null});
     box.id='nl-manage-unclear';$('nl-manage-result').appendChild(box);
   }

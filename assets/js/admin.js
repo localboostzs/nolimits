@@ -13,7 +13,7 @@
       bookHeading=document.getElementById('nl-book-heading'), bookFor=document.getElementById('nl-book-for');
   var contacts=[], selected=null, loadedServices=[], unclearBooking=false;
   var N=window.NOLIMITS_NOTFALL;
-  var FALLBACK=' Telefonische Termine bis dahin im Google-Kalender «Termine auf Facebook für No Limits Barber» eintragen, damit die Zeit online gesperrt bleibt.';
+  var FALLBACK=' Termine, die per WhatsApp eingehen, bis dahin im Google-Kalender «Termine auf Facebook für No Limits Barber» eintragen, damit die Zeit online gesperrt bleibt.';
   var DAY_MS=86400000;
   function msg(text,error){ notice.textContent=text;notice.hidden=!text;notice.classList.toggle('error',!!error); }
   function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;}
@@ -214,6 +214,28 @@
     if(count===1)return 'Preis am gewählten Datum: CHF '+parts[0][0]+' (Zahlung vor Ort).';
     return 'Preise nach Termindatum: '+parts.map(function(p){return p[1]+' × CHF '+p[0];}).join(', ')+' (Zahlung vor Ort).';
   }
+  // Geplante Serientermine wie im Worker: gleicher Zürcher Wochentag und gleiche Uhrzeit, je 7 Kalendertage später.
+  function seriesPlan(count){
+    var P=window.NOLIMITS_PREISE,s=serviceByKey(services.value),start=slotInput.value,first=start&&P.day(start);
+    if(!first)return [];
+    var hm=new Intl.DateTimeFormat('de-CH',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Zurich'}).format(new Date(start));
+    var plan=[];
+    for(var i=0;i<count;i++){
+      var d=new Date(first+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+7*i);
+      var day=d.toISOString().slice(0,10);
+      plan.push({day:day,label:dateFmt.format(d)+', '+hm+' Uhr',price:s&&Number.isFinite(s.price)?P.on(s,day):null});
+    }
+    return plan;
+  }
+  function seriesQuestion(count){
+    var plan=seriesPlan(count),s=serviceByKey(services.value),known=plan.every(function(p){return p.price!=null;});
+    var total=plan.reduce(function(sum,p){return sum+(p.price||0);},0);
+    return 'Serie verbindlich buchen?\n\n'+(s?s.name+', ':'')+count+' Termine:\n'+
+      plan.map(function(p,i){return (i+1)+'. '+p.label+(p.price!=null?' – CHF '+p.price:'');}).join('\n')+
+      (known?'\n\nTotal CHF '+total+' (Zahlung vor Ort, Preis nach Termindatum).':'')+
+      '\n\nZuerst werden alle Zeiten geprüft. Ist eine nicht frei, wird keiner der Termine gebucht. Bei einer Störung während der Buchung kann eine Teilserie entstehen.';
+  }
+  window.NOLIMITS_ADMIN_TEST={seriesPlan:seriesPlan,seriesQuestion:seriesQuestion};
   function showBookingPrice(){
     var box=document.getElementById('nl-admin-price'),text=bookingPrice();
     box.textContent=text;box.hidden=!text;
@@ -322,9 +344,9 @@
         throw new Error('Diese Uhrzeit ist inzwischen nicht mehr frei. Bitte eine andere wählen.');
       }
       var price=bookingPrice();
-      if(!confirm((series
-        ? 'Jetzt '+weeks+' wöchentliche Termine verbindlich buchen? Es werden zunächst alle freien Zeiten geprüft. Bei Problemen kann eine Teilbuchung entstehen.'
-        : 'Termin am '+fmt(slotInput.value)+' für diesen Kunden jetzt verbindlich eintragen?')+(price?' '+price:''))) return;
+      if(!confirm(series
+        ? seriesQuestion(weeks)
+        : 'Termin am '+fmt(slotInput.value)+' für diesen Kunden jetzt verbindlich eintragen?'+(price?' '+price:''))) return;
       var data={
         service:services.value,start:slotInput.value,
         name:form.elements.name.value.trim(),

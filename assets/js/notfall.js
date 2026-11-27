@@ -5,8 +5,11 @@
    - Alles andere ist «Status unklar»: nicht wiederholen, nachfragen. */
 (function () {
   'use strict';
+  // Isen ist ausschliesslich über WhatsApp erreichbar (Nachricht oder WhatsApp-Anruf): keine Links für normale Anrufe.
   // Geschützte Leerzeichen: Die Nummer bricht nie in der Mitte um.
-  var PHONE = '+41768019340', PHONE_TEXT = '076 801 93 40', WHATSAPP = 'https://wa.me/41768019340';
+  var PHONE_TEXT = '076\u00a0801\u00a093\u00a040', WHATSAPP = 'https://wa.me/41768019340';
+  var WHATSAPP_NOTE = 'Nur über WhatsApp erreichbar – per Nachricht oder WhatsApp-Anruf.';
+  var ICON = '<svg class="nl-wa-ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M12 3.2a8.8 8.8 0 0 0-7.6 13.2L3.2 20.8l4.5-1.2A8.8 8.8 0 1 0 12 3.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
   var HOURS = 'Öffnungszeiten: Di 09–12 und 13–19 Uhr, Sa 08–12 und 13–17 Uhr.';
   var UNREACHABLE = 'Das Buchungssystem ist gerade nicht erreichbar.';
   var TIMEOUT = { read: 8000, write: 30000, probe: 6000 };
@@ -61,9 +64,15 @@
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
-  function phoneLink(cls, text) {
+  // WhatsApp-Link (Text standardmässig die Nummer), öffnet in einem neuen Fenster.
+  function whatsappLink(cls, text) {
     var a = el('a', cls, text || PHONE_TEXT);
-    a.href = 'tel:' + PHONE;
+    a.href = WHATSAPP; a.target = '_blank'; a.rel = 'noopener';
+    return a;
+  }
+  function whatsappButton() {
+    var a = whatsappLink('btn btn-gold nl-wa nl-notfall-call', '');
+    a.innerHTML = ICON; a.appendChild(el('span', null, 'Über WhatsApp buchen'));
     return a;
   }
 
@@ -73,16 +82,14 @@
     box.appendChild(el('h3', 'nl-notfall-title', options.title));
     (options.lines || []).forEach(function (line) { box.appendChild(el('p', null, line)); });
     var actions = el('div', 'nl-notfall-actions');
-    actions.appendChild(phoneLink('btn btn-gold nl-notfall-call', 'Anrufen: ' + PHONE_TEXT));
-    var chat = el('a', 'btn btn-line-dark', 'WhatsApp schreiben');
-    chat.href = WHATSAPP; chat.target = '_blank'; chat.rel = 'noopener';
-    actions.appendChild(chat);
+    actions.appendChild(whatsappButton());
     if (options.retry) {
       var again = el('button', 'bk-back', 'Erneut versuchen'); again.type = 'button';
       again.addEventListener('click', options.retry);
       actions.appendChild(again);
     }
     box.appendChild(actions);
+    box.appendChild(el('p', 'nl-wa-note', 'WhatsApp ' + PHONE_TEXT + ' · ' + WHATSAPP_NOTE));
     box.appendChild(el('p', 'nl-notfall-hours', HOURS));
     return box;
   }
@@ -105,9 +112,9 @@
   };
 
   window.NOLIMITS_NOTFALL = {
-    PHONE: PHONE, PHONE_TEXT: PHONE_TEXT, UNREACHABLE: UNREACHABLE,
+    PHONE_TEXT: PHONE_TEXT, WHATSAPP: WHATSAPP, WHATSAPP_NOTE: WHATSAPP_NOTE, UNREACHABLE: UNREACHABLE,
     request: request, reachable: reachable, confirmed: confirmed, failure: failure,
     notExecuted: function (error) { return NOTHING_CHANGED.indexOf(error && error.code) > -1; },
-    phoneLink: phoneLink, panel: panel, pending: pending,
+    whatsappLink: whatsappLink, phoneLink: whatsappLink, panel: panel, pending: pending,
   };
 })();

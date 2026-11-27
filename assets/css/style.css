@@ -288,3 +288,11 @@ a{color:inherit}
 }
 /* Sehr schmale Handys (unter 360 px): Kopfzeile bleibt einzeilig. */
 @media (max-width:359.98px){.header-in{gap:10px}.header-cta{padding:0 12px;letter-spacing:.1em}}
+
+/* WhatsApp: einziger Kontaktweg (27.11.2026) */
+.nl-wa{gap:12px}
+.nl-wa .nl-wa-ico{flex:none;width:20px;height:20px}
+.nl-wa-note{margin:12px 0 0;font-size:.88rem;line-height:1.5;opacity:.82;max-width:34em}
+.nl-wa-box{display:grid;gap:10px;justify-items:start;margin-top:14px}
+.nl-wa-box .nl-phone-line,.nl-wa-box .nl-wa-note{margin:0}
+@media (max-width:480px){.nl-wa-box .btn,.nl-manage-card .nl-wa{width:100%}}

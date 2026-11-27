@@ -520,7 +520,7 @@ async function book(req, env, adminMode = false, staffId = null) {
     if (res.status === 409 || SLOT_TAKEN.test(msg)) {
       return fail('slot_unavailable', 'Dieser Termin ist leider nicht mehr verfügbar. Bitte einen anderen wählen.', 409, req, env);
     }
-    return fail('booking_rejected', 'Die Buchung wurde abgelehnt. Bitte Angaben prüfen oder telefonisch buchen.', 400, req, env);
+    return fail('booking_rejected', 'Die Buchung wurde abgelehnt. Bitte Angaben prüfen oder über WhatsApp buchen.', 400, req, env);
   }
   const d = out?.data;
   // Nur bestätigte Buchungen als Erfolg melden.

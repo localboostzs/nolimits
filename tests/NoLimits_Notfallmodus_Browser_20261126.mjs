@@ -82,9 +82,12 @@ async function open(route, { width = 390, env = {}, fault, storage = true } = {}
   t.close = async () => { assert.deepEqual(t.errors, [], 'script errors on ' + route); await context.close(); };
   return t;
 }
+// Isen is reachable only via WhatsApp (message or WhatsApp call): WhatsApp link, number shown, no tel: link.
 async function phoneOffered(locator) {
-  assert.equal(await locator.locator('a[href="tel:+41768019340"]').count() >= 1, true, 'phone link');
+  assert.equal(await locator.locator('a[href="https://wa.me/41768019340"]').count() >= 1, true, 'WhatsApp link');
+  assert.equal(await locator.locator('a[href^="tel:"]').count(), 0, 'no phone call link');
   assert.match(await text(locator), /076 801 93 40/);
+  assert.doesNotMatch(await text(locator), /anrufen|telefonisch/i);
 }
 async function noOverflow(page) {
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'no horizontal scrolling');
@@ -178,7 +181,7 @@ try {
     const t = await open('/booking-test/');
     await toForm(t); await send(t);
     await t.page.locator('#bk-ok.is-active').waitFor({ timeout: 15000 });
-    assert.match(await text(t.page.locator('#bk-ok')), /Dein Termin ist bestätigt.*Kommt innert 15 Minuten nichts an.*076 801 93 40/i);
+    assert.match(await text(t.page.locator('#bk-ok')), /Dein Termin ist bestätigt.*Kommt innert 15 Minuten nichts an.*WhatsApp.*076 801 93 40/i);
     assert.equal(t.mock.bookings.size, 1);
     assert.equal(await t.page.evaluate(() => localStorage.getItem('nl-booking-unklar')), null, 'nothing left open');
     await t.close();
@@ -419,7 +422,7 @@ try {
   {
     const t = await open('/verwaltung/', { width: 390, fault: () => 'down' });
     await notice(t, 'Google-Kalender');
-    assert.match(await text(t.page.locator('#nl-admin-notice')), /nicht erreichbar.*Telefonische Termine/);
+    assert.match(await text(t.page.locator('#nl-admin-notice')), /nicht erreichbar.*Termine, die per WhatsApp eingehen/);
     await t.close();
     ok('portal while down: calendar fallback instruction');
   }

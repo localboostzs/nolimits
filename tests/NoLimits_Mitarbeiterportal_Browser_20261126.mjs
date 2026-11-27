@@ -197,6 +197,57 @@ async function pick(page, root, day) {
   await t.close();
 }
 
+/* 2b. Series: chosen start day, month change, 7-day steps, price change at the turn of the year,
+   and a confirmation that lists every date and price before anything is sent. */
+{
+  const addDays = (day, n) => { const d = new Date(day + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const label = (day) => new Intl.DateTimeFormat('de-CH', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Zurich' }).format(new Date(day + 'T12:00:00Z'));
+  const cases = [];
+  // Over the turn of the year (only while 22.12.2026 is still ahead), and always one month change.
+  if (Date.parse('2026-12-22T00:00:00Z') > Date.now() + 2 * 86400000) cases.push({ start: '2026-12-22', count: 4 });
+  let start = zurich(at(3, 12));
+  while (start.slice(5, 7) === addDays(start, 21).slice(5, 7)) start = addDays(start, 1);
+  cases.push({ start, count: 4 });
+  for (const c of cases) {
+    const t = await open(390), { page, mock } = t;
+    const cal = '#nl-admin-calendar';
+    await page.locator('#nl-admin-service option').nth(10).waitFor({ state: 'attached' });
+    await page.locator('#nl-admin-service').selectOption('haarschnitt');
+    // A chosen day is discarded when the month is changed: nothing from the old month is booked.
+    await pick(page, cal, c.start);
+    assert.notEqual(await page.locator('#nl-admin-slot').inputValue(), '');
+    await page.locator(cal + ' .bk-nav').last().click();
+    await page.locator(cal + ' .bk-grid').waitFor();
+    assert.equal(await page.locator('#nl-admin-slot').inputValue(), '', 'month change clears the choice');
+    await page.locator(cal + ' .bk-nav').first().click();
+    await pick(page, cal, c.start);
+    const chosen = await page.locator('#nl-admin-slot').inputValue();
+    const hm = new Intl.DateTimeFormat('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' }).format(new Date(chosen));
+    await page.locator('#nl-admin-repeat').check();
+    await page.locator('#nl-admin-repeat-weeks').selectOption(String(c.count));
+    await page.locator('#nl-cname').fill('Serie Jahreswechsel');
+    await page.locator('#nl-cemail').fill('serie2@example.test');
+    await page.locator('#nl-cphone').fill('+41 79 000 00 04');
+    await page.locator('#nl-admin-book-form input[name=accepted]').check();
+    const days = Array.from({ length: c.count }, (_, i) => addDays(c.start, 7 * i));
+    const prices = days.map((d) => (d >= '2027-01-01' ? 35 : 30));
+    await page.locator('#nl-admin-book-form [type=submit]').click();
+    await page.waitForFunction(() => /Serientermin erfolgreich/.test(document.getElementById('nl-admin-notice').textContent));
+    const question = t.dialogs.find((d) => d.startsWith('Serie verbindlich buchen?'));
+    assert.ok(question, 'series confirmation shown');
+    const lines = question.split('\n').filter((l) => /^\d+\. /.test(l));
+    assert.deepEqual(lines, days.map((d, i) => (i + 1) + '. ' + label(d) + ', ' + hm + ' Uhr – CHF ' + prices[i]), question);
+    assert.match(question, new RegExp('Total CHF ' + prices.reduce((a, b) => a + b, 0) + ' '));
+    // The Worker booked exactly the dates shown, at the same Zurich time.
+    const booked = mock.calPosts.map((p) => p.start).sort();
+    assert.deepEqual(booked.map(zurich), days);
+    assert.ok(booked.every((s) => new Intl.DateTimeFormat('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' }).format(new Date(s)) === hm));
+    assert.match(await text(page.locator('#nl-admin-notice')), new RegExp('Preis je Termin nach Datum: ' + prices.map((p) => 'CHF ' + p).join(', ')));
+    console.log('Serie', days.join(' '), prices.join('/'));
+    await t.close();
+  }
+}
+
 /* 3. Short notice: staff exception within 24 hours, confirmed and server-side */
 {
   const t = await open(1366), { page, mock } = t;
