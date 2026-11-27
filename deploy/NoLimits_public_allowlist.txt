@@ -50,11 +50,13 @@ assets/js/admin.js
 assets/js/auth-client.js
 assets/js/booking-config.js
 assets/js/booking.js
+assets/js/gentleman-link.js
 assets/js/config.js
 assets/js/kalender.js
 assets/js/main.js
 assets/js/manage.js
 assets/js/notfall.js
+assets/js/preis-hinweis.js
 assets/js/preise.js
 assets/js/privacy.js
 assets/js/vendor/supabase-2.76.1.js
