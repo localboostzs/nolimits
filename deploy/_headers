@@ -1,9 +1,13 @@
 # Cloudflare Pages: HTTP-Kopfzeilen der Website.
+# Sicherheitsregel (CSP): Skripte nur aus eigenen Dateien (und der Google-Anmeldung), nie inline.
+# Dadurch läuft auch kein vom Hoster eingefügtes Inline-Skript. Neue externe Dienste hier
+# eintragen und mit tests/NoLimits_CSP_Browser_20261127.mjs prüfen.
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data:; font-src 'self'; connect-src 'self' https://nolimits-booking-test.broken-haze-6cad.workers.dev https://jcctdjjunxmxaphjkrsz.supabase.co https://accounts.google.com/gsi/; frame-src https://www.google.com https://accounts.google.com/gsi/; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 
 # Der Verwaltungslink enthält ein Token in der Adresse: nie als Herkunft weitergeben,
 # nie zwischenspeichern und nie in Suchmaschinen aufnehmen.

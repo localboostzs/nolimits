@@ -84,6 +84,13 @@ for (const template of ['NoLimits_Email_Anmeldung_20261115.html', 'NoLimits_Emai
   const source = fs.readFileSync(new URL(template, emailDir), 'utf8');
   ok(source.includes('{{ .ConfirmationURL }}') && source.includes('NoLimits'), 'Branded Template ' + template + ' im Repository');
 }
+// Netlify and Cloudflare Pages must send the policy that keeps host-injected inline scripts (badge) inactive.
+// GitHub Pages cannot send headers.
+if (!onGitHubPages) {
+  const policy = (await readOnly(page + '/')).headers.get('content-security-policy') || '';
+  const scripts = policy.split(';').map((d) => d.trim()).find((d) => d.startsWith('script-src ')) || '';
+  ok(scripts.startsWith("script-src 'self'") && !/unsafe-|\*|data:|blob:/.test(scripts), 'CSP aktiv, keine Inline-Skripte erlaubt');
+}
 // Internal paths must not exist on any host. verwaltung-lab/ is still served by GitHub Pages only.
 const hiddenPaths = ['/README.md', '/worker/src/index.js', '/tests/run-offline.mjs', '/tools/', '/supabase/',
   '/deploy/NoLimits_public_allowlist.txt', '/.gitignore', ...fs.readdirSync(emailDir).map((name) => '/emails/' + name),

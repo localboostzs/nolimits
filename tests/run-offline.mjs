@@ -31,6 +31,7 @@ export const BROWSER_SUITES = [
   'PagesBuild_Tests_20261126',
   'Notfallmodus_Browser_20261126',
   'WhatsApp_Kontakt_Browser_20261127',
+  'CSP_Browser_20261127',
 ];
 const file = (name) => 'tests/NoLimits_' + name + (name.endsWith('.cjs') ? '' : '.mjs');
 

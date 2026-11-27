@@ -64,7 +64,7 @@ async function open(now, { popup = false } = {}) {
       const file = path.resolve(rel);
       if (!fs.existsSync(file)) return route.fulfill({ status: 404, body: 'missing' });
       let body = fs.readFileSync(file);
-      if (rel === 'index.html') {
+      if (rel === 'assets/js/preis-hinweis.js') {
         const html = body.toString('utf8'), flag = /var priceNoticeEnabled=(true|false);/g;
         assert.equal((html.match(flag) || []).length, 1, 'exactly one go-live switch');
         body = html.replace(flag, 'var priceNoticeEnabled=' + popup + ';');
