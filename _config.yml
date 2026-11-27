@@ -10,3 +10,4 @@ exclude:
   - deploy/
   - netlify.toml
   - README.md
+  - emails/

@@ -8,6 +8,7 @@
  * Andere Adresse der Website: NOLIMITS_SITE=https://www.nolimits-barber.ch
  */
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { checkReadiness } from '../../tools/NoLimits_ReadonlyPreflight_20261119.mjs';
 const baseline = process.argv[2] || process.env.NOLIMITS_BASELINE || 'legacy';
 assert.ok(['legacy', 'candidate'].includes(baseline), 'Baseline muss legacy oder candidate sein');
@@ -77,19 +78,19 @@ for (const path of ['/booking-test/', '/konto/', '/verwaltung/']) {
 const cfg = await request(page + '/assets/js/account-config.js?v=20261115-2');
 ok(cfg.response.status === 200 && cfg.data.includes('jcctdjjunxmxaphjkrsz') && cfg.data.includes('publicSignupReady: false'),
    'Isolierte Supabase-Konfiguration und Signup-Gate aktiv');
-if (onGitHubPages) {
-  for (const template of ['NoLimits_Email_Anmeldung_20261115.html','NoLimits_Email_Registrierung_20261115.html']) {
-    const r = await request(page + '/emails/' + template);
-    ok(r.response.status === 200 && r.data.includes('{{ .ConfirmationURL }}') && r.data.includes('NoLimits'),
-      'Branded Template ' + template + ' vorhanden');
-  }
-} else {
-  // The new hosting serves the allowlist only; internal paths must not exist.
-  for (const hidden of ['/README.md', '/worker/src/index.js', '/tests/run-offline.mjs', '/tools/', '/supabase/',
-    '/deploy/NoLimits_public_allowlist.txt', '/emails/NoLimits_Email_Anmeldung_20261115.html', '/verwaltung-lab/', '/.gitignore']) {
-    const r = await readOnly(page + hidden);
-    ok(r.status === 404, 'Intern und nicht ausgeliefert: ' + hidden);
-  }
+// Supabase mail templates are checked in the repository: they are internal and must not be published.
+const emailDir = new URL('../../emails/', import.meta.url);
+for (const template of ['NoLimits_Email_Anmeldung_20261115.html', 'NoLimits_Email_Registrierung_20261115.html']) {
+  const source = fs.readFileSync(new URL(template, emailDir), 'utf8');
+  ok(source.includes('{{ .ConfirmationURL }}') && source.includes('NoLimits'), 'Branded Template ' + template + ' im Repository');
+}
+// Internal paths must not exist on any host. verwaltung-lab/ is still served by GitHub Pages only.
+const hiddenPaths = ['/README.md', '/worker/src/index.js', '/tests/run-offline.mjs', '/tools/', '/supabase/',
+  '/deploy/NoLimits_public_allowlist.txt', '/.gitignore', ...fs.readdirSync(emailDir).map((name) => '/emails/' + name),
+  ...(onGitHubPages ? [] : ['/verwaltung-lab/'])];
+for (const hidden of hiddenPaths) {
+  const r = await readOnly(page + hidden);
+  ok(r.status === 404, 'Intern und nicht ausgeliefert: ' + hidden);
 }
 const guest = await request(supabase + '/rest/v1/nl_customer_profiles?select=user_id&limit=1', {
   headers: { apikey: publishableKey }
