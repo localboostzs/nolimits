@@ -75,6 +75,29 @@ try {
       assert.ok(r.x >= 0 && r.x + r.width <= width + 0.5 && r.height >= 44, route + ' ' + width + ': button fits and is tappable ' + JSON.stringify(r));
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), route + ' ' + width + ': no horizontal scrolling');
       assert.equal(await page.locator('a[href^="tel:"]').count(), 0, route + ': no tel: link');
+      // Cookie banner still open (first visit): the button can be scrolled above it, fully visible.
+      const banner = page.locator('.nl-privacy-banner');
+      await page.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+      if (await banner.isVisible()) {
+        const [bTop, bh] = await button.evaluate((el) => {
+          document.documentElement.style.scrollBehavior = 'auto';
+          el.scrollIntoView({ block: 'end' });
+          const ban = document.querySelector('.nl-privacy-banner').getBoundingClientRect();
+          const r = el.getBoundingClientRect();
+          // Scroll so the button's bottom sits just above the banner.
+          window.scrollBy(0, r.bottom - ban.top + 8);
+          return [document.querySelector('.nl-privacy-banner').getBoundingClientRect().top, el.getBoundingClientRect().bottom];
+        });
+        assert.ok(bh <= bTop, route + ' ' + width + ': WhatsApp button reachable above the open cookie banner (' + bh + ' > ' + bTop + ')');
+        const hit = await button.evaluate((el) => { const r = el.getBoundingClientRect(); const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return el.contains(t); });
+        assert.ok(hit, route + ' ' + width + ': button not covered');
+        await page.locator('.nl-privacy-reject').click();
+        assert.equal(await banner.isVisible(), false);
+        assert.equal(await page.evaluate(() => getComputedStyle(document.body).paddingBottom), '0px', 'no extra space after closing');
+        await button.scrollIntoViewIfNeeded();
+        assert.ok(await button.evaluate((el) => { const r = el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)); }), 'button free after closing');
+        await context.clearCookies(); await page.evaluate(() => localStorage.clear());
+      }
       checked++;
     }
     await context.close();
